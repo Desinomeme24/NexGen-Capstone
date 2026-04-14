@@ -1,0 +1,702 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+}
+
+body {
+    font-family: Arial, sans-serif;
+    color: white;
+    background: #071f66;
+}
+
+.about-page {
+    min-height: 100vh;
+    background: url('/NexGen/IMAGES/boutuslower.png') no-repeat center center / cover;
+    background-attachment: fixed;
+    position: relative;
+    padding: 120px 50px 18px;
+}
+
+.about-page::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background: linear-gradient(to bottom, rgba(0, 26, 88, 0.18), rgba(5, 10, 55, 0.22));
+    pointer-events: none;
+    z-index: 0;
+}
+
+.topbar,
+.about-banner,
+.about-sections,
+.follow-section,
+.chatbot-icon,
+.sidebar,
+.overlay,
+.footer-section {
+    position: relative;
+    z-index: 2;
+}
+
+/* TOP BAR */
+.topbar {
+    height: 82px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 18px;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+}
+
+.topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.top-user-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 14px 8px 10px;
+    background: rgba(255, 255, 255, 0.90);
+    border-radius: 999px;
+    text-decoration: none;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.14);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.top-user-info:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.18);
+    background: #ffffff;
+}
+
+.top-user-img {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: #ffffff;
+    border: 2px solid rgba(0, 0, 0, 0.08);
+}
+
+.top-user-name {
+    font-size: 17px;
+    font-weight: 800;
+    color: #333;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.top-logo img {
+    width: 80px;
+    height: auto;
+    display: block;
+}
+
+.menu-btn {
+    width: 58px;
+    height: 58px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 6px;
+    padding: 10px 12px;
+    border-radius: 18px;
+    background: linear-gradient(to bottom, rgba(18, 101, 214, 0.78), rgba(1, 20, 70, 0.92));
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    transition: all 0.25s ease;
+}
+
+.menu-btn:hover {
+    background: rgba(255, 255, 255, 0.14);
+    transform: translateY(-1px);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.16);
+}
+
+.menu-btn span {
+    display: block;
+    width: 100%;
+    height: 5px;
+    border-radius: 20px;
+    background: white;
+    transition: all 0.25s ease;
+}
+
+/* ABOUT SECTIONS */
+.about-sections {
+    padding: 16px 40px 20px;
+    margin-top: -20px;
+}
+
+.about-card {
+    max-width: 1180px;
+    margin: 0 auto 38px;
+    padding: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 38px;
+    background: rgba(14, 30, 100, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 34px;
+    backdrop-filter: blur(4px);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
+}
+
+.about-card.reverse {
+    flex-direction: row-reverse;
+}
+
+.about-card-image {
+    flex: 1;
+    min-width: 280px;
+}
+
+.about-card-image img {
+    width: 100%;
+    max-width: 470px;
+    height: 340px;
+    object-fit: cover;
+    display: block;
+    margin: 0 auto;
+    border-radius: 26px;
+    border: 1px solid rgba(255,255,255,0.15);
+    box-shadow: 0 12px 30px rgba(0,0,0,0.20);
+}
+
+.about-card-text {
+    flex: 1;
+}
+
+.about-sections:hover .hover-fade-card {
+    opacity: 0.72;
+}
+
+.about-sections .hover-fade-card:hover {
+    opacity: 1;
+    transform: translateY(-6px) scale(1.01);
+    background: rgba(20, 42, 130, 0.58);
+    border-color: rgba(255, 255, 255, 0.24);
+    box-shadow: 0 18px 38px rgba(0, 0, 0, 0.24);
+    filter: brightness(1.05);
+}
+
+.section-label {
+    display: inline-block;
+    margin-bottom: 10px;
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    color: #f2d58a;
+    text-transform: uppercase;
+}
+
+.about-card-text h2 {
+    font-size: 48px;
+    font-weight: 900;
+    margin-bottom: 18px;
+    line-height: 1.1;
+}
+
+.about-card-text p {
+    font-size: 20px;
+    line-height: 1.7;
+    font-weight: 600;
+    margin-bottom: 16px;
+    color: rgba(255,255,255,0.95);
+}
+
+.about-card-text p:last-child {
+    margin-bottom: 0;
+}
+
+/* ANIMATION */
+.animate-card {
+    opacity: 0;
+    transition: opacity 0.95s ease, transform 0.95s ease;
+    will-change: transform, opacity;
+}
+
+.animate-left {
+    transform: translateX(-120px);
+}
+
+.animate-right {
+    transform: translateX(120px);
+}
+
+.animate-up {
+    transform: translateY(70px);
+}
+
+.animate-card.show {
+    opacity: 1;
+    transform: translate(0, 0);
+}
+
+/* SIDEBAR */
+.sidebar {
+    position: fixed;
+    top: 0;
+    left: -390px;
+    width: 390px;
+    height: 100vh;
+    padding: 20px 20px 28px;
+    overflow-y: auto;
+    z-index: 100;
+    transition: left 0.35s ease, box-shadow 0.35s ease;
+    background: linear-gradient(
+        180deg,
+        rgba(5, 24, 78, 0.98) 0%,
+        rgba(8, 42, 120, 0.96) 45%,
+        rgba(4, 22, 76, 0.98) 100%
+    );
+    border-right: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow: 18px 0 40px rgba(0, 0, 0, 0.28);
+    backdrop-filter: blur(10px);
+}
+
+.sidebar.active {
+    left: 0;
+}
+
+.sidebar::-webkit-scrollbar {
+    width: 8px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.18);
+    border-radius: 20px;
+}
+
+.sidebar-top {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.close-sidebar {
+    width: 46px;
+    height: 46px;
+    border: none;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.08);
+    color: white;
+    font-size: 34px;
+    cursor: pointer;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.25s ease, transform 0.25s ease;
+}
+
+.close-sidebar:hover {
+    background: rgba(255, 255, 255, 0.16);
+    transform: rotate(90deg);
+}
+
+/* PROFILE CARD */
+.profile-section {
+    text-align: center;
+    margin: 8px 0 26px;
+    padding: 26px 18px 22px;
+    border-radius: 26px;
+    background: linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.10),
+        rgba(255, 255, 255, 0.05)
+    );
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+}
+
+.profile-img-wrap {
+    position: relative;
+    width: fit-content;
+    margin: 0 auto 14px;
+}
+
+.profile-img {
+    width: 122px;
+    height: 122px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: white;
+    margin-bottom: 0;
+    border: 4px solid rgba(255,255,255,0.28);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+}
+
+.profile-section h2 {
+    font-size: 28px;
+    font-weight: 800;
+    line-height: 1.2;
+    margin-bottom: 6px;
+    word-break: break-word;
+}
+
+.profile-fullname {
+    font-size: 14px;
+    opacity: 0.85;
+    line-height: 1.4;
+}
+
+.profile-edit-btn {
+    position: absolute;
+    right: -6px;
+    bottom: -4px;
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.9);
+    color: #1f1f1f;
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 900;
+    box-shadow: 0 6px 14px rgba(0,0,0,0.18);
+    border: 2px solid rgba(255,255,255,0.7);
+    transition: transform 0.2s ease, background 0.2s ease;
+}
+
+.profile-edit-btn:hover {
+    transform: scale(1.08);
+    background: #ffffff;
+}
+
+.hidden-upload-btn {
+    display: none;
+}
+
+.sidebar-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.footer-section {
+    max-width: 1320px;
+    margin: 0 auto;
+    text-align: center;
+    padding: 18px 0;
+    color: rgba(237, 231, 231, 0.76);
+}
+
+.footer-top-line {
+    width: 100%;
+    height: 3px;
+    background: rgba(255,255,255,0.14);
+    margin-bottom: 14px;
+}
+
+.footer-section p {
+    margin: 0;
+    font-weight: bold;
+    color: white;
+}
+
+/* MENU AREA */
+.menu-item,
+.dropdown-btn,
+.dropdown-content a {
+    color: white;
+    text-decoration: none;
+}
+
+.menu-item,
+.dropdown-btn {
+    width: 100%;
+    min-height: 60px;
+    padding: 16px 18px;
+    font-size: 21px;
+    font-weight: 800;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid transparent;
+    display: flex;
+    align-items: center;
+    transition:
+        background 0.25s ease,
+        transform 0.25s ease,
+        border-color 0.25s ease,
+        box-shadow 0.25s ease;
+}
+
+.menu-item:hover,
+.dropdown-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.14);
+    transform: translateX(5px);
+    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.14);
+}
+
+.menu-item.active {
+    background: linear-gradient(
+        90deg,
+        rgba(242, 213, 138, 0.22),
+        rgba(255, 255, 255, 0.10)
+    );
+    border-color: rgba(242, 213, 138, 0.38);
+    color: #ffe29f;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.16);
+}
+
+.dropdown-btn {
+    border: none;
+    text-align: left;
+    justify-content: space-between;
+    cursor: pointer;
+}
+
+#dropdownArrow {
+    font-size: 18px;
+    margin-left: 14px;
+    transition: transform 0.25s ease;
+}
+
+.dropdown-section {
+    border-radius: 20px;
+    overflow: hidden;
+}
+
+.dropdown-content {
+    display: none;
+    margin-top: 8px;
+    margin-left: 10px;
+    padding: 8px 0 4px 14px;
+    border-left: 2px solid rgba(255, 255, 255, 0.18);
+}
+
+.dropdown-content.show {
+    display: block;
+}
+
+.dropdown-content a {
+    display: block;
+    margin: 8px 0;
+    padding: 12px 14px;
+    font-size: 17px;
+    font-weight: 600;
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.05);
+    transition: background 0.25s ease, transform 0.25s ease;
+}
+
+.dropdown-content a:hover {
+    background: rgba(255, 255, 255, 0.11);
+    transform: translateX(4px);
+}
+
+/* OVERLAY */
+.overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.38);
+    backdrop-filter: blur(2px);
+    z-index: 90;
+}
+
+.overlay.show {
+    display: block;
+}
+
+/* CHATBOT */
+.chatbot-icon {
+    position: fixed;
+    right: 18px;
+    bottom: 18px;
+    z-index: 45;
+}
+
+.chatbot-icon img {
+    width: 85px;
+    height: 85px;
+    border-radius: 50%;
+}
+
+/* RESPONSIVE */
+@media (max-width: 1000px) {
+    .about-card,
+    .about-card.reverse {
+        flex-direction: column;
+        text-align: center;
+    }
+
+    .about-card-image img {
+        max-width: 100%;
+        height: 300px;
+    }
+
+    .about-card-text h2 {
+        font-size: 40px;
+    }
+
+    .about-card-text p {
+        font-size: 18px;
+    }
+}
+
+@media (max-width: 900px) {
+    .about-sections {
+        padding: 24px 24px 10px;
+    }
+
+    .about-card {
+        padding: 24px;
+        border-radius: 26px;
+    }
+}
+
+@media (max-width: 600px) {
+    .topbar {
+        height: 72px;
+        padding: 0 14px;
+    }
+
+    .topbar-right {
+        gap: 8px;
+    }
+
+    .top-user-info {
+        padding: 6px 10px 6px 8px;
+        gap: 8px;
+    }
+
+    .top-user-img {
+        width: 34px;
+        height: 34px;
+    }
+
+    .top-user-name {
+        font-size: 14px;
+        max-width: 95px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .top-logo img {
+        width: 62px;
+    }
+
+    .menu-btn {
+        width: 48px;
+        height: 48px;
+        padding: 8px 9px;
+        gap: 5px;
+        border-radius: 14px;
+    }
+
+    .menu-btn span {
+        height: 4px;
+    }
+
+    .about-page {
+        padding: 100px 16px 18px;
+    }
+
+    .about-sections {
+        padding: 18px 0 8px;
+    }
+
+    .about-card {
+        padding: 18px;
+        gap: 20px;
+        border-radius: 20px;
+    }
+
+    .about-card-image img {
+        height: 220px;
+        border-radius: 18px;
+    }
+
+    .section-label {
+        font-size: 12px;
+    }
+
+    .about-card-text h2 {
+        font-size: 28px;
+        margin-bottom: 12px;
+    }
+
+    .about-card-text p {
+        font-size: 15px;
+        line-height: 1.5;
+        margin-bottom: 12px;
+    }
+
+    .sidebar {
+        width: 300px;
+        left: -300px;
+        padding: 16px 14px 24px;
+    }
+
+    .profile-section {
+        padding: 20px 14px 18px;
+        border-radius: 20px;
+    }
+
+    .profile-img {
+        width: 96px;
+        height: 96px;
+    }
+
+    .profile-section h2 {
+        font-size: 22px;
+    }
+
+    .profile-fullname {
+        font-size: 13px;
+    }
+
+    .menu-item,
+    .dropdown-btn {
+        min-height: 52px;
+        font-size: 18px;
+        padding: 14px 14px;
+        border-radius: 14px;
+    }
+
+    .dropdown-content {
+        margin-left: 8px;
+        padding-left: 10px;
+    }
+
+    .dropdown-content a {
+        font-size: 15px;
+        padding: 10px 12px;
+        border-radius: 12px;
+    }
+
+    .close-sidebar {
+        width: 40px;
+        height: 40px;
+        font-size: 28px;
+        border-radius: 12px;
+    }
+}

@@ -1,0 +1,487 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: linear-gradient(180deg, #071533 0%, #0b1f4d 45%, #102554 100%);
+    color: #ffffff;
+    min-height: 100vh;
+    overflow-x: hidden;
+}
+.receivable-page,
+.receivable-shell,
+.receivable-hero,
+.receivable-summary,
+.receivable-toolbar-card,
+.receivable-table-card {
+    position: relative;
+    z-index: 1;
+}
+
+/* =========================
+   PAGE LAYOUT
+========================= */
+.receivable-page {
+    width: 100%;
+    min-height: 100vh;
+}
+
+.receivable-shell {
+    max-width: 1500px;
+    margin: 0 auto;
+    padding: 165px 28px 40px;
+    position: relative;
+}
+
+/* =========================
+   HERO
+========================= */
+.receivable-hero {
+    margin-bottom: 24px;
+}
+
+.receivable-hero-text h1 {
+    margin: 0;
+    font-size: 3rem;
+    font-weight: 800;
+    line-height: 1.1;
+    color: #ffffff;
+}
+
+.receivable-hero-text p {
+    margin: 10px 0 0;
+    font-size: 1.2rem;
+    color: #d8e4ff;
+}
+
+/* =========================
+   SUMMARY CARDS
+========================= */
+.receivable-summary {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 18px;
+    margin-bottom: 24px;
+}
+
+.summary-card {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 22px;
+    padding: 22px 20px;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+}
+
+.summary-label {
+    display: block;
+    font-size: 1rem;
+    color: #dbe7ff;
+    margin-bottom: 14px;
+}
+
+.summary-value {
+    display: block;
+    font-size: 2.2rem;
+    font-weight: 800;
+    color: #ffffff;
+    line-height: 1.1;
+}
+
+/* =========================
+   TOOLBAR
+========================= */
+.receivable-toolbar-card {
+    margin-bottom: 22px;
+}
+
+.receivable-toolbar {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.toolbar-input,
+.toolbar-select {
+    height: 54px;
+    border: none;
+    outline: none;
+    border-radius: 18px;
+    padding: 0 18px;
+    font-size: 1rem;
+    background: #ffffff;
+    color: #1a1a1a;
+}
+
+.toolbar-input {
+    width: 360px;
+    max-width: 100%;
+}
+
+.toolbar-select {
+    width: 180px;
+}
+
+.toolbar-btn {
+    height: 54px;
+    padding: 0 24px;
+    border-radius: 18px;
+    border: none;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: 0.25s ease;
+}
+
+.primary-btn {
+    background: #f6cb08;
+    color: #101010;
+}
+
+.primary-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 16px rgba(246, 203, 8, 0.25);
+}
+
+.secondary-btn {
+    background: #d9e2ef;
+    color: #1c1c1c;
+}
+
+.secondary-btn:hover {
+    transform: translateY(-2px);
+}
+
+/* =========================
+   TABLE CARD
+========================= */
+.receivable-table-card {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 24px;
+    padding: 22px;
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+}
+
+.table-scroll {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.table-scroll-7 {
+    max-height: 590px;
+    overflow-y: auto;
+    overflow-x: auto;
+}
+
+.table-scroll-7::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+.table-scroll-7::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.25);
+    border-radius: 999px;
+}
+
+.table-scroll-7::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 999px;
+}
+
+.receivable-table {
+    width: 100%;
+    min-width: 980px;
+    border-collapse: collapse;
+}
+
+.receivable-table thead th {
+    text-align: left;
+    padding: 16px 14px;
+    font-size: 1rem;
+    color: #dbe7ff;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #203767;
+}
+
+.receivable-table tbody td {
+    padding: 16px 14px;
+    font-size: 0.98rem;
+    color: #ffffff;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    vertical-align: middle;
+}
+
+.receivable-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.empty-state {
+    text-align: left;
+    color: #dbe7ff;
+    font-weight: 600;
+    padding: 24px 14px !important;
+}
+
+/* =========================
+   BADGES
+========================= */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 110px;
+    padding: 9px 14px;
+    border-radius: 999px;
+    font-size: 0.83rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.paid {
+    background: rgba(34, 197, 94, 0.16);
+    color: #bff7d1;
+}
+
+.unpaid {
+    background: rgba(239, 68, 68, 0.16);
+    color: #fecaca;
+}
+
+.partial {
+    background: rgba(249, 115, 22, 0.16);
+    color: #fed7aa;
+}
+
+.overdue {
+    background: rgba(220, 38, 38, 0.22);
+    color: #ffffff;
+}
+
+/* =========================
+   ACTION BUTTON
+========================= */
+.action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 16px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #60a5fa, #3b82f6);
+    color: #ffffff;
+    text-decoration: none;
+    font-size: 0.92rem;
+    font-weight: 700;
+    transition: 0.25s ease;
+    white-space: nowrap;
+}
+
+.action-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 18px rgba(59, 130, 246, 0.22);
+}
+
+/* =========================
+   POPUP
+========================= */
+.popup-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+.popup-box {
+    width: 340px;
+    max-width: calc(100vw - 24px);
+    background: #ffffff;
+    color: #111111;
+    padding: 24px;
+    border-radius: 20px;
+    text-align: center;
+    box-shadow: 0 18px 30px rgba(0, 0, 0, 0.22);
+}
+
+.popup-box.success {
+    border-top: 6px solid #22c55e;
+}
+
+.popup-box.error {
+    border-top: 6px solid #ef4444;
+}
+
+.popup-box h3 {
+    margin: 0 0 10px;
+    font-size: 1.3rem;
+}
+
+.popup-box p {
+    margin: 0;
+    font-size: 1rem;
+    line-height: 1.5;
+}
+
+/* =========================
+   RESPONSIVE - 900PX
+========================= */
+@media (max-width: 900px) {
+    .receivable-shell {
+        padding: 150px 20px 28px;
+    }
+
+    .receivable-hero-text h1 {
+        font-size: 2.35rem;
+    }
+
+    .receivable-hero-text p {
+        font-size: 1.05rem;
+    }
+
+    .receivable-summary {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 14px;
+    }
+
+    .summary-card {
+        padding: 20px 18px;
+    }
+
+    .summary-value {
+        font-size: 1.9rem;
+    }
+
+    .receivable-toolbar {
+        gap: 10px;
+    }
+
+    .toolbar-input {
+        width: 100%;
+        flex: 1 1 100%;
+    }
+
+    .toolbar-select,
+    .toolbar-btn {
+        flex: 1 1 calc(50% - 5px);
+    }
+
+    .receivable-table-card {
+        padding: 16px;
+    }
+
+    .table-scroll-7 {
+        max-height: 540px;
+    }
+}
+
+/* =========================
+   RESPONSIVE - 600PX
+========================= */
+@media (max-width: 600px) {
+    .receivable-shell {
+        padding: 135px 14px 22px;
+    }
+
+    .receivable-hero {
+        margin-bottom: 18px;
+    }
+
+    .receivable-hero-text h1 {
+        font-size: 1.85rem;
+        line-height: 1.15;
+    }
+
+    .receivable-hero-text p {
+        font-size: 0.96rem;
+        line-height: 1.45;
+    }
+
+    .receivable-summary {
+        grid-template-columns: 1fr;
+        gap: 12px;
+        margin-bottom: 18px;
+    }
+
+    .summary-card {
+        border-radius: 18px;
+        padding: 18px 16px;
+    }
+
+    .summary-label {
+        font-size: 0.92rem;
+        margin-bottom: 10px;
+    }
+
+    .summary-value {
+        font-size: 1.75rem;
+    }
+
+    .receivable-toolbar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .toolbar-input,
+    .toolbar-select,
+    .toolbar-btn {
+        width: 100%;
+        flex: 1 1 100%;
+        height: 50px;
+        border-radius: 16px;
+    }
+
+    .receivable-table-card {
+        padding: 14px;
+        border-radius: 18px;
+    }
+
+    .receivable-table {
+        min-width: 850px;
+    }
+
+    .receivable-table thead th,
+    .receivable-table tbody td {
+        padding: 14px 10px;
+        font-size: 0.92rem;
+    }
+
+    .badge {
+        min-width: 96px;
+        font-size: 0.76rem;
+        padding: 8px 10px;
+    }
+
+    .action-btn {
+        padding: 9px 12px;
+        font-size: 0.84rem;
+    }
+
+    .popup-box {
+        padding: 20px 16px;
+        border-radius: 16px;
+    }
+
+    .table-scroll-7 {
+        max-height: 500px;
+    }
+}

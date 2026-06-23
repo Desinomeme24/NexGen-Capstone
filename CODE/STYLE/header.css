@@ -499,3 +499,24 @@
 .dropdown-content a {
     text-decoration: none;
 }
+
+/* force sidebar profile text to stay readable on every page */
+.sidebar .profile-section,
+.sidebar .profile-section h2,
+.sidebar .profile-fullname,
+.sidebar .profile-section p,
+.sidebar .profile-section span,
+.sidebar .profile-section small {
+    color: #ffffff !important;
+}
+
+/* keep all sidebar text/icons white across modules */
+.sidebar,
+.sidebar * {
+    color: #ffffff;
+}
+
+.sidebar .menu-item.active,
+.sidebar .active-sub {
+    color: #ffe29f !important;
+}

@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once("config.php");
+require_once("mailer_config.php");
 
 if (!isset($_SESSION['user_id']) || !isset($_SESSION['role']) || $_SESSION['role'] !== 'system_admin') {
     header("Location: /NexGen/CODE/PHP/index.php");
@@ -163,29 +164,36 @@ try {
     }
     $stmt->close();
 
-    $action = 'approve_request';
-    $targetType = 'registration_request';
     $description = "Approved request #{$requestId}" .
                    (!empty($request['request_code']) ? " ({$request['request_code']})" : "") .
                    " and created user #{$newUserId} with role-based module permissions";
 
-    $stmt = $conn->prepare("
-        INSERT INTO admin_logs (admin_id, action, target_type, target_id, description)
-        VALUES (?, ?, ?, ?, ?)
-    ");
-
-    if (!$stmt) {
-        throw new Exception("Prepare failed while writing admin log: " . $conn->error);
+    if (!logAdminActivitySecure($conn, $adminId, 'approve_request', 'registration_request', $requestId, $description)) {
+        throw new Exception("Failed to write secure admin log.");
     }
-
-    $stmt->bind_param("issis", $adminId, $action, $targetType, $requestId, $description);
-
-    if (!$stmt->execute()) {
-        throw new Exception("Failed to write admin log: " . $stmt->error);
-    }
-    $stmt->close();
 
     $conn->commit();
+
+    // =========================================================================
+    // SEND APPROVAL EMAIL
+    // =========================================================================
+    try {
+        $mail = createMailer();
+        $mail->addAddress($request['email'], $request['full_name']);
+        $mail->Subject = 'NexGen Account Registration Approved';
+        $mail->Body =
+            "Hello,\n\n" .
+            "Your NexGen account registration has been approved by the administrator.\n" .
+            "You may now log in to the system using your registered username and password.\n\n" .
+            "Thank you.\n" .
+            "— NexGen System";
+
+        $mail->send();
+    } catch (Exception $mailEx) {
+        // Email failure should NOT block the approval — just log it silently
+        error_log("Approval email failed for request #{$requestId}: " . $mailEx->getMessage());
+    }
+    // =========================================================================
 
     header("Location: pending_requests.php");
     exit();

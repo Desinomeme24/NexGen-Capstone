@@ -174,26 +174,7 @@ $isPdf = ($ext === 'pdf');
 </head>
 <body>
 <div class="admin-shell">
-    <aside class="admin-sidebar">
-        <div class="brand-box">
-            <img src="/NexGen/CODE/PHP/<?php echo e($profileImage); ?>" alt="Profile">
-            <div class="brand-meta">
-                <h2><?php echo e($_SESSION['full_name'] ?? 'Admin'); ?></h2>
-                <p>System Administrator</p>
-            </div>
-        </div>
-
-        <nav class="admin-menu">
-            <a href="admin_dashboard.php" class="active">Dashboard</a>
-            <a href="pending_requests.php">Pending Requests</a>
-            <a href="manage_users.php">Manage Users</a>
-            <a href="employee_masterlist.php">Employee Masterlist</a>
-            <a href="admin_logs.php">Admin Logs</a>
-            <a href="/NexGen/CODE/PHP/settings.php">Settings</a>
-            <a href="/NexGen/CODE/PHP/dashboard.php">Back to Main Dashboard</a>
-            <a href="/NexGen/CODE/PHP/logout.php" class="logout-link">Log Out</a>
-        </nav>
-    </aside>
+         <?php include 'admin_sidebar.php'; ?>
 
     <main class="admin-content">
         <div class="topbar">

@@ -16,6 +16,13 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST") {
     exit();
 }
 
+/* SECURITY: CSRF validation */
+if (!validateCsrfToken('request_password_change_form', $_POST['csrf_token'] ?? '')) {
+    $_SESSION['error'] = "Invalid or expired OTP request form token.";
+    header("Location: /NexGen/CODE/PHP/settings.php");
+    exit();
+}
+
 $user_id = $_SESSION['user_id'];
 $new_password = trim($_POST['new_password'] ?? '');
 $confirm_new_password = trim($_POST['confirm_new_password'] ?? '');

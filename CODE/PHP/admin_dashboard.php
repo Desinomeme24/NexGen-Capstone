@@ -2,6 +2,9 @@
 session_start();
 require_once("config.php");
 
+/* SESSION SECURITY: enforce 5-minute timeout on admin dashboard */
+enforceSessionTimeout();
+
 if (!isset($_SESSION['user_id'])) {
     header("Location: /NexGen/CODE/PHP/index.php");
     exit();
@@ -134,7 +137,6 @@ if ($result) {
         <div class="topbar">
             <div class="page-title">
                 <h1>System Administrator</h1>
-                
             </div>
             <div class="user-pill">
                 <img src="/NexGen/CODE/PHP/<?php echo e($profileImage); ?>" alt="Profile">
@@ -217,5 +219,27 @@ if ($result) {
 </div>
 
 <script src="/NexGen/CODE/JS/admin_module.js"></script>
+<script>
+    /* SESSION SECURITY: client-side 5-minute inactivity auto logout */
+    (function () {
+        const timeoutMs = <?php echo (int)SESSION_TIMEOUT_SECONDS * 1000; ?>;
+        let inactivityTimer = null;
+
+        function triggerTimeoutLogout() {
+            window.location.href = "/NexGen/CODE/PHP/logout.php?timeout=1";
+        }
+
+        function resetInactivityTimer() {
+            clearTimeout(inactivityTimer);
+            inactivityTimer = setTimeout(triggerTimeoutLogout, timeoutMs);
+        }
+
+        ['click', 'mousemove', 'keydown', 'scroll', 'touchstart'].forEach(function (eventName) {
+            document.addEventListener(eventName, resetInactivityTimer, { passive: true });
+        });
+
+        resetInactivityTimer();
+    })();
+</script>
 </body>
 </html>

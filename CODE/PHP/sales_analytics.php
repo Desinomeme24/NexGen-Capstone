@@ -3,12 +3,12 @@ session_start();
 require_once("config.php");
 
 if (!isset($_SESSION['user_id'])) {
-    header("Location: /NexGen/CODE/PHP/index.php");
+    header("Location: /NexGen_Eval/CODE/PHP/index.php");
     exit();
 }
 
-if ((int)($_SESSION['can_sales_analytics'] ?? 0) !== 1) {
-    $_SESSION['error'] = 'You do not have access to Sales Analytics.';
+if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'owner') {
+    $_SESSION['error'] = 'Only owners can access Sales Analytics.';
     header("Location: /NexGen/CODE/PHP/dashboard.php");
     exit();
 }
@@ -1119,10 +1119,7 @@ window.salesAnalyticsData = {
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
-<script src="/NexGen/CODE/JS/sales_analytics.js"></script>
-<footer class="footer-section" id="footer-section">
-        <div class="footer-top-line"></div>
-        <p>Copyright © 2026 NexGen Micro-Enterprise</p>
-    </footer>
+<script src="/NexGen/CODE/JS/sales_analytics.js?v=wave2026eval"></script>
+<?php include 'footer.php'; ?>
 </body>
 </html>

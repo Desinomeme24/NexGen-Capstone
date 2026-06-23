@@ -2,6 +2,8 @@
 session_start();
 require_once("config.php");
 
+
+
 if (!isset($_SESSION['user_id'])) {
     header("Location: /NexGen/CODE/PHP/index.php");
     exit();
@@ -35,10 +37,17 @@ if ($product_code === '' || $product_name === '' || $category_id <= 0 || $unit =
     exit();
 }
 
+if ($cost_price < 0 || $selling_price < 0 || $stock_quantity < 0 || $reorder_level < 0 || $on_order_level < 0) {
+    $_SESSION['inventory_error'] = "Cost, selling price, stock, reorder level, and on-order level must not be negative.";
+    header("Location: /NexGen/CODE/PHP/inventory_management.php");
+    exit();
+}
+
 $imagePath = "uploads/products/default.png";
 
 if (!empty($_FILES['product_image']['name'])) {
     $uploadDir = __DIR__ . "/uploads/products/";
+
     if (!is_dir($uploadDir)) {
         mkdir($uploadDir, 0777, true);
     }
@@ -60,37 +69,87 @@ if (!empty($_FILES['product_image']['name'])) {
     }
 }
 
-$stmt = $conn->prepare("
-    INSERT INTO products (
-        product_code, product_name, category_id, brand, unit,
-        cost_price, selling_price, stock_quantity, reorder_level, on_order_level,
-        expiry_date, product_image, description, is_active
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-");
+$conn->begin_transaction();
 
-$stmt->bind_param(
-    "ssissdiiiisssi",
-    $product_code,
-    $product_name,
-    $category_id,
-    $brand,
-    $unit,
-    $cost_price,
-    $selling_price,
-    $stock_quantity,
-    $reorder_level,
-    $on_order_level,
-    $expiry_date,
-    $imagePath,
-    $description,
-    $is_active
-);
+try {
+  
+    $checkStmt = $conn->prepare("
+        SELECT id
+        FROM products
+        WHERE product_code = ?
+        LIMIT 1
+    ");
 
-if ($stmt->execute()) {
+    if (!$checkStmt) {
+        throw new Exception("Failed to prepare product code validation.");
+    }
+
+    $checkStmt->bind_param("s", $product_code);
+    $checkStmt->execute();
+    $existingProduct = $checkStmt->get_result()->fetch_assoc();
+    $checkStmt->close();
+
+    if ($existingProduct) {
+        throw new Exception("Failed to save product. Product code may already exist.");
+    }
+
+    $stmt = $conn->prepare("
+        INSERT INTO products (
+            product_code,
+            product_name,
+            category_id,
+            brand,
+            unit,
+            cost_price,
+            selling_price,
+            stock_quantity,
+            reorder_level,
+            on_order_level,
+            expiry_date,
+            product_image,
+            description,
+            is_active
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ");
+
+    if (!$stmt) {
+        throw new Exception("Failed to prepare product insert query.");
+    }
+
+    $stmt->bind_param(
+        "ssissddiiisssi",
+        $product_code,
+        $product_name,
+        $category_id,
+        $brand,
+        $unit,
+        $cost_price,
+        $selling_price,
+        $stock_quantity,
+        $reorder_level,
+        $on_order_level,
+        $expiry_date,
+        $imagePath,
+        $description,
+        $is_active
+    );
+
+    if (!$stmt->execute()) {
+        throw new Exception("Failed to save product. Product code may already exist.");
+    }
+
+    $stmt->close();
+
+    $conn->commit();
+
     $_SESSION['inventory_success'] = "Product added successfully.";
-} else {
-    $_SESSION['inventory_error'] = "Failed to save product. Product code may already exist.";
+
+} catch (Exception $e) {
+    $conn->rollback();
+
+    $_SESSION['inventory_error'] = $e->getMessage();
 }
 
 header("Location: /NexGen/CODE/PHP/inventory_management.php");
 exit();
+?>

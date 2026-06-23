@@ -15,6 +15,13 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST") {
     exit();
 }
 
+/* SECURITY: CSRF validation */
+if (!validateCsrfToken('change_password_direct_form', $_POST['csrf_token'] ?? '')) {
+    $_SESSION['error'] = "Invalid or expired password form token.";
+    header("Location: /NexGen/CODE/PHP/settings.php");
+    exit();
+}
+
 $user_id = $_SESSION['user_id'];
 $current_password = trim($_POST['current_password'] ?? '');
 $new_password = trim($_POST['new_password'] ?? '');

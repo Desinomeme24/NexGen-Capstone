@@ -2,6 +2,8 @@
 session_start();
 require_once("config.php");
 
+
+
 if (!isset($_SESSION['user_id'])) {
     header("Location: /NexGen/CODE/PHP/index.php");
     exit();
@@ -14,6 +16,7 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['owner', 'employe
 }
 
 $id = (int)($_GET['id'] ?? $_POST['id'] ?? 0);
+
 if ($id <= 0) {
     $_SESSION['error'] = 'Invalid receivable ID.';
     header("Location: /NexGen/CODE/PHP/accounts_receivable.php");
@@ -33,12 +36,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $conn->begin_transaction();
 
     try {
+       
         $stmt = $conn->prepare("
             SELECT id, sale_id, total_amount, amount_paid, balance_due, due_date
             FROM accounts_receivable
             WHERE id = ?
-            LIMIT 1
+            FOR UPDATE
         ");
+
+        if (!$stmt) {
+            throw new Exception('Failed to prepare receivable lock query.');
+        }
+
         $stmt->bind_param("i", $id);
         $stmt->execute();
         $row = $stmt->get_result()->fetch_assoc();
@@ -49,10 +58,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $saleId = (int)$row['sale_id'];
+
+        
+        $saleLock = $conn->prepare("
+            SELECT id
+            FROM sales
+            WHERE id = ?
+            FOR UPDATE
+        ");
+
+        if (!$saleLock) {
+            throw new Exception('Failed to prepare sales lock query.');
+        }
+
+        $saleLock->bind_param("i", $saleId);
+        $saleLock->execute();
+        $saleRow = $saleLock->get_result()->fetch_assoc();
+        $saleLock->close();
+
+        if (!$saleRow) {
+            throw new Exception('Related sale record not found.');
+        }
+
         $totalAmount = (float)$row['total_amount'];
         $currentAmountPaid = (float)$row['amount_paid'];
 
         $newAmountPaid = $currentAmountPaid + $additional_payment;
+
         if ($newAmountPaid > $totalAmount) {
             $newAmountPaid = $totalAmount;
         }
@@ -90,6 +122,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             SET amount_paid = ?, balance_due = ?, status = ?, notes = ?
             WHERE id = ?
         ");
+
+        if (!$updateReceivable) {
+            throw new Exception('Failed to prepare receivable update query.');
+        }
+
         $updateReceivable->bind_param(
             "ddssi",
             $newAmountPaid,
@@ -102,6 +139,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!$updateReceivable->execute()) {
             throw new Exception('Failed to update receivable payment.');
         }
+
         $updateReceivable->close();
 
         $updateSale = $conn->prepare("
@@ -109,6 +147,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             SET payment_status = ?, order_status = ?
             WHERE id = ?
         ");
+
+        if (!$updateSale) {
+            throw new Exception('Failed to prepare sales sync query.');
+        }
+
         $updateSale->bind_param(
             "ssi",
             $newSalesPaymentStatus,
@@ -119,15 +162,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!$updateSale->execute()) {
             throw new Exception('Failed to sync sales payment status.');
         }
+
         $updateSale->close();
 
         $conn->commit();
+
         $_SESSION['success'] = 'Receivable payment updated successfully.';
         header("Location: /NexGen/CODE/PHP/accounts_receivable.php");
         exit();
 
     } catch (Exception $e) {
         $conn->rollback();
+
         $_SESSION['error'] = $e->getMessage();
         header("Location: /NexGen/CODE/PHP/receivable_payment.php?id=" . $id);
         exit();
@@ -142,6 +188,7 @@ $stmt = $conn->prepare("
     WHERE ar.id = ?
     LIMIT 1
 ");
+
 $stmt->bind_param("i", $id);
 $stmt->execute();
 $data = $stmt->get_result()->fetch_assoc();

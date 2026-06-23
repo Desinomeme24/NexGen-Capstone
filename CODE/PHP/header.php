@@ -3,6 +3,11 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+require_once 'config.php';
+
+/* SESSION SECURITY: enforce 2-minute timeout on protected user pages using header */
+enforceSessionTimeout();
+
 $displayName  = $_SESSION['username'] ?? 'Client';
 $fullName     = $_SESSION['full_name'] ?? 'Client';
 $profileImage = !empty($_SESSION['profile_image']) ? $_SESSION['profile_image'] : 'uploads/default.png';
@@ -139,10 +144,11 @@ $showCategoryOpen = in_array(
         <h3>Log out?</h3>
         <p>You’re about to end your current session.</p>
 
-        <form action="/NexGen/CODE/PHP/logout.php" method="POST" class="logout-form">
-            <button type="button" class="logout-cancel-btn" onclick="closeLogoutModal()">Cancel</button>
-            <button type="submit" class="logout-confirm-btn">Log Out</button>
-        </form>
+       <form action="/NexGen/CODE/PHP/logout.php" method="POST" class="logout-form">
+    <input type="hidden" name="csrf_token" value="<?php echo e(generateCsrfToken('logout_form')); ?>">
+    <button type="button" class="logout-cancel-btn" onclick="closeLogoutModal()">Cancel</button>
+    <button type="submit" class="logout-confirm-btn">Log Out</button>
+</form>
     </div>
 </div>
 
@@ -311,4 +317,25 @@ $showCategoryOpen = in_array(
             closeLogoutModal();
         }
     });
+
+    /* SESSION SECURITY: client-side 5-minute inactivity auto logout */
+    (function () {
+        const timeoutMs =2 * 60 * 1000;
+        let inactivityTimer = null;
+
+        function triggerTimeoutLogout() {
+            window.location.href = "/NexGen/CODE/PHP/logout.php?timeout=1";
+        }
+
+        function resetInactivityTimer() {
+            clearTimeout(inactivityTimer);
+            inactivityTimer = setTimeout(triggerTimeoutLogout, timeoutMs);
+        }
+
+        ['click', 'mousemove', 'keydown', 'scroll', 'touchstart'].forEach(function (eventName) {
+            document.addEventListener(eventName, resetInactivityTimer, { passive: true });
+        });
+
+        resetInactivityTimer();
+    })();
 </script>

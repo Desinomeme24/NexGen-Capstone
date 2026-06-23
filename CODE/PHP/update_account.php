@@ -13,6 +13,13 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST") {
     exit();
 }
 
+/* SECURITY: CSRF validation */
+if (!validateCsrfToken('update_account_form', $_POST['csrf_token'] ?? '')) {
+    $_SESSION['error'] = "Invalid or expired account form token.";
+    header("Location: /NexGen/CODE/PHP/settings.php");
+    exit();
+}
+
 $user_id = $_SESSION['user_id'];
 
 $full_name = trim($_POST['full_name'] ?? '');

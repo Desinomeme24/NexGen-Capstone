@@ -19,32 +19,28 @@ if (!isset($_FILES['new_profile_image']) || $_FILES['new_profile_image']['error'
     exit();
 }
 
-$file_name = $_FILES['new_profile_image']['name'];
-$file_tmp = $_FILES['new_profile_image']['tmp_name'];
-$file_size = $_FILES['new_profile_image']['size'];
-$file_ext = strtolower(pathinfo($file_name, PATHINFO_EXTENSION));
+$profileFile = $_FILES['new_profile_image'];
 
-$allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+[$isValidUpload, $scanResult] = nxValidateSecureUpload($profileFile, [
+    'allowed_extensions' => ['jpg', 'jpeg', 'png', 'gif', 'webp'],
+    'allowed_mime_types' => [
+        'image/jpeg',
+        'image/png',
+        'image/gif',
+        'image/webp'
+    ],
+    'max_size' => 5 * 1024 * 1024,
+    'require_image' => true,
+    'allow_pdf' => false
+]);
 
-if (!in_array($file_ext, $allowed)) {
-    $_SESSION['error'] = "Only JPG, JPEG, PNG, GIF, and WEBP files are allowed.";
+if (!$isValidUpload) {
+    $_SESSION['error'] = "Profile image upload blocked: " . $scanResult;
     header("Location: /NexGen/CODE/PHP/dashboard.php");
     exit();
 }
 
-$file_info = getimagesize($file_tmp);
-if ($file_info === false) {
-    $_SESSION['error'] = "Uploaded file is not a valid image.";
-    header("Location: /NexGen/CODE/PHP/dashboard.php");
-    exit();
-}
-
-if ($file_size > 5 * 1024 * 1024) {
-    $_SESSION['error'] = "Profile image must not exceed 5MB.";
-    header("Location: /NexGen/CODE/PHP/dashboard.php");
-    exit();
-}
-
+$file_ext = strtolower(pathinfo($profileFile['name'], PATHINFO_EXTENSION));
 $target_dir = __DIR__ . "/uploads/";
 
 if (!is_dir($target_dir)) {
@@ -55,18 +51,27 @@ $new_file_name = uniqid("profile_", true) . "." . $file_ext;
 $target_file = $target_dir . $new_file_name;
 $db_file_path = "uploads/" . $new_file_name;
 
-if (!move_uploaded_file($file_tmp, $target_file)) {
+if (!move_uploaded_file($profileFile['tmp_name'], $target_file)) {
     $_SESSION['error'] = "Failed to upload image.";
     header("Location: /NexGen/CODE/PHP/dashboard.php");
     exit();
 }
 
-$user_id = $_SESSION['user_id'];
+$user_id = (int)$_SESSION['user_id'];
+
+$getOldSql = "SELECT profile_image FROM users WHERE id = ? LIMIT 1";
+$getOldStmt = $conn->prepare($getOldSql);
+$getOldStmt->bind_param("i", $user_id);
+$getOldStmt->execute();
+$getOldResult = $getOldStmt->get_result();
+$oldUser = $getOldResult->fetch_assoc();
+$getOldStmt->close();
 
 $sql = "UPDATE users SET profile_image = ? WHERE id = ?";
 $stmt = $conn->prepare($sql);
 
 if (!$stmt) {
+    @unlink($target_file);
     $_SESSION['error'] = "Prepare failed: " . $conn->error;
     header("Location: /NexGen/CODE/PHP/dashboard.php");
     exit();
@@ -77,10 +82,20 @@ $stmt->bind_param("si", $db_file_path, $user_id);
 if ($stmt->execute()) {
     $_SESSION['profile_image'] = $db_file_path;
     $_SESSION['success'] = "Profile picture updated successfully.";
+
+    $oldPath = $oldUser['profile_image'] ?? '';
+    if (!empty($oldPath) && $oldPath !== 'uploads/default.png') {
+        $oldFullPath = __DIR__ . '/' . $oldPath;
+        if (is_file($oldFullPath)) {
+            @unlink($oldFullPath);
+        }
+    }
 } else {
+    @unlink($target_file);
     $_SESSION['error'] = "Failed to update profile picture.";
 }
 
+$stmt->close();
 header("Location: /NexGen/CODE/PHP/dashboard.php");
 exit();
 ?>

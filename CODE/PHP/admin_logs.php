@@ -63,6 +63,10 @@ $sql = "
         l.target_type,
         l.target_id,
         l.description,
+        l.previous_hash,
+        l.log_hash,
+        l.ip_address,
+        l.user_agent,
         l.created_at,
         u.full_name AS admin_name,
         u.username AS admin_username
@@ -112,16 +116,20 @@ function renderAdminLogsTable(array $logs): void
                     <th>Target Type</th>
                     <th>Target ID</th>
                     <th>Description</th>
+                    <th>Integrity</th>
                     <th>Date & Time</th>
                 </tr>
             </thead>
             <tbody>
             <?php if (empty($logs)): ?>
                 <tr>
-                    <td colspan="8">No admin log records found.</td>
+                    <td colspan="9">No admin log records found.</td>
                 </tr>
             <?php else: ?>
                 <?php foreach ($logs as $log): ?>
+                    <?php
+                    $isValidIntegrity = !empty($log['log_hash']) && verifyAdminLogRowIntegrity($log);
+                    ?>
                     <tr>
                         <td><?php echo (int)$log['id']; ?></td>
                         <td><?php echo e($log['admin_name'] ?? 'Unknown Admin'); ?></td>
@@ -130,6 +138,11 @@ function renderAdminLogsTable(array $logs): void
                         <td><?php echo e($log['target_type']); ?></td>
                         <td><?php echo (int)$log['target_id']; ?></td>
                         <td><?php echo e($log['description']); ?></td>
+                        <td>
+                            <span class="mini-badge <?php echo $isValidIntegrity ? 'yes' : 'no'; ?>">
+                                <?php echo $isValidIntegrity ? 'Valid' : 'Legacy/Check'; ?>
+                            </span>
+                        </td>
                         <td><?php echo e(date('M d, Y h:i A', strtotime($log['created_at']))); ?></td>
                     </tr>
                 <?php endforeach; ?>
@@ -197,6 +210,30 @@ if (
         .logs-table-wrap::-webkit-scrollbar-track {
             background: rgba(255, 255, 255, 0.05);
             border-radius: 999px;
+        }
+
+        .mini-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 6px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            white-space: nowrap;
+            min-width: 90px;
+        }
+
+        .mini-badge.yes {
+            background: rgba(70, 194, 126, 0.18);
+            color: #8df0b3;
+        }
+
+        .mini-badge.no {
+            background: rgba(255, 107, 107, 0.18);
+            color: #ffb0b0;
         }
     </style>
 </head>

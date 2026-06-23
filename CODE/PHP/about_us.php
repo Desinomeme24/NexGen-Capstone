@@ -91,7 +91,16 @@ $profileImage = !empty($_SESSION['profile_image']) ? $_SESSION['profile_image'] 
 
     <footer class="footer-section" id="footer-section">
         <div class="footer-top-line"></div>
-        <p>Copyright © 2026 NexGen Micro-Enterprise</p>
+        <p>
+            Copyright © 2026 NexGen Micro-Enterprise |
+            <a href="/NexGen/CODE/PHP/privacy_policy.php" style="color:#f7d98b; text-decoration:none; font-weight:700;">
+                Privacy Policy
+            </a>
+            |
+            <a href="/NexGen/CODE/PHP/privacy_policy.php#cookie-notice" style="color:#f7d98b; text-decoration:none; font-weight:700;">
+                Cookie Notice
+            </a>
+        </p>
     </footer>
 
     <?php include 'chatbot.php'; ?>

@@ -154,16 +154,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'bulk_
             : 'Revoked module access from: ')
             . implode(', ', $processedUsers);
 
-        $logStmt = $conn->prepare("
-            INSERT INTO admin_logs (admin_id, action, target_type, target_id, description)
-            VALUES (?, ?, 'user_batch', 0, ?)
-        ");
-        if ($logStmt) {
-            $actionName = $bulkAction;
-            $logStmt->bind_param("iss", $adminId, $actionName, $description);
-            $logStmt->execute();
-            $logStmt->close();
-        }
+        $actionName = $bulkAction;
+        logAdminActivitySecure($conn, $adminId, $actionName, 'user_batch', 0, $description);
 
         $conn->commit();
 
@@ -178,6 +170,68 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'bulk_
         $conn->rollback();
         $_SESSION['error'] = $e->getMessage();
         header("Location: manage_users.php");
+        exit();
+    }
+}
+
+/*
+|--------------------------------------------------------------------------
+| ADMIN UNLOCK ACCOUNT
+|--------------------------------------------------------------------------
+*/
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'unlock_user') {
+    $userId = (int)($_POST['user_id'] ?? 0);
+
+    try {
+        if ($userId <= 0) {
+            throw new Exception('Invalid user ID.');
+        }
+
+        $stmt = $conn->prepare("SELECT id, username, role FROM users WHERE id = ? AND role <> 'system_admin' LIMIT 1");
+        if (!$stmt) {
+            throw new Exception('Failed to prepare user lookup: ' . $conn->error);
+        }
+
+        $stmt->bind_param("i", $userId);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        $targetUser = $result->fetch_assoc();
+        $stmt->close();
+
+        if (!$targetUser) {
+            throw new Exception('User not found.');
+        }
+
+        $stmt = $conn->prepare("
+            UPDATE users
+            SET failed_login_attempts = 0,
+                locked_until = NULL,
+                last_failed_login_at = NULL
+            WHERE id = ?
+              AND role <> 'system_admin'
+        ");
+        if (!$stmt) {
+            throw new Exception('Failed to prepare unlock update: ' . $conn->error);
+        }
+
+        $stmt->bind_param("i", $userId);
+
+        if (!$stmt->execute()) {
+            throw new Exception('Failed to unlock user account: ' . $stmt->error);
+        }
+        $stmt->close();
+
+       $description = "Unlocked user account #{$userId} ({$targetUser['username']}) and restored full 3 login attempts.";
+
+        logAdminActivitySecure($conn, $adminId, 'unlock_user_account', 'user', $userId, $description);
+
+       $_SESSION['success'] = 'User account unlocked successfully. The account now has 3 login attempts available again.';
+        header('Location: manage_users.php?edit=' . $userId);
+        exit();
+
+    } catch (Exception $e) {
+        $_SESSION['error'] = $e->getMessage();
+        header('Location: manage_users.php' . ($userId > 0 ? '?edit=' . $userId : ''));
         exit();
     }
 }
@@ -314,15 +368,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'updat
 
         $description = "Updated user #{$userId} ({$username}) - role: {$role}, status: {$accountStatus}, verified: {$isVerified}, inventory: {$canInventory}, sales: {$canSales}, analytics: {$canSalesAnalytics}, accounts_receivable: {$canAccountsReceivable}";
 
-        $stmt = $conn->prepare("
-            INSERT INTO admin_logs (admin_id, action, target_type, target_id, description)
-            VALUES (?, 'update_user_permissions', 'user', ?, ?)
-        ");
-        if ($stmt) {
-            $stmt->bind_param("iis", $adminId, $userId, $description);
-            $stmt->execute();
-            $stmt->close();
-        }
+        logAdminActivitySecure($conn, $adminId, 'update_user_permissions', 'user', $userId, $description);
 
         $conn->commit();
         $_SESSION['success'] = 'User account and module access updated successfully.';
@@ -425,7 +471,9 @@ $sql = "
         can_inventory,
         can_sales,
         can_sales_analytics,
-        can_accounts_receivable
+        can_accounts_receivable,
+        failed_login_attempts,
+        locked_until
     FROM users
     {$where}
     ORDER BY id DESC
@@ -460,7 +508,9 @@ if ($editId > 0) {
             can_inventory,
             can_sales,
             can_sales_analytics,
-            can_accounts_receivable
+            can_accounts_receivable,
+            failed_login_attempts,
+            locked_until
         FROM users
         WHERE id = ?
           AND role <> 'system_admin'
@@ -500,6 +550,8 @@ function renderManageUsersTable(array $users, string $search, string $roleFilter
                         <col style="width: 140px;">
                         <col style="width: 130px;">
                         <col style="width: 130px;">
+                        <col style="width: 120px;">
+                        <col style="width: 120px;">
                         <col style="width: 140px;">
                         <col style="width: 240px;">
                         <col style="width: 110px;">
@@ -517,6 +569,8 @@ function renderManageUsersTable(array $users, string $search, string $roleFilter
                             <th>PHONE</th>
                             <th>ROLE</th>
                             <th>VERIFIED</th>
+                            <th>FAILED</th>
+                            <th>LOCK</th>
                             <th>STATUS</th>
                             <th>MODULE ACCESS</th>
                             <th>ACTION</th>
@@ -525,10 +579,13 @@ function renderManageUsersTable(array $users, string $search, string $roleFilter
                     <tbody>
                     <?php if (empty($users)): ?>
                         <tr>
-                            <td colspan="12">No user accounts found.</td>
+                            <td colspan="14">No user accounts found.</td>
                         </tr>
                     <?php else: ?>
                         <?php foreach ($users as $user): ?>
+                            <?php
+                            $isLocked = !empty($user['locked_until']) && strtotime((string)$user['locked_until']) > time();
+                            ?>
                             <tr>
                                 <td class="select-col">
                                     <input
@@ -548,6 +605,16 @@ function renderManageUsersTable(array $users, string $search, string $roleFilter
                                 <td class="table-verified">
                                     <span class="mini-badge <?php echo (int)$user['is_verified'] === 1 ? 'yes' : 'no'; ?>">
                                         <?php echo (int)$user['is_verified'] === 1 ? 'Verified' : 'Not Verified'; ?>
+                                    </span>
+                                </td>
+                                <td class="table-failed">
+                                    <span class="mini-badge <?php echo (int)$user['failed_login_attempts'] > 0 ? 'no' : 'yes'; ?>">
+                                        <?php echo (int)$user['failed_login_attempts']; ?>
+                                    </span>
+                                </td>
+                                <td class="table-lock">
+                                    <span class="mini-badge <?php echo $isLocked ? 'no' : 'yes'; ?>">
+                                        <?php echo $isLocked ? 'Locked' : 'Open'; ?>
                                     </span>
                                 </td>
                                 <td class="table-status">
@@ -607,7 +674,7 @@ if (
 
         .manage-users-table-wrap table {
             width: 100%;
-            min-width: 1380px;
+            min-width: 1520px;
             border-collapse: separate;
             border-spacing: 0;
             table-layout: fixed;
@@ -674,6 +741,7 @@ if (
             text-transform: uppercase;
             letter-spacing: 0.3px;
             white-space: nowrap;
+            min-width: 58px;
         }
 
         .mini-badge.yes {
@@ -705,8 +773,11 @@ if (
         .table-role,
         .table-status,
         .table-verified,
+        .table-failed,
+        .table-lock,
         .table-action {
             white-space: nowrap;
+            text-align: center;
         }
 
         .table-email,
@@ -834,6 +905,7 @@ if (
             margin-top: 6px;
             font-size: 13px;
             color: rgba(255, 255, 255, 0.75);
+            line-height: 1.6;
         }
 
         .edit-modal-overlay,
@@ -1068,7 +1140,7 @@ if (
                         type="text"
                         name="search"
                         id="searchInput"
-                        placeholder="Search by name, username, email, employee number, or phone..."
+                        placeholder="Search by name, username, email, employee number, or phone."
                         value="<?php echo e($search); ?>"
                         autocomplete="off"
                     >
@@ -1102,17 +1174,16 @@ if (
                 </form>
 
                 <?php renderManageUsersTable($users, $search, $roleFilter, $statusFilter); ?>
-
             </div>
         </section>
     </main>
 </div>
 
 <?php if ($editUser): ?>
-<div class="edit-modal-overlay show" id="editUserModal">
+<div class="edit-modal-overlay show" id="editModalOverlay">
     <div class="edit-modal-box">
         <div class="edit-modal-header">
-            <h2>Edit User #<?php echo (int)$editUser['id']; ?></h2>
+            <h2>Edit User Account</h2>
             <button type="button" class="modal-close-btn" onclick="closeEditModal()">&times;</button>
         </div>
 
@@ -1123,69 +1194,65 @@ if (
 
                 <div class="editor-grid">
                     <div class="field-group">
-                        <label>Employee No</label>
-                        <input type="text" name="employee_no" value="<?php echo e($editUser['employee_no']); ?>" placeholder="Enter employee number">
+                        <label for="employee_no">Employee Number</label>
+                        <input type="text" id="employee_no" name="employee_no" value="<?php echo e($editUser['employee_no']); ?>">
                     </div>
 
                     <div class="field-group">
-                        <label>Full Name</label>
-                        <input type="text" name="full_name" value="<?php echo e($editUser['full_name']); ?>" required>
+                        <label for="full_name">Full Name</label>
+                        <input type="text" id="full_name" name="full_name" value="<?php echo e($editUser['full_name']); ?>" required>
                     </div>
 
                     <div class="field-group">
-                        <label>Username</label>
-                        <input type="text" name="username" value="<?php echo e($editUser['username']); ?>" required>
+                        <label for="username">Username</label>
+                        <input type="text" id="username" name="username" value="<?php echo e($editUser['username']); ?>" required>
                     </div>
 
                     <div class="field-group">
-                        <label>Email</label>
-                        <input type="email" name="email" value="<?php echo e($editUser['email']); ?>" required>
+                        <label for="email">Email</label>
+                        <input type="email" id="email" name="email" value="<?php echo e($editUser['email']); ?>" required>
                     </div>
 
                     <div class="field-group">
-                        <label>Phone</label>
-                        <input type="text" name="phone" value="<?php echo e($editUser['phone']); ?>" placeholder="Enter phone number">
+                        <label for="phone">Phone</label>
+                        <input type="text" id="phone" name="phone" value="<?php echo e($editUser['phone']); ?>">
+                    </div>
+
+                    <div class="field-group full">
+                        <label for="address">Address</label>
+                        <textarea id="address" name="address"><?php echo e($editUser['address']); ?></textarea>
                     </div>
 
                     <div class="field-group">
-                        <label>Role</label>
-                        <select name="role" id="roleSelect" required onchange="handleRoleChange()">
-                            <?php foreach ($roles as $role): ?>
-                                <option value="<?php echo e($role); ?>" <?php echo $editUser['role'] === $role ? 'selected' : ''; ?>>
-                                    <?php echo e(ucwords(str_replace('_', ' ', $role))); ?>
-                                </option>
-                            <?php endforeach; ?>
+                        <label for="role">Role</label>
+                        <select id="role" name="role" required onchange="handleRoleChange()">
+                            <option value="owner" <?php echo $editUser['role'] === 'owner' ? 'selected' : ''; ?>>Owner</option>
+                            <option value="employee" <?php echo $editUser['role'] === 'employee' ? 'selected' : ''; ?>>Employee</option>
+                            <option value="customer" <?php echo $editUser['role'] === 'customer' ? 'selected' : ''; ?>>Customer</option>
                         </select>
                     </div>
 
                     <div class="field-group">
-                        <label>Account Status</label>
-                        <select name="account_status" required>
-                            <?php foreach ($statuses as $status): ?>
-                                <option value="<?php echo e($status); ?>" <?php echo $editUser['account_status'] === $status ? 'selected' : ''; ?>>
-                                    <?php echo e(ucfirst($status)); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-
-                    <div class="field-group">
-                        <label>Verification Status</label>
-                        <select name="is_verified" required>
-                            <option value="1" <?php echo (int)$editUser['is_verified'] === 1 ? 'selected' : ''; ?>>Verified</option>
-                            <option value="0" <?php echo (int)$editUser['is_verified'] === 0 ? 'selected' : ''; ?>>Not Verified</option>
+                        <label for="account_status">Account Status</label>
+                        <select id="account_status" name="account_status" required>
+                            <option value="active" <?php echo $editUser['account_status'] === 'active' ? 'selected' : ''; ?>>Active</option>
+                            <option value="inactive" <?php echo $editUser['account_status'] === 'inactive' ? 'selected' : ''; ?>>Inactive</option>
+                            <option value="disabled" <?php echo $editUser['account_status'] === 'disabled' ? 'selected' : ''; ?>>Disabled</option>
                         </select>
                     </div>
 
                     <div class="field-group full">
-                        <label>Address</label>
-                        <textarea name="address" placeholder="Enter address"><?php echo e($editUser['address']); ?></textarea>
+                        <div class="check-card">
+                            <input type="checkbox" id="is_verified" name="is_verified" value="1" <?php echo !empty($editUser['is_verified']) ? 'checked' : ''; ?>>
+                            <label for="is_verified">Verified Account</label>
+                        </div>
                     </div>
 
                     <div class="access-box">
                         <h3>Module Access</h3>
                         <p>
-                            Owner has access to all 4 modules. Employee has access to all except Sales Analytics.
+                            Owner has access to all 4 business modules.
+                            Employee has access to all except Sales Analytics.
                             Customer has no access to the 4 business modules.
                         </p>
 
@@ -1214,6 +1281,25 @@ if (
                         <div class="role-note" id="roleNote">
                             You can manage module access here based on the selected non-admin role.
                         </div>
+
+                        <div class="role-note" style="margin-top: 12px;">
+                            Failed Login Attempts:
+                            <strong><?php echo (int)($editUser['failed_login_attempts'] ?? 0); ?></strong>
+                            <br>
+                            Attempts Available:
+                            <strong><?php echo max(0, 5 - (int)($editUser['failed_login_attempts'] ?? 0)); ?></strong>
+                            <br>
+                            Lock Status:
+                            <strong>
+                                <?php
+                                if (!empty($editUser['locked_until']) && strtotime((string)$editUser['locked_until']) > time()) {
+                                    echo 'Locked until ' . e(date('M d, Y h:i A', strtotime((string)$editUser['locked_until'])));
+                                } else {
+                                    echo 'Not locked';
+                                }
+                                ?>
+                            </strong>
+                        </div>
                     </div>
                 </div>
 
@@ -1223,6 +1309,16 @@ if (
                     <button type="button" class="btn btn-silver" onclick="applyRoleDefaults()">Apply Role Default Access</button>
                 </div>
             </form>
+
+            <?php if (!empty($editUser['locked_until']) && strtotime((string)$editUser['locked_until']) > time()): ?>
+                <form method="POST" style="margin-top: 14px;" class="unlock-user-form" data-username="<?php echo e($editUser['username']); ?>">
+                    <input type="hidden" name="action" value="unlock_user">
+                    <input type="hidden" name="user_id" value="<?php echo (int)$editUser['id']; ?>">
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-gold">Unlock Account</button>
+                    </div>
+                </form>
+            <?php endif; ?>
         </div>
     </div>
 </div>
@@ -1270,53 +1366,52 @@ function setModuleCheckboxState(disabled) {
 }
 
 function applyRoleDefaults() {
-    const role = document.getElementById('roleSelect') ? document.getElementById('roleSelect').value : '';
-    const inventory = document.getElementById('can_inventory');
-    const sales = document.getElementById('can_sales');
-    const analytics = document.getElementById('can_sales_analytics');
-    const receivable = document.getElementById('can_accounts_receivable');
+    const role = document.getElementById('role');
+    if (!role) return;
+
+    const canInventory = document.getElementById('can_inventory');
+    const canSales = document.getElementById('can_sales');
+    const canSalesAnalytics = document.getElementById('can_sales_analytics');
+    const canAccountsReceivable = document.getElementById('can_accounts_receivable');
+
+    if (!canInventory || !canSales || !canSalesAnalytics || !canAccountsReceivable) return;
+
+    if (role.value === 'owner') {
+        canInventory.checked = true;
+        canSales.checked = true;
+        canSalesAnalytics.checked = true;
+        canAccountsReceivable.checked = true;
+        setModuleCheckboxState(false);
+    } else if (role.value === 'employee') {
+        canInventory.checked = true;
+        canSales.checked = true;
+        canSalesAnalytics.checked = false;
+        canAccountsReceivable.checked = true;
+        setModuleCheckboxState(false);
+    } else {
+        canInventory.checked = false;
+        canSales.checked = false;
+        canSalesAnalytics.checked = false;
+        canAccountsReceivable.checked = false;
+        setModuleCheckboxState(true);
+    }
+
+    updateRoleNote();
+}
+
+function updateRoleNote() {
+    const role = document.getElementById('role');
     const roleNote = document.getElementById('roleNote');
 
-    if (!inventory || !sales || !analytics || !receivable) {
-        return;
-    }
+    if (!role || !roleNote) return;
 
-    if (role === 'owner') {
-        inventory.checked = true;
-        sales.checked = true;
-        analytics.checked = true;
-        receivable.checked = true;
-        setModuleCheckboxState(false);
-        if (roleNote) roleNote.textContent = 'Owner default access: all 4 modules are enabled.';
-        return;
+    if (role.value === 'owner') {
+        roleNote.textContent = 'Owner has full access to Inventory, Sales, Sales Analytics, and Accounts Receivable.';
+    } else if (role.value === 'employee') {
+        roleNote.textContent = 'Employee has access to Inventory, Sales, and Accounts Receivable, but not Sales Analytics.';
+    } else {
+        roleNote.textContent = 'Customer has no access to the 4 business modules, so module checkboxes are disabled.';
     }
-
-    if (role === 'employee') {
-        inventory.checked = true;
-        sales.checked = true;
-        analytics.checked = false;
-        receivable.checked = true;
-        setModuleCheckboxState(false);
-        if (roleNote) roleNote.textContent = 'Employee default access: Inventory, Sales, and Accounts Receivable only.';
-        return;
-    }
-
-    if (role === 'customer') {
-        inventory.checked = false;
-        sales.checked = false;
-        analytics.checked = false;
-        receivable.checked = false;
-        setModuleCheckboxState(true);
-        if (roleNote) roleNote.textContent = 'Customer has no access to the 4 business modules.';
-        return;
-    }
-
-    inventory.checked = false;
-    sales.checked = false;
-    analytics.checked = false;
-    receivable.checked = false;
-    setModuleCheckboxState(false);
-    if (roleNote) roleNote.textContent = 'Select a role to set default module access.';
 }
 
 function handleRoleChange() {
@@ -1324,26 +1419,7 @@ function handleRoleChange() {
 }
 
 function closeEditModal() {
-    const url = new URL(window.location.href);
-    url.searchParams.delete('edit');
-    window.location.href = url.toString();
-}
-
-function showCustomAlert(message) {
-    const overlay = document.getElementById('customAlertOverlay');
-    const messageBox = document.getElementById('customAlertMessage');
-    if (!overlay || !messageBox) return;
-    messageBox.textContent = message;
-    overlay.classList.add('show');
-    document.body.style.overflow = 'hidden';
-}
-
-function closeCustomAlert() {
-    const overlay = document.getElementById('customAlertOverlay');
-    if (overlay) {
-        overlay.classList.remove('show');
-        document.body.style.overflow = '';
-    }
+    window.location.href = 'manage_users.php';
 }
 
 function showCustomConfirm(message, onConfirm) {
@@ -1374,82 +1450,108 @@ function showCustomConfirm(message, onConfirm) {
     };
 }
 
-document.addEventListener('DOMContentLoaded', function() {
-    applyRoleDefaults();
+function showCustomAlert(message) {
+    const overlay = document.getElementById('customAlertOverlay');
+    const messageBox = document.getElementById('customAlertMessage');
 
-    const filterForm = document.getElementById('filterForm');
-    const searchInput = document.getElementById('searchInput');
-    const roleFilter = document.getElementById('roleFilter');
-    const statusFilter = document.getElementById('statusFilter');
+    if (!overlay || !messageBox) return;
+
+    messageBox.textContent = message;
+    overlay.classList.add('show');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeCustomAlert() {
+    const overlay = document.getElementById('customAlertOverlay');
+    if (!overlay) return;
+
+    overlay.classList.remove('show');
+    document.body.style.overflow = '';
+}
+
+function rebindTableArea() {
+    const selectAll = document.getElementById('selectAllRows');
+    const bulkActionForm = document.getElementById('bulkActionForm');
     const bulkActionSelect = document.getElementById('bulkActionSelect');
-    const alertOk = document.getElementById('customAlertOk');
 
-    let controller = null;
-
-    function bindSelectAll() {
-        const selectAll = document.getElementById('selectAllRows');
-        const rowChecks = document.querySelectorAll('.row-check');
-
-        if (selectAll) {
-            selectAll.onchange = function() {
-                rowChecks.forEach(function(check) {
-                    check.checked = selectAll.checked;
-                });
-            };
-        }
+    if (selectAll) {
+        selectAll.addEventListener('change', function() {
+            document.querySelectorAll('.row-check').forEach(function(cb) {
+                cb.checked = selectAll.checked;
+            });
+        });
     }
 
-    function bindBulkForm() {
-        const bulkForm = document.getElementById('bulkActionForm');
-        if (!bulkForm) return;
+    if (bulkActionForm) {
+        bulkActionForm.addEventListener('submit', function(e) {
+            const selected = Array.from(document.querySelectorAll('.row-check:checked'));
+            const actionValue = bulkActionSelect ? bulkActionSelect.value : '';
 
-        bulkForm.onsubmit = function(e) {
-            if (bulkForm.dataset.confirmed === '1') {
-                bulkForm.dataset.confirmed = '0';
+            if (!selected.length) {
+                e.preventDefault();
+                showCustomAlert('Please select at least one user first.');
+                return;
+            }
+
+            if (!actionValue) {
+                e.preventDefault();
+                showCustomAlert('Please choose a bulk action first.');
+                return;
+            }
+
+            if (bulkActionForm.dataset.confirmed === '1') {
+                bulkActionForm.dataset.confirmed = '0';
                 return true;
             }
 
             e.preventDefault();
 
-            const selected = document.querySelectorAll('.row-check:checked').length;
-            const action = bulkActionSelect ? bulkActionSelect.value : '';
-
-            if (selected === 0) {
-                showCustomAlert('Please select at least one user first.');
-                return false;
-            }
-
-            if (!action) {
-                showCustomAlert('Please select an action first.');
-                return false;
-            }
-
-            let message = '';
-            if (action === 'grant_access') {
-                message = 'Are you sure you want to grant default module access to the selected user account(s)?';
-            } else if (action === 'revoke_access') {
-                message = 'Are you sure you want to revoke module access from the selected user account(s)?';
-            } else {
-                message = 'Are you sure you want to continue?';
-            }
-
-            showCustomConfirm(message, function() {
-                bulkForm.dataset.confirmed = '1';
-                bulkForm.submit();
-            });
-
-            return false;
-        };
+            const label = actionValue === 'grant_access' ? 'grant default access to' : 'revoke module access from';
+            showCustomConfirm(
+                'Are you sure you want to ' + label + ' the selected users?',
+                function() {
+                    bulkActionForm.dataset.confirmed = '1';
+                    bulkActionForm.submit();
+                }
+            );
+        });
     }
 
-    function rebindTableArea() {
-        bindSelectAll();
-        bindBulkForm();
-    }
+    document.querySelectorAll('.unlock-user-form').forEach(function(form) {
+        form.addEventListener('submit', function(e) {
+            if (form.dataset.confirmed === '1') {
+                form.dataset.confirmed = '0';
+                return true;
+            }
+
+            e.preventDefault();
+
+            const username = form.getAttribute('data-username') || 'this user';
+
+            showCustomConfirm(
+                'Are you sure you want to unlock the account of ' + username + '? This will restore the full 3 login attempts.',
+                function() {
+                    form.dataset.confirmed = '1';
+                    form.submit();
+                }
+            );
+        });
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('filterForm');
+    const searchInput = document.getElementById('searchInput');
+    const roleFilter = document.getElementById('roleFilter');
+    const statusFilter = document.getElementById('statusFilter');
+    const alertOk = document.getElementById('customAlertOk');
+
+    let controller = null;
 
     function updateUsers() {
-        const params = new URLSearchParams(new FormData(filterForm));
-        params.delete('edit');
+        if (!form) return;
+
+        const params = new URLSearchParams(new FormData(form));
 
         if (controller) {
             controller.abort();
@@ -1458,7 +1560,9 @@ document.addEventListener('DOMContentLoaded', function() {
         controller = new AbortController();
 
         const currentWrap = document.getElementById('manageUsersTableWrap');
-        if (currentWrap) currentWrap.classList.add('loading');
+        if (currentWrap) {
+            currentWrap.classList.add('loading');
+        }
 
         fetch('manage_users.php?' + params.toString(), {
             headers: {
@@ -1512,6 +1616,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (alertOk) {
         alertOk.addEventListener('click', closeCustomAlert);
+    }
+
+    updateRoleNote();
+    if (document.getElementById('role')) {
+        applyRoleDefaults();
     }
 
     rebindTableArea();

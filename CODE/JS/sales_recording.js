@@ -26,10 +26,23 @@ document.addEventListener('DOMContentLoaded', function () {
     const emailField = document.getElementById('emailField');
     const addressField = document.getElementById('addressField');
 
-    const products = window.products || [];
+    const saleConfirmOverlay = document.getElementById('saleConfirmOverlay');
+    const saleConfirmCancel = document.getElementById('saleConfirmCancel');
+    const saleConfirmYes = document.getElementById('saleConfirmYes');
+
+    const products = Array.isArray(window.products) ? window.products : [];
 
     if (saleForm) saleForm.noValidate = true;
     if (customerForm) customerForm.noValidate = true;
+
+    function safeText(value) {
+        return String(value ?? '');
+    }
+
+    function safeNumber(value, fallback = 0) {
+        const num = Number(value);
+        return Number.isFinite(num) ? num : fallback;
+    }
 
     function getToastRoot() {
         let root = document.getElementById('nxToastRoot');
@@ -54,14 +67,32 @@ document.addEventListener('DOMContentLoaded', function () {
             info: 'Message'
         };
 
-        toast.innerHTML = `
-            <div class="nx-toast-accent"></div>
-            <div class="nx-toast-content">
-                <div class="nx-toast-title">${titleMap[type] || 'Message'}</div>
-                <div class="nx-toast-message">${message}</div>
-            </div>
-            <button type="button" class="nx-toast-close" aria-label="Close notification">&times;</button>
-        `;
+        const accent = document.createElement('div');
+        accent.className = 'nx-toast-accent';
+
+        const content = document.createElement('div');
+        content.className = 'nx-toast-content';
+
+        const title = document.createElement('div');
+        title.className = 'nx-toast-title';
+        title.textContent = titleMap[type] || 'Message';
+
+        const msg = document.createElement('div');
+        msg.className = 'nx-toast-message';
+        msg.textContent = safeText(message);
+
+        const closeBtn = document.createElement('button');
+        closeBtn.type = 'button';
+        closeBtn.className = 'nx-toast-close';
+        closeBtn.setAttribute('aria-label', 'Close notification');
+        closeBtn.textContent = '×';
+
+        content.appendChild(title);
+        content.appendChild(msg);
+
+        toast.appendChild(accent);
+        toast.appendChild(content);
+        toast.appendChild(closeBtn);
 
         root.appendChild(toast);
 
@@ -76,11 +107,7 @@ document.addEventListener('DOMContentLoaded', function () {
             }, 220);
         };
 
-        const closeBtn = toast.querySelector('.nx-toast-close');
-        if (closeBtn) {
-            closeBtn.addEventListener('click', removeToast);
-        }
-
+        closeBtn.addEventListener('click', removeToast);
         setTimeout(removeToast, duration);
     }
 
@@ -94,7 +121,25 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!saleModal) return;
         saleModal.classList.remove('show');
         if (customerModal) customerModal.classList.remove('show');
+        closeSaleConfirm();
         document.body.style.overflow = 'auto';
+    }
+
+    function openSaleConfirm() {
+        if (!saleConfirmOverlay) return;
+        saleConfirmOverlay.classList.add('show');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeSaleConfirm() {
+        if (!saleConfirmOverlay) return;
+        saleConfirmOverlay.classList.remove('show');
+
+        if ((saleModal && saleModal.classList.contains('show')) || (customerModal && customerModal.classList.contains('show'))) {
+            document.body.style.overflow = 'hidden';
+        } else {
+            document.body.style.overflow = 'auto';
+        }
     }
 
     function applyCustomerFieldRules() {
@@ -119,7 +164,6 @@ document.addEventListener('DOMContentLoaded', function () {
 
     function syncOrderStatusWithPayment() {
         if (!paymentStatus || !orderStatus) return;
-
         const status = paymentStatus.value;
         orderStatus.value = status === 'Paid' ? 'Fulfilled' : 'Pending';
     }
@@ -160,6 +204,20 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
+    if (saleConfirmCancel) {
+        saleConfirmCancel.addEventListener('click', function () {
+            closeSaleConfirm();
+        });
+    }
+
+    if (saleConfirmOverlay) {
+        saleConfirmOverlay.addEventListener('click', function (e) {
+            if (e.target === saleConfirmOverlay) {
+                closeSaleConfirm();
+            }
+        });
+    }
+
     if (saleModal) {
         saleModal.addEventListener('click', function (e) {
             if (e.target === saleModal) {
@@ -178,6 +236,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
     document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') {
+            if (saleConfirmOverlay && saleConfirmOverlay.classList.contains('show')) {
+                closeSaleConfirm();
+                return;
+            }
+
             if (customerModal && customerModal.classList.contains('show')) {
                 closeCustomerModal();
                 return;
@@ -193,18 +256,22 @@ document.addEventListener('DOMContentLoaded', function () {
         return Number(value).toFixed(2);
     }
 
-    function getProductOptions() {
-        let options = '<option value="">Select Product</option>';
+    function buildProductSelect(selectEl) {
+        selectEl.innerHTML = '';
+
+        const defaultOption = document.createElement('option');
+        defaultOption.value = '';
+        defaultOption.textContent = 'Select Product';
+        selectEl.appendChild(defaultOption);
 
         products.forEach(product => {
-            options += `
-                <option value="${product.id}" data-price="${product.selling_price}" data-stock="${product.stock_quantity}">
-                    ${product.product_name} (Stock: ${product.stock_quantity} | ₱${parseFloat(product.selling_price).toFixed(2)})
-                </option>
-            `;
+            const option = document.createElement('option');
+            option.value = safeText(product.id);
+            option.dataset.price = String(safeNumber(product.selling_price));
+            option.dataset.stock = String(safeNumber(product.stock_quantity));
+            option.textContent = `${safeText(product.product_name)} (Stock: ${safeNumber(product.stock_quantity)} | ₱${safeNumber(product.selling_price).toFixed(2)})`;
+            selectEl.appendChild(option);
         });
-
-        return options;
     }
 
     function addItemRow() {
@@ -212,25 +279,53 @@ document.addEventListener('DOMContentLoaded', function () {
 
         const row = document.createElement('div');
         row.className = 'item-row';
-        row.innerHTML = `
-            <div>
-                <select name="product_id[]" class="product-select">
-                    ${getProductOptions()}
-                </select>
-            </div>
-            <div>
-                <input type="number" name="quantity[]" class="qty-input" min="1" value="1">
-            </div>
-            <div>
-                <input type="number" step="0.01" name="unit_price[]" class="price-input" min="0" value="0.00">
-            </div>
-            <div>
-                <input type="text" class="subtotal-input readonly-box" value="0.00" readonly>
-            </div>
-            <div>
-                <button type="button" class="row-remove">×</button>
-            </div>
-        `;
+
+        const col1 = document.createElement('div');
+        const productSelect = document.createElement('select');
+        productSelect.name = 'product_id[]';
+        productSelect.className = 'product-select';
+        buildProductSelect(productSelect);
+        col1.appendChild(productSelect);
+
+        const col2 = document.createElement('div');
+        const qtyInput = document.createElement('input');
+        qtyInput.type = 'number';
+        qtyInput.name = 'quantity[]';
+        qtyInput.className = 'qty-input';
+        qtyInput.min = '1';
+        qtyInput.value = '1';
+        col2.appendChild(qtyInput);
+
+        const col3 = document.createElement('div');
+        const priceInput = document.createElement('input');
+        priceInput.type = 'number';
+        priceInput.step = '0.01';
+        priceInput.name = 'unit_price[]';
+        priceInput.className = 'price-input';
+        priceInput.min = '0';
+        priceInput.value = '0.00';
+        col3.appendChild(priceInput);
+
+        const col4 = document.createElement('div');
+        const subtotalInput = document.createElement('input');
+        subtotalInput.type = 'text';
+        subtotalInput.className = 'subtotal-input readonly-box';
+        subtotalInput.value = '0.00';
+        subtotalInput.readOnly = true;
+        col4.appendChild(subtotalInput);
+
+        const col5 = document.createElement('div');
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'row-remove';
+        removeBtn.textContent = '×';
+        col5.appendChild(removeBtn);
+
+        row.appendChild(col1);
+        row.appendChild(col2);
+        row.appendChild(col3);
+        row.appendChild(col4);
+        row.appendChild(col5);
 
         itemsContainer.appendChild(row);
         calculateGrandTotal();
@@ -241,7 +336,7 @@ document.addEventListener('DOMContentLoaded', function () {
         if (!row) return;
 
         const selectedOption = selectEl.options[selectEl.selectedIndex];
-        const price = selectedOption.getAttribute('data-price') || 0;
+        const price = selectedOption ? selectedOption.getAttribute('data-price') || 0 : 0;
 
         row.querySelector('.price-input').value = parseFloat(price).toFixed(2);
         calculateRow(row);
@@ -456,11 +551,8 @@ document.addEventListener('DOMContentLoaded', function () {
         return true;
     }
 
-    async function submitSaleAjax(e) {
-        e.preventDefault();
-
+    async function doSubmitSaleAjax() {
         if (!saleForm) return;
-        if (!validateSaleForm()) return;
 
         syncOrderStatusWithPayment();
 
@@ -488,25 +580,50 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             if (data.success) {
-                showToast(data.message || 'Sale saved successfully.', 'success');
-                closeSaleModal();
-                resetSaleForm();
+                showToast(data.message || 'Sale saved successfully.', 'success', 4200);
+
+                if (saveSaleBtn) {
+                    saveSaleBtn.textContent = 'Saved Successfully';
+                }
+
+                setTimeout(() => {
+                    closeSaleModal();
+                    resetSaleForm();
+                }, 1100);
 
                 setTimeout(() => {
                     window.location.href = '/NexGen/CODE/PHP/sale_view.php?id=' + data.sale_id;
-                }, 900);
+                }, 2200);
             } else {
-                showToast(data.message || 'Failed to save sale.', 'error');
+                showToast(data.message || 'Failed to save sale.', 'error', 4200);
             }
         } catch (error) {
             console.error('AJAX error:', error);
-            showToast(error.message || 'An error occurred while saving the sale.', 'error');
+            showToast(error.message || 'An error occurred while saving the sale.', 'error', 4200);
         } finally {
-            if (saveSaleBtn) {
-                saveSaleBtn.disabled = false;
-                saveSaleBtn.textContent = 'Save Sale';
-            }
+            setTimeout(() => {
+                if (saveSaleBtn) {
+                    saveSaleBtn.disabled = false;
+                    saveSaleBtn.textContent = 'Save Sale';
+                }
+            }, 1200);
         }
+    }
+
+    async function submitSaleAjax(e) {
+        e.preventDefault();
+
+        if (!saleForm) return;
+        if (!validateSaleForm()) return;
+
+        openSaleConfirm();
+    }
+
+    if (saleConfirmYes) {
+        saleConfirmYes.addEventListener('click', async function () {
+            closeSaleConfirm();
+            await doSubmitSaleAjax();
+        });
     }
 
     async function submitCustomerAjax(e) {
@@ -557,8 +674,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 if (!existingOption) {
                     const option = document.createElement('option');
-                    option.value = data.customer.id;
-                    option.textContent = `${data.customer.customer_name} (${data.customer.customer_code})`;
+                    option.value = String(data.customer.id);
+                    option.textContent = `${safeText(data.customer.customer_name)} (${safeText(data.customer.customer_code)})`;
                     customerSelect.appendChild(option);
                 }
 

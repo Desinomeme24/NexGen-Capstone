@@ -17,8 +17,14 @@ function sendJson($success, $message, $extra = []) {
     echo json_encode(array_merge([
         'success' => $success,
         'message' => $message
-    ], $extra));
+    ], $extra), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
     exit();
+}
+
+function normalizeText(string $value): string {
+    $value = trim($value);
+    $value = preg_replace('/[\x00-\x1F\x7F]/u', '', $value);
+    return $value ?? '';
 }
 
 if (!isset($_SESSION['user_id'])) {
@@ -49,11 +55,11 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit();
 }
 
-$customer_name = trim($_POST['customer_name'] ?? '');
-$phone         = trim($_POST['phone'] ?? '');
-$email         = trim($_POST['email'] ?? '');
-$address       = trim($_POST['address'] ?? '');
-$payment_status_context = trim($_POST['payment_status_context'] ?? 'Paid');
+$customer_name = normalizeText($_POST['customer_name'] ?? '');
+$phone = normalizeText($_POST['phone'] ?? '');
+$email = normalizeText($_POST['email'] ?? '');
+$address = normalizeText($_POST['address'] ?? '');
+$payment_status_context = normalizeText($_POST['payment_status_context'] ?? 'Paid');
 
 if ($customer_name === '') {
     if (isAjaxRequest()) {
@@ -142,7 +148,7 @@ if ($stmt->execute()) {
     if (isAjaxRequest()) {
         sendJson(true, 'Customer added successfully.', [
             'customer' => [
-                'id' => $customer_id,
+                'id' => (int)$customer_id,
                 'customer_code' => $customer_code,
                 'customer_name' => $customer_name,
                 'phone' => $phone,
@@ -156,14 +162,13 @@ if ($stmt->execute()) {
     header("Location: /NexGen/CODE/PHP/sales_recording.php");
     exit();
 } else {
-    $error = $stmt->error ?: 'Failed to add customer.';
     $stmt->close();
 
     if (isAjaxRequest()) {
-        sendJson(false, $error);
+        sendJson(false, 'Failed to add customer.');
     }
 
-    $_SESSION['error'] = $error;
+    $_SESSION['error'] = 'Failed to add customer.';
     header("Location: /NexGen/CODE/PHP/sales_recording.php");
     exit();
 }

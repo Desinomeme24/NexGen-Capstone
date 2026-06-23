@@ -62,6 +62,10 @@ if (($payment_status === 'Unpaid' || $payment_status === 'Partially Paid') && $c
     exit();
 }
 
+$maxRetries = 3;
+
+for ($attempt = 1; $attempt <= $maxRetries; $attempt++) {
+
 $conn->begin_transaction();
 
 try {
@@ -278,11 +282,19 @@ try {
     header("Location: sale_view.php?id=" . $sale_id);
     exit();
 
-} catch (Exception $e) {
-    $conn->rollback();
+    } catch (Exception $e) {
+        $conn->rollback();
 
-    $_SESSION['error'] = "Error saving sale: " . $e->getMessage();
-    header("Location: /NexGen/CODE/PHP/sales_recording.php");
-    exit();
-}
+        // Retry on deadlock (MySQL error 1213), otherwise fail immediately
+        if ($conn->errno === 1213 && $attempt < $maxRetries) {
+            usleep(100000 * $attempt); // wait 100ms, 200ms before retrying
+            continue;
+        }
+
+        $_SESSION['error'] = "Error saving sale: " . $e->getMessage();
+        header("Location: /NexGen/CODE/PHP/sales_recording.php");
+        exit();
+    }
+
+} // end retry loop
 ?>

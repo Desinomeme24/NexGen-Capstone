@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Apr 28, 2026 at 04:34 PM
+-- Generation Time: May 22, 2026 at 09:30 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -65,7 +65,7 @@ CREATE TABLE `accounts_receivable` (
 --
 
 INSERT INTO `accounts_receivable` (`id`, `sale_id`, `customer_id`, `total_amount`, `amount_paid`, `balance_due`, `due_date`, `status`, `notes`, `created_by`, `created_at`, `updated_at`) VALUES
-(1, 14, 2, 181.00, 181.00, 0.00, '2026-04-15', 'Paid', 'Fully paid', 6, '2026-04-01 05:14:39', '2026-04-01 05:31:04'),
+(1, 14, 2, 181.00, 181.00, 0.00, '2026-04-15', 'Paid', 'test', 6, '2026-04-01 05:14:39', '2026-05-17 10:57:33'),
 (2, 16, 4, 125.00, 125.00, 0.00, '2026-04-04', 'Paid', 'late payment', 6, '2026-04-01 06:34:56', '2026-04-15 03:50:42'),
 (3, 20, 7, 56.00, 56.00, 0.00, '2026-04-10', 'Paid', 'late payment', 6, '2026-04-01 07:53:01', '2026-04-15 03:49:43'),
 (4, 21, 8, 660.00, 660.00, 0.00, '2026-04-30', 'Paid', 'Bayad na', 6, '2026-04-07 09:06:52', '2026-04-07 09:07:48'),
@@ -76,52 +76,73 @@ INSERT INTO `accounts_receivable` (`id`, `sale_id`, `customer_id`, `total_amount
 (9, 33, 13, 85.00, 85.00, 0.00, '2026-04-18', 'Paid', 'bayad na kanina', 10, '2026-04-14 08:33:40', '2026-04-14 08:36:32'),
 (10, 34, 14, 30.00, 30.00, 0.00, '2026-04-30', 'Paid', 'bayad na', 10, '2026-04-14 08:35:54', '2026-04-14 08:48:56'),
 (11, 42, 12, 75.00, 75.00, 0.00, '2026-05-01', 'Paid', 'oks na', 2, '2026-04-23 11:25:06', '2026-04-23 11:25:41'),
-(12, 44, 16, 34.00, 34.00, 0.00, '2026-04-26', 'Paid', '', 14, '2026-04-24 14:34:49', '2026-04-24 14:42:55');
+(12, 44, 16, 34.00, 34.00, 0.00, '2026-04-26', 'Paid', '', 14, '2026-04-24 14:34:49', '2026-04-24 14:42:55'),
+(13, 49, 1, 225.00, 225.00, 0.00, '2026-05-16', 'Paid', 'ok na daw', 2, '2026-05-06 10:50:06', '2026-05-06 10:50:53'),
+(14, 50, 8, 50.00, 50.00, 0.00, '2026-06-01', 'Paid', 'ok na', 2, '2026-05-15 09:52:14', '2026-05-15 09:52:52'),
+(15, 51, 1, 124.00, 124.00, 0.00, '2026-05-30', 'Paid', '', 2, '2026-05-17 10:33:10', '2026-05-17 10:33:42'),
+(16, 52, 11, 186.00, 186.00, 0.00, NULL, 'Paid', NULL, 2, '2026-05-17 10:43:30', '2026-05-17 10:43:44'),
+(17, 53, 4, 126.00, 126.00, 0.00, NULL, 'Paid', NULL, 2, '2026-05-17 10:47:54', '2026-05-17 10:48:05'),
+(18, 54, 5, 260.00, 260.00, 0.00, NULL, 'Paid', NULL, 2, '2026-05-17 10:53:44', '2026-05-17 10:54:23'),
+(19, 55, 7, 84.00, 84.00, 0.00, '2026-06-06', 'Paid', '', 2, '2026-05-17 10:55:26', '2026-05-17 10:55:49'),
+(20, 56, 9, 42.00, 42.00, 0.00, '2026-05-30', 'Paid', 'okay na', 2, '2026-05-21 05:17:04', '2026-05-21 05:21:17'),
+(21, 57, 12, 75.00, 75.00, 0.00, '2026-05-31', 'Paid', '', 2, '2026-05-21 05:29:59', '2026-05-21 05:32:11'),
+(22, 58, 12, 51.00, 51.00, 0.00, '2026-05-30', 'Paid', '', 2, '2026-05-22 06:44:18', '2026-05-22 06:44:50'),
+(23, 59, 12, 100.00, 100.00, 0.00, '2026-05-29', 'Paid', 'okay na', 2, '2026-05-22 07:11:29', '2026-05-22 07:12:36');
 
 --
 -- Triggers `accounts_receivable`
 --
 DELIMITER $$
-CREATE TRIGGER `trg_accounts_receivable_audit_update` AFTER UPDATE ON `accounts_receivable` FOR EACH ROW BEGIN
-    IF OLD.amount_paid <> NEW.amount_paid
-       OR OLD.balance_due <> NEW.balance_due
-       OR OLD.status <> NEW.status
-       OR IFNULL(OLD.notes, '') <> IFNULL(NEW.notes, '') THEN
+CREATE TRIGGER `trg_accounts_receivable_after_update` AFTER UPDATE ON `accounts_receivable` FOR EACH ROW BEGIN
+    DECLARE v_remarks VARCHAR(255);
 
-        INSERT INTO audit_logs (
-            table_name,
-            record_id,
-            action_type,
-            changed_by,
-            old_values,
-            new_values
-        ) VALUES (
-            'accounts_receivable',
-            NEW.id,
-            'UPDATE',
-            NEW.customer_id,
-            CONCAT(
-                'sale_id=', IFNULL(OLD.sale_id, ''),
-                '; customer_id=', IFNULL(OLD.customer_id, ''),
-                '; total_amount=', IFNULL(OLD.total_amount, ''),
-                '; amount_paid=', IFNULL(OLD.amount_paid, ''),
-                '; balance_due=', IFNULL(OLD.balance_due, ''),
-                '; due_date=', IFNULL(OLD.due_date, ''),
-                '; status=', IFNULL(OLD.status, ''),
-                '; notes=', IFNULL(OLD.notes, '')
-            ),
-            CONCAT(
-                'sale_id=', IFNULL(NEW.sale_id, ''),
-                '; customer_id=', IFNULL(NEW.customer_id, ''),
-                '; total_amount=', IFNULL(NEW.total_amount, ''),
-                '; amount_paid=', IFNULL(NEW.amount_paid, ''),
-                '; balance_due=', IFNULL(NEW.balance_due, ''),
-                '; due_date=', IFNULL(NEW.due_date, ''),
-                '; status=', IFNULL(NEW.status, ''),
-                '; notes=', IFNULL(NEW.notes, '')
-            )
-        );
-    END IF;
+    CASE NEW.status
+        WHEN 'Paid' THEN
+            SET v_remarks = CONCAT(
+                'Payment completed. Full balance cleared. Notes: ',
+                IFNULL(NEW.notes, 'N/A')
+            );
+        WHEN 'Partially Paid' THEN
+            SET v_remarks = CONCAT(
+                'Partial payment applied. Remaining balance: ₱',
+                FORMAT(NEW.balance_due, 2)
+            );
+        WHEN 'Overdue' THEN
+            SET v_remarks = CONCAT(
+                'Payment recorded but account is overdue. Balance: ₱',
+                FORMAT(NEW.balance_due, 2)
+            );
+        ELSE
+            SET v_remarks = 'Receivable record updated';
+    END CASE;
+
+    INSERT INTO `audit_logs` (
+        `table_name`, `action`, `record_id`,
+        `changed_by`, `ip_address`,
+        `old_values`, `new_values`, `remarks`
+    )
+    VALUES (
+        'accounts_receivable',
+        'PAYMENT',
+        NEW.id,
+        @audit_user_id,
+        @audit_ip,
+        JSON_OBJECT(
+            'sale_id',     OLD.sale_id,
+            'amount_paid', OLD.amount_paid,
+            'balance_due', OLD.balance_due,
+            'status',      OLD.status,
+            'notes',       OLD.notes
+        ),
+        JSON_OBJECT(
+            'sale_id',     NEW.sale_id,
+            'amount_paid', NEW.amount_paid,
+            'balance_due', NEW.balance_due,
+            'status',      NEW.status,
+            'notes',       NEW.notes
+        ),
+        v_remarks
+    );
 END
 $$
 DELIMITER ;
@@ -197,25 +218,11 @@ INSERT INTO `admin_logs` (`id`, `admin_id`, `action`, `target_type`, `target_id`
 (44, 4, 'unlock_user_account', 'user', 15, 'Unlocked user account #15 (sedsed)', NULL, NULL, NULL, NULL, '2026-04-27 11:14:28'),
 (45, 4, 'unlock_user_account', 'user', 15, 'Unlocked user account #15 (sedsed)', NULL, NULL, NULL, NULL, '2026-04-27 11:19:59'),
 (46, 4, 'unlock_user_account', 'user', 15, 'Unlocked user account #15 (sedsed) and restored full 5 login attempts.', NULL, NULL, NULL, NULL, '2026-04-27 11:24:02'),
-(47, 4, 'unlock_user_account', 'user', 14, 'Unlocked user account #14 (Elwin) and restored full 3 login attempts.', '0000000000000000000000000000000000000000000000000000000000000000', 'a17a0ba61aacf80a4926527089ad86177fb9f449ab6a4d7f6abfb2adc0213515', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36', '2026-04-28 14:29:54');
-
---
--- Triggers `admin_logs`
---
-DELIMITER $$
-CREATE TRIGGER `trg_admin_logs_no_delete` BEFORE DELETE ON `admin_logs` FOR EACH ROW BEGIN
-    SIGNAL SQLSTATE '45000'
-    SET MESSAGE_TEXT = 'admin_logs is append-only. Deletes are not allowed.';
-END
-$$
-DELIMITER ;
-DELIMITER $$
-CREATE TRIGGER `trg_admin_logs_no_update` BEFORE UPDATE ON `admin_logs` FOR EACH ROW BEGIN
-    SIGNAL SQLSTATE '45000'
-    SET MESSAGE_TEXT = 'admin_logs is append-only. Updates are not allowed.';
-END
-$$
-DELIMITER ;
+(47, 4, 'unlock_user_account', 'user', 14, 'Unlocked user account #14 (Elwin) and restored full 3 login attempts.', '0000000000000000000000000000000000000000000000000000000000000000', 'a17a0ba61aacf80a4926527089ad86177fb9f449ab6a4d7f6abfb2adc0213515', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36', '2026-04-28 14:29:54'),
+(48, 4, 'approve_request', 'registration_request', 15, 'Approved request #15 (REQ-20260511-0001) and created user #16 with role-based module permissions', 'a17a0ba61aacf80a4926527089ad86177fb9f449ab6a4d7f6abfb2adc0213515', '8409b6f436067867448a924a34feebdc7559f30303a958ef4d6d9d87ee737321', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36 Edg/148.0.0.0', '2026-05-11 08:55:34'),
+(49, 4, 'approve_request', 'registration_request', 16, 'Approved request #16 (REQ-20260511-0002) and created user #17 with role-based module permissions', '8409b6f436067867448a924a34feebdc7559f30303a958ef4d6d9d87ee737321', 'c5215beac23f4bbd8e8a4d6f7b6129d811cf42601d6ed3c53e046c1009b78aa0', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36 Edg/148.0.0.0', '2026-05-11 09:12:13'),
+(50, 4, 'approve_request', 'registration_request', 17, 'Approved request #17 (REQ-20260515-0001) and created user #18 with role-based module permissions', 'c5215beac23f4bbd8e8a4d6f7b6129d811cf42601d6ed3c53e046c1009b78aa0', '939efda156736bd71763328c9b57e13b8e6d029fd49a34e390b616dcb4fdeec5', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36 Edg/148.0.0.0', '2026-05-15 07:45:01'),
+(51, 4, 'update_user_permissions', 'user', 13, 'Updated user #13 (Joshie) - role: employee, status: active, verified: 1, inventory: 0, sales: 1, analytics: 0, accounts_receivable: 1', '939efda156736bd71763328c9b57e13b8e6d029fd49a34e390b616dcb4fdeec5', '1c8bc262107fb581ce32f962048b8bd28bf4fb90dfb24b22ba9fca501bbcbde4', '::1', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36 Edg/148.0.0.0', '2026-05-16 06:17:59');
 
 -- --------------------------------------------------------
 
@@ -224,197 +231,39 @@ DELIMITER ;
 --
 
 CREATE TABLE `audit_logs` (
-  `id` int(11) NOT NULL,
-  `table_name` varchar(100) NOT NULL,
-  `record_id` int(11) DEFAULT NULL,
-  `action_type` enum('INSERT','UPDATE','DELETE') NOT NULL,
-  `changed_by` int(11) DEFAULT NULL,
-  `old_values` text DEFAULT NULL,
-  `new_values` text DEFAULT NULL,
-  `changed_at` timestamp NOT NULL DEFAULT current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+  `id` int(10) UNSIGNED NOT NULL,
+  `table_name` varchar(100) NOT NULL COMMENT 'Affected table',
+  `action` varchar(30) NOT NULL COMMENT 'INSERT | UPDATE | ARCHIVE | PAYMENT',
+  `record_id` int(11) NOT NULL COMMENT 'Primary key of the affected row',
+  `changed_by` int(11) DEFAULT NULL COMMENT 'User ID from @audit_user_id',
+  `ip_address` varchar(45) DEFAULT NULL COMMENT 'Client IP from @audit_ip',
+  `old_values` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT 'Row snapshot before the change' CHECK (json_valid(`old_values`)),
+  `new_values` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL COMMENT 'Row snapshot after the change' CHECK (json_valid(`new_values`)),
+  `remarks` varchar(255) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Audit footprint for all critical table operations in NexGen';
 
 --
 -- Dumping data for table `audit_logs`
 --
 
-INSERT INTO `audit_logs` (`id`, `table_name`, `record_id`, `action_type`, `changed_by`, `old_values`, `new_values`, `changed_at`) VALUES
-(1, 'users', 2, 'UPDATE', 2, 'username=Desinomeme; full_name=Matt Railey Valdevia; employee_no=; email=mvaldevia@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-21 22:11:20', 'username=Desinomeme; full_name=Matt Railey Valdevia; employee_no=; email=mvaldevia@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-23 18:39:45', '2026-04-23 10:39:45'),
-(2, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-19 21:43:05', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-23 18:52:47', '2026-04-23 10:52:47'),
-(3, 'users', 13, 'UPDATE', 13, 'username=Joshie; full_name=Joshua Malvar Isla; employee_no=EMP-300; email=joshuaisla04@gmail.com; role=employee; account_status=active; can_inventory=0; can_sales=1; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-16 19:42:32', 'username=Joshie; full_name=Joshua Malvar Isla; employee_no=EMP-300; email=joshuaisla04@gmail.com; role=employee; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=0; can_accounts_receivable=1; last_login_at=2026-04-16 19:42:32', '2026-04-23 11:04:38'),
-(4, 'users', 2, 'UPDATE', 2, 'username=Desinomeme; full_name=Matt Railey Valdevia; employee_no=; email=mvaldevia@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-23 18:39:45', 'username=Desinomeme; full_name=Matt Railey Valdevia; employee_no=; email=mvaldevia@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-23 19:05:29', '2026-04-23 11:05:29'),
-(5, 'accounts_receivable', 7, 'UPDATE', 11, 'sale_id=30; customer_id=11; total_amount=60.00; amount_paid=20.00; balance_due=40.00; due_date=2026-04-20; status=Partially Paid; notes=bukas babayaran kulang', 'sale_id=30; customer_id=11; total_amount=60.00; amount_paid=60.00; balance_due=0.00; due_date=2026-04-20; status=Paid; notes=oks na', '2026-04-23 11:17:34'),
-(6, 'products', 9, 'UPDATE', NULL, 'product_code=07; product_name=Dutchmill Superfruits; category_id=1; brand=Dutch Mill; unit=Packs; cost_price=20.00; selling_price=25.00; stock_quantity=41; reorder_level=0; on_order_level=0; expiry_date=2026-12-01; is_active=1', 'product_code=07; product_name=Dutchmill Superfruits; category_id=1; brand=Dutch Mill; unit=Packs; cost_price=20.00; selling_price=25.00; stock_quantity=38; reorder_level=0; on_order_level=0; expiry_date=2026-12-01; is_active=1', '2026-04-23 11:25:06'),
-(7, 'accounts_receivable', 11, 'UPDATE', 12, 'sale_id=42; customer_id=12; total_amount=75.00; amount_paid=35.00; balance_due=40.00; due_date=2026-05-01; status=Partially Paid; notes=', 'sale_id=42; customer_id=12; total_amount=75.00; amount_paid=75.00; balance_due=0.00; due_date=2026-05-01; status=Paid; notes=oks na', '2026-04-23 11:25:41'),
-(8, 'products', 30, 'UPDATE', NULL, 'product_code=27; product_name=Potato Crisp Onion; category_id=2; brand=Oishi; unit=Pieces; cost_price=8.00; selling_price=11.00; stock_quantity=3; reorder_level=0; on_order_level=0; expiry_date=2027-01-01; is_active=1', 'product_code=27; product_name=Potato Crisp Onion; category_id=2; brand=Oishi; unit=Pieces; cost_price=8.00; selling_price=11.00; stock_quantity=3; reorder_level=0; on_order_level=0; expiry_date=2027-01-01; is_active=0', '2026-04-23 11:43:50'),
-(9, 'products', 30, 'UPDATE', NULL, 'is_active=1', 'is_active=0', '2026-04-23 11:43:50'),
-(10, 'products', 32, 'INSERT', NULL, NULL, 'product_code=28; product_name=Cup Noodles Beef; category_id=10; brand=Nissin; unit=pcs; cost_price=30.00; selling_price=35.00; stock_quantity=40; reorder_level=10; on_order_level=0; expiry_date=2027-01-01; is_active=1', '2026-04-23 11:49:03'),
-(11, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-23 18:52:47', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-24 22:17:13', '2026-04-24 14:17:13'),
-(12, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-24 22:17:13', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-24 22:20:24', '2026-04-24 14:20:24'),
-(13, 'users', 14, 'INSERT', 14, NULL, 'username=Elwin; full_name=Farma; employee_no=5555; email=win@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=', '2026-04-24 14:20:40'),
-(14, 'users', 14, 'UPDATE', 14, 'username=Elwin; full_name=Farma; employee_no=5555; email=win@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=', 'username=Elwin; full_name=Farma; employee_no=5555; email=win@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-24 22:20:49', '2026-04-24 14:20:49'),
-(15, 'users', 14, 'UPDATE', 14, 'username=Elwin; full_name=Farma; employee_no=5555; email=win@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-24 22:20:49', 'username=Elwin; full_name=Farma; employee_no=5555; email=win@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-24 22:20:49', '2026-04-24 14:22:39'),
-(16, 'products', 11, 'UPDATE', NULL, 'product_code=09; product_name=Chuckie; category_id=1; brand=Nestle; unit=Packs; cost_price=20.00; selling_price=25.00; stock_quantity=30; reorder_level=0; on_order_level=0; expiry_date=2027-04-01; is_active=1', 'product_code=09; product_name=Chuckie; category_id=1; brand=Nestle; unit=Packs; cost_price=20.00; selling_price=25.00; stock_quantity=28; reorder_level=0; on_order_level=0; expiry_date=2027-04-01; is_active=1', '2026-04-24 14:29:16'),
-(17, 'products', 10, 'UPDATE', NULL, 'product_code=08; product_name=Dutchmill Blueberry; category_id=1; brand=Dutch Mill; unit=Packs; cost_price=13.00; selling_price=17.00; stock_quantity=40; reorder_level=0; on_order_level=0; expiry_date=2026-12-01; is_active=1', 'product_code=08; product_name=Dutchmill Blueberry; category_id=1; brand=Dutch Mill; unit=Packs; cost_price=13.00; selling_price=17.00; stock_quantity=38; reorder_level=0; on_order_level=0; expiry_date=2026-12-01; is_active=1', '2026-04-24 14:34:49'),
-(18, 'products', 4, 'UPDATE', NULL, 'product_code=02; product_name=Lemon Soda; category_id=1; brand=Lemon Juicy; unit=Bottles; cost_price=8.00; selling_price=10.00; stock_quantity=20; reorder_level=0; on_order_level=0; expiry_date=2026-06-01; is_active=1', 'product_code=02; product_name=Lemon Soda; category_id=1; brand=Lemon Juicy; unit=Bottles; cost_price=8.00; selling_price=10.00; stock_quantity=25; reorder_level=0; on_order_level=0; expiry_date=2026-06-01; is_active=1', '2026-04-24 14:37:31'),
-(19, 'products', 1, 'UPDATE', NULL, 'product_code=01; product_name=Coke Mismo; category_id=1; brand=Coca-cola; unit=Bottles; cost_price=18.00; selling_price=20.00; stock_quantity=18; reorder_level=0; on_order_level=0; expiry_date=2026-06-01; is_active=1', 'product_code=01; product_name=Coke Mismo; category_id=1; brand=Coca-cola; unit=Bottles; cost_price=18.00; selling_price=20.00; stock_quantity=25; reorder_level=0; on_order_level=0; expiry_date=2026-06-01; is_active=1', '2026-04-24 14:38:15'),
-(20, 'accounts_receivable', 12, 'UPDATE', 16, 'sale_id=44; customer_id=16; total_amount=34.00; amount_paid=7.00; balance_due=27.00; due_date=2026-04-26; status=Partially Paid; notes=', 'sale_id=44; customer_id=16; total_amount=34.00; amount_paid=27.00; balance_due=7.00; due_date=2026-04-26; status=Partially Paid; notes=', '2026-04-24 14:42:22'),
-(21, 'accounts_receivable', 12, 'UPDATE', 16, 'sale_id=44; customer_id=16; total_amount=34.00; amount_paid=27.00; balance_due=7.00; due_date=2026-04-26; status=Partially Paid; notes=', 'sale_id=44; customer_id=16; total_amount=34.00; amount_paid=34.00; balance_due=0.00; due_date=2026-04-26; status=Paid; notes=', '2026-04-24 14:42:55'),
-(24, 'products', 1, 'UPDATE', NULL, 'product_code=01; product_name=Coke Mismo; category_id=1; brand=Coca-cola; unit=Bottles; cost_price=18.00; selling_price=20.00; stock_quantity=25; reorder_level=0; on_order_level=0; expiry_date=2026-06-01; is_active=1', 'product_code=01; product_name=Coke Mismo; category_id=1; brand=Coca-cola; unit=Bottles; cost_price=18.00; selling_price=20.00; stock_quantity=26; reorder_level=0; on_order_level=0; expiry_date=2026-06-01; is_active=1', '2026-04-24 14:50:32'),
-(26, 'products', 1, 'UPDATE', NULL, 'product_code=01; product_name=Coke Mismo; category_id=1; brand=Coca-cola; unit=Bottles; cost_price=18.00; selling_price=20.00; stock_quantity=26; reorder_level=0; on_order_level=0; expiry_date=2026-06-01; is_active=1', 'product_code=01; product_name=Coke Mismo; category_id=1; brand=Coca-cola; unit=Bottles; cost_price=18.00; selling_price=20.00; stock_quantity=27; reorder_level=0; on_order_level=0; expiry_date=2026-06-01; is_active=1', '2026-04-24 14:52:10'),
-(27, 'products', 33, 'INSERT', NULL, NULL, 'product_code=777; product_name=Loaded Cheese; category_id=2; brand=Stateline; unit=pcs; cost_price=10.00; selling_price=9.98; stock_quantity=10; reorder_level=5; on_order_level=0; expiry_date=2026-05-29; is_active=1', '2026-04-24 15:01:53'),
-(28, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-24 22:20:24', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-24 23:04:24', '2026-04-24 15:04:24'),
-(29, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-24 23:04:24', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-24 23:07:00', '2026-04-24 15:07:00'),
-(30, 'users', 14, 'UPDATE', 14, 'username=Elwin; full_name=Farma; employee_no=5555; email=win@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-24 22:20:49', 'username=Elwin; full_name=Farma; employee_no=5555; email=win@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-24 23:17:20', '2026-04-24 15:17:20'),
-(31, 'products', 33, 'UPDATE', NULL, 'is_active=1', 'is_active=0', '2026-04-24 15:17:35'),
-(32, 'products', 33, 'UPDATE', NULL, 'product_code=777; product_name=Loaded Cheese; category_id=2; brand=Stateline; unit=pcs; cost_price=10.00; selling_price=9.98; stock_quantity=10; reorder_level=5; on_order_level=0; expiry_date=2026-05-29; is_active=1', 'product_code=777; product_name=Loaded Cheese; category_id=2; brand=Stateline; unit=pcs; cost_price=10.00; selling_price=9.98; stock_quantity=10; reorder_level=5; on_order_level=0; expiry_date=2026-05-29; is_active=0', '2026-04-24 15:17:35'),
-(33, 'users', 14, 'UPDATE', 14, 'username=Elwin; full_name=Farma; employee_no=5555; email=win@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-24 23:17:20', 'username=Elwin; full_name=Farma; employee_no=5555; email=win@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 17:38:29', '2026-04-27 09:38:29'),
-(34, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-24 23:07:00', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 17:58:26', '2026-04-27 09:58:26'),
-(35, 'users', 15, 'INSERT', 15, NULL, 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=', '2026-04-27 09:58:48'),
-(36, 'users', 15, 'UPDATE', 15, 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=', 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 17:59:20', '2026-04-27 09:59:20'),
-(37, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 17:58:26', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 17:58:26', '2026-04-27 10:16:10'),
-(38, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 17:58:26', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 18:16:10', '2026-04-27 10:16:10'),
-(39, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 18:16:10', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 18:16:10', '2026-04-27 10:21:44'),
-(40, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 18:16:10', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 18:21:45', '2026-04-27 10:21:45'),
-(41, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 18:21:45', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 18:21:45', '2026-04-27 10:39:59'),
-(42, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 18:21:45', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 18:21:45', '2026-04-27 10:40:14'),
-(43, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 18:21:45', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 18:40:14', '2026-04-27 10:40:14'),
-(44, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 18:40:14', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 18:40:14', '2026-04-27 10:44:54'),
-(45, 'users', 15, 'UPDATE', 15, 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 17:59:20', 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 17:59:20', '2026-04-27 10:55:13'),
-(46, 'users', 15, 'UPDATE', 15, 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 17:59:20', 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 17:59:20', '2026-04-27 10:55:23'),
-(47, 'users', 15, 'UPDATE', 15, 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 17:59:20', 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 17:59:20', '2026-04-27 10:55:35'),
-(48, 'users', 15, 'UPDATE', 15, 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 17:59:20', 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 17:59:20', '2026-04-27 10:55:53'),
-(49, 'users', 15, 'UPDATE', 15, 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 17:59:20', 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 17:59:20', '2026-04-27 10:56:10'),
-(50, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 18:40:14', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 18:40:14', '2026-04-27 11:12:42'),
-(51, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 18:40:14', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 18:40:14', '2026-04-27 11:12:53'),
-(52, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 18:40:14', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 19:12:53', '2026-04-27 11:12:53'),
-(53, 'users', 15, 'UPDATE', 15, 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 17:59:20', 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 17:59:20', '2026-04-27 11:13:35'),
-(54, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 19:12:53', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 19:12:53', '2026-04-27 11:14:01'),
-(55, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 19:12:53', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 19:12:53', '2026-04-27 11:14:10'),
-(56, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 19:12:53', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 19:14:10', '2026-04-27 11:14:10'),
-(57, 'users', 15, 'UPDATE', 15, 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 17:59:20', 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 17:59:20', '2026-04-27 11:14:28'),
-(58, 'users', 15, 'UPDATE', 15, 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 17:59:20', 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 17:59:20', '2026-04-27 11:17:19'),
-(59, 'users', 15, 'UPDATE', 15, 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 17:59:20', 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 17:59:20', '2026-04-27 11:18:44'),
-(60, 'users', 15, 'UPDATE', 15, 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 17:59:20', 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 17:59:20', '2026-04-27 11:18:51'),
-(61, 'users', 15, 'UPDATE', 15, 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 17:59:20', 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 17:59:20', '2026-04-27 11:19:08'),
-(62, 'users', 15, 'UPDATE', 15, 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 17:59:20', 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 17:59:20', '2026-04-27 11:19:19'),
-(63, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 19:14:10', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 19:14:10', '2026-04-27 11:19:46'),
-(64, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 19:14:10', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 19:19:46', '2026-04-27 11:19:46'),
-(65, 'users', 15, 'UPDATE', 15, 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 17:59:20', 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 17:59:20', '2026-04-27 11:19:59'),
-(66, 'users', 15, 'UPDATE', 15, 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 17:59:20', 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 17:59:20', '2026-04-27 11:22:54'),
-(67, 'users', 15, 'UPDATE', 15, 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 17:59:20', 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 17:59:20', '2026-04-27 11:23:02'),
-(68, 'users', 15, 'UPDATE', 15, 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 17:59:20', 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 17:59:20', '2026-04-27 11:23:17'),
-(69, 'users', 15, 'UPDATE', 15, 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 17:59:20', 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 17:59:20', '2026-04-27 11:23:22'),
-(70, 'users', 15, 'UPDATE', 15, 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 17:59:20', 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 17:59:20', '2026-04-27 11:23:27'),
-(71, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 19:19:46', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 19:19:46', '2026-04-27 11:23:45'),
-(72, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 19:19:46', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 19:23:45', '2026-04-27 11:23:45'),
-(73, 'users', 15, 'UPDATE', 15, 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 17:59:20', 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 17:59:20', '2026-04-27 11:24:02'),
-(74, 'users', 15, 'UPDATE', 15, 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 17:59:20', 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 17:59:20', '2026-04-27 11:24:19'),
-(75, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 19:23:45', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 19:23:45', '2026-04-27 11:24:28'),
-(76, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 19:23:45', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 19:23:45', '2026-04-27 11:41:10'),
-(77, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 19:23:45', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 19:23:45', '2026-04-27 11:41:13'),
-(78, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 19:23:45', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 19:23:45', '2026-04-27 11:41:15'),
-(79, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 19:23:45', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 19:23:45', '2026-04-27 11:41:17'),
-(80, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 19:23:45', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 19:23:45', '2026-04-27 11:41:21'),
-(81, 'users', 14, 'UPDATE', 14, 'username=Elwin; full_name=Farma; employee_no=5555; email=win@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 17:38:29', 'username=Elwin; full_name=Farma; employee_no=5555; email=win@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 17:38:29', '2026-04-27 11:55:08'),
-(82, 'users', 14, 'UPDATE', 14, 'username=Elwin; full_name=Farma; employee_no=5555; email=win@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 17:38:29', 'username=Elwin; full_name=Farma; employee_no=5555; email=win@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 19:55:08', '2026-04-27 11:55:08'),
-(83, 'users', 14, 'UPDATE', 14, 'username=Elwin; full_name=Farma; employee_no=5555; email=win@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 19:55:08', 'username=Elwin; full_name=Farma; employee_no=5555; email=win@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 19:55:08', '2026-04-27 14:53:40'),
-(84, 'users', 14, 'UPDATE', 14, 'username=Elwin; full_name=Farma; employee_no=5555; email=win@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 19:55:08', 'username=Elwin; full_name=Farma; employee_no=5555; email=win@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 19:55:08', '2026-04-27 14:54:00'),
-(85, 'users', 14, 'UPDATE', 14, 'username=Elwin; full_name=Farma; employee_no=5555; email=win@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 19:55:08', 'username=Elwin; full_name=Farma; employee_no=5555; email=win@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 22:54:00', '2026-04-27 14:54:00'),
-(86, 'users', 14, 'UPDATE', 14, 'username=Elwin; full_name=Farma; employee_no=5555; email=win@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 22:54:00', 'username=Elwin; full_name=Farma; employee_no=5555; email=win@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 22:54:00', '2026-04-28 08:16:24'),
-(87, 'users', 14, 'UPDATE', 14, 'username=Elwin; full_name=Farma; employee_no=5555; email=win@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 22:54:00', 'username=Elwin; full_name=Farma; employee_no=5555; email=win@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 22:54:00', '2026-04-28 08:17:51'),
-(88, 'users', 14, 'UPDATE', 14, 'username=Elwin; full_name=Farma; employee_no=5555; email=win@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 22:54:00', 'username=Elwin; full_name=Farma; employee_no=5555; email=win@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 22:54:00', '2026-04-28 08:18:03'),
-(89, 'users', 15, 'UPDATE', 15, 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 17:59:20', 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 17:59:20', '2026-04-28 08:18:34'),
-(90, 'users', 15, 'UPDATE', 15, 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 17:59:20', 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 17:59:20', '2026-04-28 08:19:09'),
-(91, 'users', 15, 'UPDATE', 15, 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 17:59:20', 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 16:19:09', '2026-04-28 08:19:09'),
-(92, 'users', 14, 'UPDATE', 14, 'username=Elwin; full_name=Farma; employee_no=5555; email=win@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 22:54:00', 'username=Elwin; full_name=Farma; employee_no=5555; email=win@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 22:54:00', '2026-04-28 09:05:11'),
-(93, 'users', 14, 'UPDATE', 14, 'username=Elwin; full_name=Farma; employee_no=5555; email=win@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-27 22:54:00', 'username=Elwin; full_name=Farma; employee_no=5555; email=win@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 17:05:11', '2026-04-28 09:05:11'),
-(94, 'users', 14, 'UPDATE', 14, 'username=Elwin; full_name=Farma; employee_no=5555; email=win@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 17:05:11', 'username=Elwin; full_name=Farma; employee_no=5555; email=win@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 17:05:11', '2026-04-28 10:09:03'),
-(95, 'users', 14, 'UPDATE', 14, 'username=Elwin; full_name=Farma; employee_no=5555; email=win@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 17:05:11', 'username=Elwin; full_name=Farma; employee_no=5555; email=win@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 17:05:11', '2026-04-28 10:09:16'),
-(96, 'users', 14, 'UPDATE', 14, 'username=Elwin; full_name=Farma; employee_no=5555; email=win@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 17:05:11', 'username=Elwin; full_name=Farma; employee_no=5555; email=win@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 17:05:11', '2026-04-28 10:09:31'),
-(97, 'users', 15, 'UPDATE', 15, 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 16:19:09', 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 16:19:09', '2026-04-28 10:09:56'),
-(98, 'users', 15, 'UPDATE', 15, 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 16:19:09', 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 18:09:56', '2026-04-28 10:09:56'),
-(99, 'users', 15, 'UPDATE', 15, 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 18:09:56', 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 18:09:56', '2026-04-28 10:11:56'),
-(100, 'users', 15, 'UPDATE', 15, 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 18:09:56', 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 18:09:56', '2026-04-28 10:24:48');
-INSERT INTO `audit_logs` (`id`, `table_name`, `record_id`, `action_type`, `changed_by`, `old_values`, `new_values`, `changed_at`) VALUES
-(101, 'users', 15, 'UPDATE', 15, 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 18:09:56', 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 18:24:48', '2026-04-28 10:24:48'),
-(102, 'users', 15, 'UPDATE', 15, 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 18:24:48', 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 18:24:48', '2026-04-28 11:25:29'),
-(103, 'users', 15, 'UPDATE', 15, 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 18:24:48', 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 19:25:29', '2026-04-28 11:25:29'),
-(104, 'products', 6, 'UPDATE', NULL, 'product_code=04; product_name=Alfonso Light; category_id=1; brand=Alfonso; unit=Bottles; cost_price=250.00; selling_price=285.00; stock_quantity=10; reorder_level=0; on_order_level=0; expiry_date=2026-09-01; is_active=1', 'product_code=04; product_name=Alfonso Light; category_id=1; brand=Alfonso; unit=Bottles; cost_price=250.00; selling_price=285.00; stock_quantity=9; reorder_level=0; on_order_level=0; expiry_date=2026-09-01; is_active=1', '2026-04-28 11:26:07'),
-(105, 'users', 15, 'UPDATE', 15, 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 19:25:29', 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 19:25:29', '2026-04-28 11:47:04'),
-(106, 'users', 15, 'UPDATE', 15, 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 19:25:29', 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 19:47:04', '2026-04-28 11:47:04'),
-(107, 'products', 11, 'UPDATE', NULL, 'product_code=09; product_name=Chuckie; category_id=1; brand=Nestle; unit=Packs; cost_price=20.00; selling_price=25.00; stock_quantity=28; reorder_level=0; on_order_level=0; expiry_date=2027-04-01; is_active=1', 'product_code=09; product_name=Chuckie; category_id=1; brand=Nestle; unit=Packs; cost_price=20.00; selling_price=25.00; stock_quantity=27; reorder_level=0; on_order_level=0; expiry_date=2027-04-01; is_active=1', '2026-04-28 11:47:37'),
-(108, 'users', 15, 'UPDATE', 15, 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 19:47:04', 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 19:47:04', '2026-04-28 12:06:27'),
-(109, 'users', 15, 'UPDATE', 15, 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 19:47:04', 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 19:47:04', '2026-04-28 12:06:56'),
-(110, 'users', 15, 'UPDATE', 15, 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 19:47:04', 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 19:47:04', '2026-04-28 12:07:35'),
-(111, 'users', 15, 'UPDATE', 15, 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 19:47:04', 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 19:47:04', '2026-04-28 12:07:52'),
-(112, 'users', 15, 'UPDATE', 15, 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 19:47:04', 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 20:07:52', '2026-04-28 12:07:52'),
-(113, 'products', 9, 'UPDATE', NULL, 'product_code=07; product_name=Dutchmill Superfruits; category_id=1; brand=Dutch Mill; unit=Packs; cost_price=20.00; selling_price=25.00; stock_quantity=38; reorder_level=0; on_order_level=0; expiry_date=2026-12-01; is_active=1', 'product_code=07; product_name=Dutchmill Superfruits; category_id=1; brand=Dutch Mill; unit=Packs; cost_price=20.00; selling_price=25.00; stock_quantity=37; reorder_level=0; on_order_level=0; expiry_date=2026-12-01; is_active=1', '2026-04-28 12:08:21'),
-(114, 'products', 14, 'UPDATE', NULL, 'product_code=12; product_name=Giniling; category_id=3; brand=Argentina; unit=Pieces; cost_price=31.00; selling_price=35.00; stock_quantity=20; reorder_level=0; on_order_level=0; expiry_date=2028-01-01; is_active=1', 'product_code=12; product_name=Giniling; category_id=3; brand=Argentina; unit=Pieces; cost_price=31.00; selling_price=35.00; stock_quantity=19; reorder_level=0; on_order_level=0; expiry_date=2028-01-01; is_active=1', '2026-04-28 12:08:58'),
-(115, 'users', 15, 'UPDATE', 15, 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 20:07:52', 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 20:07:52', '2026-04-28 12:46:58'),
-(116, 'users', 15, 'UPDATE', 15, 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 20:07:52', 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 20:46:58', '2026-04-28 12:46:58'),
-(117, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 19:23:45', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 19:23:45', '2026-04-28 12:48:07'),
-(118, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-27 19:23:45', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 20:48:07', '2026-04-28 12:48:07'),
-(119, 'users', 15, 'UPDATE', 15, 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 20:46:58', 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 20:46:58', '2026-04-28 12:59:49'),
-(120, 'users', 15, 'UPDATE', 15, 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 20:46:58', 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 20:59:49', '2026-04-28 12:59:49'),
-(121, 'users', 15, 'UPDATE', 15, 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 20:59:49', 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 20:59:49', '2026-04-28 13:00:20'),
-(122, 'users', 15, 'UPDATE', 15, 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 20:59:49', 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 20:59:49', '2026-04-28 13:01:23'),
-(123, 'users', 15, 'UPDATE', 15, 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 20:59:49', 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 20:59:49', '2026-04-28 13:14:53'),
-(124, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 20:48:07', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 20:48:07', '2026-04-28 13:18:49'),
-(125, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 20:48:07', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 20:48:07', '2026-04-28 13:19:12'),
-(126, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 20:48:07', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:19:12', '2026-04-28 13:19:12'),
-(127, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:19:12', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:19:12', '2026-04-28 13:19:28'),
-(128, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:19:12', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:19:28', '2026-04-28 13:19:28'),
-(129, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:19:28', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:19:28', '2026-04-28 13:20:05'),
-(130, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:19:28', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:20:05', '2026-04-28 13:20:05'),
-(131, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:20:05', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:20:05', '2026-04-28 13:20:22'),
-(132, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:20:05', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:20:05', '2026-04-28 13:20:34'),
-(133, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:20:05', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:20:34', '2026-04-28 13:20:34'),
-(134, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:20:34', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:20:34', '2026-04-28 13:23:05'),
-(135, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:20:34', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:20:34', '2026-04-28 13:24:18'),
-(136, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:20:34', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:20:34', '2026-04-28 13:28:21'),
-(137, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:20:34', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:28:21', '2026-04-28 13:28:21'),
-(138, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:28:21', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:28:21', '2026-04-28 13:28:38'),
-(139, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:28:21', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:28:38', '2026-04-28 13:28:38'),
-(140, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:28:38', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:28:38', '2026-04-28 13:29:00'),
-(141, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:28:38', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:28:38', '2026-04-28 13:29:17'),
-(142, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:28:38', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:28:38', '2026-04-28 13:29:40'),
-(143, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:28:38', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:28:38', '2026-04-28 13:35:05'),
-(144, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:28:38', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:35:05', '2026-04-28 13:35:05'),
-(145, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:35:05', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:35:05', '2026-04-28 13:49:54'),
-(146, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:35:05', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:35:05', '2026-04-28 13:50:19'),
-(147, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:35:05', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:50:19', '2026-04-28 13:50:19'),
-(148, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:50:19', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:50:19', '2026-04-28 13:53:40'),
-(149, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:50:19', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:50:19', '2026-04-28 13:55:36'),
-(150, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:50:19', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:50:19', '2026-04-28 13:55:47'),
-(151, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:50:19', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:55:47', '2026-04-28 13:55:47'),
-(152, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:55:47', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:55:47', '2026-04-28 13:56:03'),
-(153, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:55:47', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:55:47', '2026-04-28 13:56:13'),
-(154, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:55:47', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:55:47', '2026-04-28 13:56:25'),
-(155, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:55:47', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:56:25', '2026-04-28 13:56:25'),
-(156, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:56:25', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:56:25', '2026-04-28 13:56:42'),
-(157, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:56:25', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:56:25', '2026-04-28 14:00:38'),
-(158, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:56:25', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:56:25', '2026-04-28 14:05:46'),
-(159, 'users', 15, 'UPDATE', 15, 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 20:59:49', 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 20:59:49', '2026-04-28 14:06:15'),
-(160, 'users', 15, 'UPDATE', 15, 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 20:59:49', 'username=sedsed; full_name=sedriiicc; employee_no=2004; email=sedsed@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 20:59:49', '2026-04-28 14:10:25'),
-(161, 'users', 14, 'UPDATE', 14, 'username=Elwin; full_name=Farma; employee_no=5555; email=win@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 17:05:11', 'username=Elwin; full_name=Farma; employee_no=5555; email=win@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 17:05:11', '2026-04-28 14:11:22'),
-(162, 'users', 14, 'UPDATE', 14, 'username=Elwin; full_name=Farma; employee_no=5555; email=win@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 17:05:11', 'username=Elwin; full_name=Farma; employee_no=5555; email=win@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 17:05:11', '2026-04-28 14:29:15'),
-(163, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:56:25', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:56:25', '2026-04-28 14:29:33'),
-(164, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 21:56:25', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 22:29:33', '2026-04-28 14:29:33'),
-(165, 'users', 14, 'UPDATE', 14, 'username=Elwin; full_name=Farma; employee_no=5555; email=win@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 17:05:11', 'username=Elwin; full_name=Farma; employee_no=5555; email=win@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 17:05:11', '2026-04-28 14:29:54'),
-(166, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 22:29:33', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 22:29:33', '2026-04-28 14:30:33'),
-(167, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 22:29:33', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 22:30:33', '2026-04-28 14:30:33'),
-(168, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 22:30:33', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 22:30:33', '2026-04-28 14:30:51'),
-(169, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 22:30:33', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 22:30:51', '2026-04-28 14:30:51'),
-(170, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 22:30:51', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 22:30:51', '2026-04-28 14:31:07'),
-(171, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 22:30:51', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 22:31:07', '2026-04-28 14:31:07'),
-(172, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 22:31:07', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 22:31:07', '2026-04-28 14:31:39'),
-(173, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 22:31:07', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 22:31:39', '2026-04-28 14:31:39'),
-(174, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 22:31:39', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 22:31:39', '2026-04-28 14:31:57'),
-(175, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 22:31:39', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 22:31:57', '2026-04-28 14:31:57'),
-(176, 'users', 4, 'UPDATE', 4, 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 22:31:57', 'username=NexGenAdmin; full_name=System Administrator; employee_no=ADMIN-001; email=mattraileyvaldevia@gmail.com; role=system_admin; account_status=active; can_inventory=0; can_sales=0; can_sales_analytics=0; can_accounts_receivable=0; last_login_at=2026-04-28 22:31:57', '2026-04-28 14:32:18'),
-(177, 'users', 14, 'UPDATE', 14, 'username=Elwin; full_name=Farma; employee_no=5555; email=win@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 17:05:11', 'username=Elwin; full_name=Farma; employee_no=5555; email=win@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 17:05:11', '2026-04-28 14:32:34'),
-(178, 'users', 14, 'UPDATE', 14, 'username=Elwin; full_name=Farma; employee_no=5555; email=win@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 17:05:11', 'username=Elwin; full_name=Farma; employee_no=5555; email=win@gmail.com; role=owner; account_status=active; can_inventory=1; can_sales=1; can_sales_analytics=1; can_accounts_receivable=1; last_login_at=2026-04-28 22:32:34', '2026-04-28 14:32:34');
+INSERT INTO `audit_logs` (`id`, `table_name`, `action`, `record_id`, `changed_by`, `ip_address`, `old_values`, `new_values`, `remarks`, `created_at`) VALUES
+(1, 'products', 'UPDATE', 20, NULL, NULL, '{\"product_code\": \"17\", \"product_name\": \"Joy Calamansi\", \"category_id\": 6, \"brand\": \"Joy\", \"unit\": \"Pieces\", \"cost_price\": 10.00, \"selling_price\": 14.00, \"stock_quantity\": 18, \"reorder_level\": 0, \"on_order_level\": 0, \"expiry_date\": \"2028-01-01\", \"is_active\": 1}', '{\"product_code\": \"17\", \"product_name\": \"Joy Calamansi\", \"category_id\": 6, \"brand\": \"Joy\", \"unit\": \"Pieces\", \"cost_price\": 10.00, \"selling_price\": 14.00, \"stock_quantity\": 15, \"reorder_level\": 0, \"on_order_level\": 0, \"expiry_date\": \"2028-01-01\", \"is_active\": 1}', 'Product details updated', '2026-05-21 05:17:04'),
+(2, 'accounts_receivable', 'PAYMENT', 20, 2, '::1', '{\"sale_id\": 56, \"amount_paid\": 0.00, \"balance_due\": 42.00, \"status\": \"Unpaid\", \"notes\": null}', '{\"sale_id\": 56, \"amount_paid\": 42.00, \"balance_due\": 0.00, \"status\": \"Paid\", \"notes\": \"okay na\"}', 'Payment completed. Full balance cleared. Notes: okay na', '2026-05-21 05:21:17'),
+(3, 'sales', 'PAYMENT', 56, 2, '::1', '{\"payment_status\": \"Unpaid\", \"order_status\": \"Pending\"}', '{\"payment_status\": \"Paid\", \"order_status\": \"Fulfilled\"}', 'Sales synced — Payment: Unpaid → Paid | Order: Pending → Fulfilled', '2026-05-21 05:21:17'),
+(4, 'products', 'ARCHIVE', 27, NULL, NULL, '{\"product_code\": \"24\", \"product_name\": \"Sunsilk Aloe Vera\", \"is_active\": 1}', '{\"product_code\": \"24\", \"product_name\": \"Sunsilk Aloe Vera\", \"is_active\": 0}', 'Product \"Sunsilk Aloe Vera\" archived by owner', '2026-05-21 05:22:18'),
+(5, 'products', 'UPDATE', 9, NULL, NULL, '{\"product_code\": \"07\", \"product_name\": \"Dutchmill Superfruits\", \"category_id\": 1, \"brand\": \"Dutch Mill\", \"unit\": \"Packs\", \"cost_price\": 20.00, \"selling_price\": 25.00, \"stock_quantity\": 37, \"reorder_level\": 0, \"on_order_level\": 0, \"expiry_date\": \"2026-12-01\", \"is_active\": 1}', '{\"product_code\": \"07\", \"product_name\": \"Dutchmill Superfruits\", \"category_id\": 1, \"brand\": \"Dutch Mill\", \"unit\": \"Packs\", \"cost_price\": 20.00, \"selling_price\": 25.00, \"stock_quantity\": 34, \"reorder_level\": 0, \"on_order_level\": 0, \"expiry_date\": \"2026-12-01\", \"is_active\": 1}', 'Product details updated', '2026-05-21 05:29:59'),
+(6, 'accounts_receivable', 'PAYMENT', 21, 2, '::1', '{\"sale_id\": 57, \"amount_paid\": 0.00, \"balance_due\": 75.00, \"status\": \"Unpaid\", \"notes\": null}', '{\"sale_id\": 57, \"amount_paid\": 75.00, \"balance_due\": 0.00, \"status\": \"Paid\", \"notes\": \"\"}', 'Payment completed. Full balance cleared. Notes: ', '2026-05-21 05:32:11'),
+(7, 'sales', 'PAYMENT', 57, 2, '::1', '{\"payment_status\": \"Unpaid\", \"order_status\": \"Pending\"}', '{\"payment_status\": \"Paid\", \"order_status\": \"Fulfilled\"}', 'Sales synced — Payment: Unpaid → Paid | Order: Pending → Fulfilled', '2026-05-21 05:32:11'),
+(8, 'products', 'UPDATE', 27, NULL, NULL, '{\"product_code\": \"24\", \"product_name\": \"Sunsilk Aloe Vera\", \"category_id\": 5, \"brand\": \"Sunsilk\", \"unit\": \"Pieces\", \"cost_price\": 6.00, \"selling_price\": 9.00, \"stock_quantity\": 20, \"reorder_level\": 0, \"on_order_level\": 0, \"expiry_date\": \"2028-01-01\", \"is_active\": 0}', '{\"product_code\": \"24\", \"product_name\": \"Sunsilk Aloe Vera\", \"category_id\": 5, \"brand\": \"Sunsilk\", \"unit\": \"Pieces\", \"cost_price\": 6.00, \"selling_price\": 9.00, \"stock_quantity\": 20, \"reorder_level\": 0, \"on_order_level\": 0, \"expiry_date\": \"2028-01-01\", \"is_active\": 1}', 'Product details updated', '2026-05-21 05:34:11'),
+(9, 'products', 'UPDATE', 10, NULL, NULL, '{\"product_code\": \"08\", \"product_name\": \"Dutchmill Blueberry\", \"category_id\": 1, \"brand\": \"Dutch Mill\", \"unit\": \"Packs\", \"cost_price\": 13.00, \"selling_price\": 17.00, \"stock_quantity\": 38, \"reorder_level\": 0, \"on_order_level\": 0, \"expiry_date\": \"2026-12-01\", \"is_active\": 1}', '{\"product_code\": \"08\", \"product_name\": \"Dutchmill Blueberry\", \"category_id\": 1, \"brand\": \"Dutch Mill\", \"unit\": \"Packs\", \"cost_price\": 13.00, \"selling_price\": 17.00, \"stock_quantity\": 35, \"reorder_level\": 0, \"on_order_level\": 0, \"expiry_date\": \"2026-12-01\", \"is_active\": 1}', 'Product details updated', '2026-05-22 06:44:18'),
+(10, 'accounts_receivable', 'PAYMENT', 22, 2, '::1', '{\"sale_id\": 58, \"amount_paid\": 0.00, \"balance_due\": 51.00, \"status\": \"Unpaid\", \"notes\": null}', '{\"sale_id\": 58, \"amount_paid\": 51.00, \"balance_due\": 0.00, \"status\": \"Paid\", \"notes\": \"\"}', 'Payment completed. Full balance cleared. Notes: ', '2026-05-22 06:44:50'),
+(11, 'sales', 'PAYMENT', 58, 2, '::1', '{\"payment_status\": \"Unpaid\", \"order_status\": \"Pending\"}', '{\"payment_status\": \"Paid\", \"order_status\": \"Fulfilled\"}', 'Sales synced — Payment: Unpaid → Paid | Order: Pending → Fulfilled', '2026-05-22 06:44:50'),
+(12, 'products', 'UPDATE', 11, NULL, NULL, '{\"product_code\": \"09\", \"product_name\": \"Chuckie\", \"category_id\": 1, \"brand\": \"Nestle\", \"unit\": \"Packs\", \"cost_price\": 20.00, \"selling_price\": 25.00, \"stock_quantity\": 27, \"reorder_level\": 0, \"on_order_level\": 0, \"expiry_date\": \"2027-04-01\", \"is_active\": 1}', '{\"product_code\": \"09\", \"product_name\": \"Chuckie\", \"category_id\": 1, \"brand\": \"Nestle\", \"unit\": \"Packs\", \"cost_price\": 20.00, \"selling_price\": 25.00, \"stock_quantity\": 23, \"reorder_level\": 0, \"on_order_level\": 0, \"expiry_date\": \"2027-04-01\", \"is_active\": 1}', 'Product details updated', '2026-05-22 07:11:29'),
+(13, 'accounts_receivable', 'PAYMENT', 23, 2, '::1', '{\"sale_id\": 59, \"amount_paid\": 0.00, \"balance_due\": 100.00, \"status\": \"Unpaid\", \"notes\": null}', '{\"sale_id\": 59, \"amount_paid\": 100.00, \"balance_due\": 0.00, \"status\": \"Paid\", \"notes\": \"okay na\"}', 'Payment completed. Full balance cleared. Notes: okay na', '2026-05-22 07:12:36'),
+(14, 'sales', 'PAYMENT', 59, 2, '::1', '{\"payment_status\": \"Unpaid\", \"order_status\": \"Pending\"}', '{\"payment_status\": \"Paid\", \"order_status\": \"Fulfilled\"}', 'Sales synced — Payment: Unpaid → Paid | Order: Pending → Fulfilled', '2026-05-22 07:12:36'),
+(15, 'products', 'UPDATE', 33, NULL, NULL, '{\"product_code\": \"777\", \"product_name\": \"Loaded Cheese\", \"category_id\": 2, \"brand\": \"Stateline\", \"unit\": \"pcs\", \"cost_price\": 10.00, \"selling_price\": 9.98, \"stock_quantity\": 10, \"reorder_level\": 5, \"on_order_level\": 0, \"expiry_date\": \"2026-05-29\", \"is_active\": 0}', '{\"product_code\": \"777\", \"product_name\": \"Loaded Cheese\", \"category_id\": 2, \"brand\": \"Stateline\", \"unit\": \"pcs\", \"cost_price\": 10.00, \"selling_price\": 9.98, \"stock_quantity\": 10, \"reorder_level\": 5, \"on_order_level\": 0, \"expiry_date\": \"2026-05-29\", \"is_active\": 1}', 'Product details updated', '2026-05-22 07:16:53'),
+(16, 'products', 'ARCHIVE', 33, NULL, NULL, '{\"product_code\": \"777\", \"product_name\": \"Loaded Cheese\", \"is_active\": 1}', '{\"product_code\": \"777\", \"product_name\": \"Loaded Cheese\", \"is_active\": 0}', 'Product \"Loaded Cheese\" archived by owner', '2026-05-22 07:19:05');
 
 -- --------------------------------------------------------
 
@@ -514,170 +363,152 @@ CREATE TABLE `products` (
 --
 
 INSERT INTO `products` (`id`, `product_code`, `product_name`, `category_id`, `brand`, `unit`, `cost_price`, `selling_price`, `stock_quantity`, `reorder_level`, `on_order_level`, `expiry_date`, `product_image`, `description`, `is_active`, `created_at`, `updated_at`) VALUES
-(1, '01', 'Coke Mismo', 1, 'Coca-cola', 'Bottles', 18.00, 20.00, 27, 0, 0, '2026-06-01', 'uploads/products/product_1773228185_69b150990af49.png', 'Drink Responsibly', 1, '2026-03-11 11:23:05', '2026-04-24 14:52:10'),
-(4, '02', 'Lemon Soda', 1, 'Lemon Juicy', 'Bottles', 8.00, 10.00, 25, 0, 0, '2026-06-01', 'uploads/products/product_1773229034_69b153eab6209.png', 'Drink Responsibly', 1, '2026-03-11 11:37:14', '2026-04-24 14:37:31'),
+(1, '01', 'Coke Mismo', 1, 'Coca-cola', 'Bottles', 18.00, 20.00, 14, 0, 0, '2026-06-01', 'uploads/products/product_1773228185_69b150990af49.png', 'Drink Responsibly', 1, '2026-03-11 11:23:05', '2026-05-17 10:53:44'),
+(4, '02', 'Lemon Soda', 1, 'Lemon Juicy', 'Bottles', 8.00, 10.00, 20, 0, 0, '2026-06-01', 'uploads/products/product_1773229034_69b153eab6209.png', 'Drink Responsibly', 1, '2026-03-11 11:37:14', '2026-05-15 09:52:14'),
 (5, '03', 'Redhorse Beer', 1, 'Redhorse', 'Bottles', 65.00, 70.00, 17, 0, 0, '2026-06-01', 'uploads/products/product_1773229187_69b1548384ab3.png', 'Drink Responsibly', 1, '2026-03-11 11:39:47', '2026-04-12 15:33:54'),
 (6, '04', 'Alfonso Light', 1, 'Alfonso', 'Bottles', 250.00, 285.00, 9, 0, 0, '2026-09-01', 'uploads/products/product_1773229443_69b15583b8421.png', 'Drink Responsibly', 1, '2026-03-11 11:44:03', '2026-04-28 11:26:07'),
 (7, '05', 'SanMig Light', 1, 'SanMig', 'Bottles', 50.00, 55.00, 20, 0, 0, '2026-09-01', 'uploads/products/product_1773229544_69b155e8f1eb2.png', 'Drink Responsibly', 1, '2026-03-11 11:45:44', '2026-03-12 14:30:05'),
-(8, '06', 'Gin Bilog', 1, 'Ginebra', 'Bottles', 65.00, 75.00, 18, 0, 0, '2026-09-01', 'uploads/products/product_1773229701_69b15685306b9.png', 'Drink Responsibly', 1, '2026-03-11 11:48:21', '2026-04-14 11:54:21'),
-(9, '07', 'Dutchmill Superfruits', 1, 'Dutch Mill', 'Packs', 20.00, 25.00, 37, 0, 0, '2026-12-01', 'uploads/products/product_1773229904_69b15750758d9.png', 'Drink Responsibly', 1, '2026-03-11 11:51:44', '2026-04-28 12:08:21'),
-(10, '08', 'Dutchmill Blueberry', 1, 'Dutch Mill', 'Packs', 13.00, 17.00, 38, 0, 0, '2026-12-01', 'uploads/products/product_1773230071_69b157f71c18c.png', 'Drink Reponsibly', 1, '2026-03-11 11:54:31', '2026-04-24 14:34:49'),
-(11, '09', 'Chuckie', 1, 'Nestle', 'Packs', 20.00, 25.00, 27, 0, 0, '2027-04-01', 'uploads/products/product_1773230261_69b158b5391bd.png', 'Drink Responsibly', 1, '2026-03-11 11:57:41', '2026-04-28 11:47:37'),
+(8, '06', 'Gin Bilog', 1, 'Ginebra', 'Bottles', 65.00, 75.00, 15, 0, 0, '2026-09-01', 'uploads/products/product_1773229701_69b15685306b9.png', 'Drink Responsibly', 1, '2026-03-11 11:48:21', '2026-05-06 10:50:06'),
+(9, '07', 'Dutchmill Superfruits', 1, 'Dutch Mill', 'Packs', 20.00, 25.00, 34, 0, 0, '2026-12-01', 'uploads/products/product_1773229904_69b15750758d9.png', 'Drink Responsibly', 1, '2026-03-11 11:51:44', '2026-05-21 05:29:59'),
+(10, '08', 'Dutchmill Blueberry', 1, 'Dutch Mill', 'Packs', 13.00, 17.00, 35, 0, 0, '2026-12-01', 'uploads/products/product_1773230071_69b157f71c18c.png', 'Drink Reponsibly', 1, '2026-03-11 11:54:31', '2026-05-22 06:44:18'),
+(11, '09', 'Chuckie', 1, 'Nestle', 'Packs', 20.00, 25.00, 23, 0, 0, '2027-04-01', 'uploads/products/product_1773230261_69b158b5391bd.png', 'Drink Responsibly', 1, '2026-03-11 11:57:41', '2026-05-22 07:11:29'),
 (12, '10', 'Mega Sardines', 3, 'Mega', 'Pieces', 25.00, 29.00, 20, 0, 0, '2027-01-01', 'uploads/products/product_1773230392_69b159381c9e6.png', 'Consume Responsibly', 1, '2026-03-11 11:59:52', '2026-04-01 06:25:11'),
 (13, '11', 'Centure Tuna', 3, 'Century', 'Pieces', 38.00, 43.00, 18, 0, 0, '2028-01-01', 'uploads/products/product_1773230465_69b159816347b.png', 'Consume Responsibly', 1, '2026-03-11 12:01:05', '2026-04-01 05:14:39'),
 (14, '12', 'Giniling', 3, 'Argentina', 'Pieces', 31.00, 35.00, 19, 0, 0, '2028-01-01', 'uploads/products/product_1773230576_69b159f0ca965.png', 'Consume Responsibly', 1, '2026-03-11 12:02:56', '2026-04-28 12:08:58'),
-(16, '13', 'Funtastik Tocino', 4, 'CDO', 'Packs', 55.00, 62.00, 12, 0, 0, '2027-01-01', 'uploads/products/product_1773230866_69b15b120759a.png', 'Consume Responsibly', 1, '2026-03-11 12:07:46', '2026-04-01 07:21:07'),
-(17, '14', 'Idol Cheesedog', 4, 'CDO', 'Packs', 55.00, 62.00, 20, 0, 0, '2027-01-01', 'uploads/products/product_1773230981_69b15b8592979.png', 'Consume Responsibly', 1, '2026-03-11 12:09:41', '2026-03-11 12:09:41'),
+(16, '13', 'Funtastik Tocino', 4, 'CDO', 'Packs', 55.00, 62.00, 10, 0, 0, '2027-01-01', 'uploads/products/product_1773230866_69b15b120759a.png', 'Consume Responsibly', 1, '2026-03-11 12:07:46', '2026-05-17 10:33:10'),
+(17, '14', 'Idol Cheesedog', 4, 'CDO', 'Packs', 55.00, 62.00, 17, 0, 0, '2027-01-01', 'uploads/products/product_1773230981_69b15b8592979.png', 'Consume Responsibly', 1, '2026-03-11 12:09:41', '2026-05-17 10:43:30'),
 (18, '15', 'Chicken Nuggets', 4, 'STAR', 'Packs', 50.00, 55.00, 18, 0, 0, '2027-01-01', 'uploads/products/product_1773231091_69b15bf394249.png', 'Consume Responsibly', 1, '2026-03-11 12:11:31', '2026-04-01 05:14:39'),
 (19, '16', 'Lighter', 6, 'Torch', 'Pieces', 10.00, 16.00, 22, 0, 0, '2999-01-01', 'uploads/products/product_1773231235_69b15c8396e53.png', 'Be Responsible', 1, '2026-03-11 12:13:55', '2026-04-01 07:51:15'),
-(20, '17', 'Joy Calamansi', 6, 'Joy', 'Pieces', 10.00, 14.00, 18, 0, 0, '2028-01-01', 'uploads/products/product_1773231401_69b15d29f092d.png', 'Be Reponsible', 1, '2026-03-11 12:16:41', '2026-04-12 17:02:51'),
+(20, '17', 'Joy Calamansi', 6, 'Joy', 'Pieces', 10.00, 14.00, 15, 0, 0, '2028-01-01', 'uploads/products/product_1773231401_69b15d29f092d.png', 'Be Reponsible', 1, '2026-03-11 12:16:41', '2026-05-21 05:17:04'),
 (21, '18', 'Joy Lemon', 6, 'Joy', 'Pieces', 10.00, 14.00, 20, 0, 0, '2028-01-01', 'uploads/products/product_1773231468_69b15d6c3bd64.png', 'Be Responsible', 0, '2026-03-11 12:17:48', '2026-04-14 09:38:35'),
 (22, '19', 'Mantika', 8, 'Mantika', 'Bottles', 30.00, 35.00, 12, 0, 0, '2027-01-01', 'uploads/products/product_1773231782_69b15ea64691b.png', 'Be Responsible', 1, '2026-03-11 12:23:02', '2026-03-11 12:23:02'),
 (23, '20', 'Crispy Fry', 8, 'Ajinomoto', 'Pieces', 13.00, 21.00, 15, 0, 0, '2028-01-01', 'uploads/products/product_1773231948_69b15f4c7e0f3.png', 'Be Responsible', 1, '2026-03-11 12:25:48', '2026-03-11 12:25:48'),
-(24, '21', 'Mang Tomas Sarsa', 8, 'Mang Tomas', 'Pieces', 35.00, 42.00, 17, 0, 0, '2028-01-01', 'uploads/products/product_1773232022_69b15f969a6e7.png', 'Be Responsible', 1, '2026-03-11 12:27:02', '2026-04-12 17:04:40'),
+(24, '21', 'Mang Tomas Sarsa', 8, 'Mang Tomas', 'Pieces', 35.00, 42.00, 12, 0, 0, '2028-01-01', 'uploads/products/product_1773232022_69b15f969a6e7.png', 'Be Responsible', 1, '2026-03-11 12:27:02', '2026-05-17 10:55:26'),
 (25, '22', 'Rexona Men', 5, 'Rexona', 'Pieces', 7.00, 10.00, 0, 0, 0, '2028-01-01', 'uploads/products/product_1773232307_69b160b32527c.png', 'Be Responsible', 1, '2026-03-11 12:31:47', '2026-04-01 07:28:58'),
 (26, '23', 'Cream Silk Pink', 5, 'Cream Silk', 'Pieces', 8.00, 11.00, 8, 10, 0, '2028-01-01', 'uploads/products/product_1773232385_69b16101ddbdb.png', 'Be Responsible', 1, '2026-03-11 12:33:05', '2026-04-01 07:25:25'),
-(27, '24', 'Sunsilk Aloe Vera', 5, 'Sunsilk', 'Pieces', 6.00, 9.00, 20, 0, 0, '2028-01-01', 'uploads/products/product_1773232468_69b16154047b8.png', 'Be Responsible', 1, '2026-03-11 12:34:28', '2026-03-11 12:34:28'),
-(28, '25', 'Pillows', 2, 'Oishi', 'Packs', 8.00, 11.00, 12, 0, 0, '2027-01-01', 'uploads/products/product_1773232559_69b161afec3d1.png', 'Consume Responsibly', 1, '2026-03-11 12:35:59', '2026-04-12 17:10:49'),
-(29, '26', 'Cheezy', 2, 'Leslie\'s', 'Pieces', 8.00, 11.00, 15, 0, 0, '2027-01-01', 'uploads/products/product_1773232643_69b162037f52c.png', 'Consume Responsibly', 1, '2026-03-11 12:37:23', '2026-04-14 08:07:28'),
-(30, '27', 'Potato Crisp Onion', 2, 'Oishi', 'Pieces', 8.00, 11.00, 3, 0, 0, '2027-01-01', 'uploads/products/product_1773232715_69b1624bc379a.png', 'Consume Responsibly', 0, '2026-03-11 12:38:35', '2026-04-23 11:43:50'),
-(32, '28', 'Cup Noodles Beef', 10, 'Nissin', 'pcs', 30.00, 35.00, 40, 10, 0, '2027-01-01', 'uploads/products/product_1776944943_69ea072f8614f.png', 'Eat Responsibly', 1, '2026-04-23 11:49:03', '2026-04-23 11:49:03'),
-(33, '777', 'Loaded Cheese', 2, 'Stateline', 'pcs', 10.00, 9.98, 10, 5, 0, '2026-05-29', 'uploads/products/default.png', '', 0, '2026-04-24 15:01:53', '2026-04-24 15:17:35');
+(27, '24', 'Sunsilk Aloe Vera', 5, 'Sunsilk', 'Pieces', 6.00, 9.00, 20, 0, 0, '2028-01-01', 'uploads/products/product_1773232468_69b16154047b8.png', 'Be Responsible', 1, '2026-03-11 12:34:28', '2026-05-21 05:34:11'),
+(28, '25', 'Pillows', 2, 'Oishi', 'Packs', 10.00, 13.00, 12, 0, 0, '2027-01-01', 'uploads/products/product_1773232559_69b161afec3d1.png', 'Consume Responsibly', 1, '2026-03-11 12:35:59', '2026-05-15 09:51:13'),
+(29, '26', 'Cheezy', 2, 'Leslie\'s', 'Pieces', 8.00, 11.00, 15, 0, 0, '2027-01-01', 'uploads/products/product_1773232643_69b162037f52c.png', 'Consume Responsibly', 0, '2026-03-11 12:37:23', '2026-05-15 09:49:35'),
+(30, '27', 'Potato Crisp Onion', 2, 'Oishi', 'Pieces', 8.00, 11.00, 3, 0, 0, '2027-01-01', 'uploads/products/product_1773232715_69b1624bc379a.png', 'Consume Responsibly', 0, '2026-03-11 12:38:35', '2026-05-15 09:39:31'),
+(32, '28', 'Cup Noodles Beef', 10, 'Nissin', 'pcs', 30.00, 35.00, 40, 10, 0, '2027-01-01', 'uploads/products/product_1776944943_69ea072f8614f.png', 'Eat Responsibly', 0, '2026-04-23 11:49:03', '2026-05-15 09:38:16'),
+(33, '777', 'Loaded Cheese', 2, 'Stateline', 'pcs', 10.00, 9.98, 10, 5, 0, '2026-05-29', 'uploads/products/default.png', '', 0, '2026-04-24 15:01:53', '2026-05-22 07:19:05');
 
 --
 -- Triggers `products`
 --
 DELIMITER $$
-CREATE TRIGGER `trg_products_audit_archive` AFTER UPDATE ON `products` FOR EACH ROW BEGIN
-    IF OLD.is_active <> NEW.is_active THEN
-        INSERT INTO audit_logs (
-            table_name,
-            record_id,
-            action_type,
-            changed_by,
-            old_values,
-            new_values
-        ) VALUES (
+CREATE TRIGGER `trg_products_after_insert` AFTER INSERT ON `products` FOR EACH ROW BEGIN
+    INSERT INTO `audit_logs` (
+        `table_name`, `action`, `record_id`,
+        `changed_by`, `ip_address`,
+        `old_values`, `new_values`, `remarks`
+    )
+    VALUES (
+        'products',
+        'INSERT',
+        NEW.id,
+        @audit_user_id,
+        @audit_ip,
+        NULL,
+        JSON_OBJECT(
+            'product_code',   NEW.product_code,
+            'product_name',   NEW.product_name,
+            'category_id',    NEW.category_id,
+            'brand',          NEW.brand,
+            'unit',           NEW.unit,
+            'cost_price',     NEW.cost_price,
+            'selling_price',  NEW.selling_price,
+            'stock_quantity', NEW.stock_quantity,
+            'reorder_level',  NEW.reorder_level,
+            'on_order_level', NEW.on_order_level,
+            'expiry_date',    NEW.expiry_date,
+            'is_active',      NEW.is_active
+        ),
+        'New product added to inventory'
+    );
+END
+$$
+DELIMITER ;
+DELIMITER $$
+CREATE TRIGGER `trg_products_after_update` AFTER UPDATE ON `products` FOR EACH ROW BEGIN
+    -- Only log if this is a regular update, NOT an archive action.
+    -- Archive (is_active 1 → 0) is handled by trg_products_after_archive.
+    -- MySQL allows only one AFTER UPDATE trigger per table, so we
+    -- split the intent using an IF condition inside this single trigger.
+
+    IF NOT (OLD.is_active = 1 AND NEW.is_active = 0) THEN
+        INSERT INTO `audit_logs` (
+            `table_name`, `action`, `record_id`,
+            `changed_by`, `ip_address`,
+            `old_values`, `new_values`, `remarks`
+        )
+        VALUES (
             'products',
-            NEW.id,
             'UPDATE',
-            NULL,
-            CONCAT('is_active=', OLD.is_active),
-            CONCAT('is_active=', NEW.is_active)
+            NEW.id,
+            @audit_user_id,
+            @audit_ip,
+            JSON_OBJECT(
+                'product_code',   OLD.product_code,
+                'product_name',   OLD.product_name,
+                'category_id',    OLD.category_id,
+                'brand',          OLD.brand,
+                'unit',           OLD.unit,
+                'cost_price',     OLD.cost_price,
+                'selling_price',  OLD.selling_price,
+                'stock_quantity', OLD.stock_quantity,
+                'reorder_level',  OLD.reorder_level,
+                'on_order_level', OLD.on_order_level,
+                'expiry_date',    OLD.expiry_date,
+                'is_active',      OLD.is_active
+            ),
+            JSON_OBJECT(
+                'product_code',   NEW.product_code,
+                'product_name',   NEW.product_name,
+                'category_id',    NEW.category_id,
+                'brand',          NEW.brand,
+                'unit',           NEW.unit,
+                'cost_price',     NEW.cost_price,
+                'selling_price',  NEW.selling_price,
+                'stock_quantity', NEW.stock_quantity,
+                'reorder_level',  NEW.reorder_level,
+                'on_order_level', NEW.on_order_level,
+                'expiry_date',    NEW.expiry_date,
+                'is_active',      NEW.is_active
+            ),
+            'Product details updated'
+        );
+
+    -- --------------------------------------------------------
+    --  ARCHIVE BRANCH
+    --  Fired by : inventory_delete.php  (sets is_active = 0)
+    --  Logs     : Soft-delete / archive action on a product
+    -- --------------------------------------------------------
+    ELSE
+        INSERT INTO `audit_logs` (
+            `table_name`, `action`, `record_id`,
+            `changed_by`, `ip_address`,
+            `old_values`, `new_values`, `remarks`
+        )
+        VALUES (
+            'products',
+            'ARCHIVE',
+            NEW.id,
+            @audit_user_id,
+            @audit_ip,
+            JSON_OBJECT(
+                'product_code', OLD.product_code,
+                'product_name', OLD.product_name,
+                'is_active',    OLD.is_active
+            ),
+            JSON_OBJECT(
+                'product_code', NEW.product_code,
+                'product_name', NEW.product_name,
+                'is_active',    NEW.is_active
+            ),
+            CONCAT('Product "', NEW.product_name, '" archived by owner')
         );
     END IF;
-END
-$$
-DELIMITER ;
-DELIMITER $$
-CREATE TRIGGER `trg_products_audit_delete` AFTER DELETE ON `products` FOR EACH ROW BEGIN
-    INSERT INTO audit_logs (
-        table_name,
-        record_id,
-        action_type,
-        changed_by,
-        old_values,
-        new_values
-    ) VALUES (
-        'products',
-        OLD.id,
-        'DELETE',
-        NULL,
-        CONCAT(
-            'product_code=', IFNULL(OLD.product_code, ''),
-            '; product_name=', IFNULL(OLD.product_name, ''),
-            '; category_id=', IFNULL(OLD.category_id, ''),
-            '; brand=', IFNULL(OLD.brand, ''),
-            '; unit=', IFNULL(OLD.unit, ''),
-            '; cost_price=', IFNULL(OLD.cost_price, ''),
-            '; selling_price=', IFNULL(OLD.selling_price, ''),
-            '; stock_quantity=', IFNULL(OLD.stock_quantity, ''),
-            '; reorder_level=', IFNULL(OLD.reorder_level, ''),
-            '; on_order_level=', IFNULL(OLD.on_order_level, ''),
-            '; expiry_date=', IFNULL(OLD.expiry_date, ''),
-            '; is_active=', IFNULL(OLD.is_active, '')
-        ),
-        NULL
-    );
-END
-$$
-DELIMITER ;
-DELIMITER $$
-CREATE TRIGGER `trg_products_audit_insert` AFTER INSERT ON `products` FOR EACH ROW BEGIN
-    INSERT INTO audit_logs (
-        table_name,
-        record_id,
-        action_type,
-        changed_by,
-        old_values,
-        new_values
-    ) VALUES (
-        'products',
-        NEW.id,
-        'INSERT',
-        NULL,
-        NULL,
-        CONCAT(
-            'product_code=', IFNULL(NEW.product_code, ''),
-            '; product_name=', IFNULL(NEW.product_name, ''),
-            '; category_id=', IFNULL(NEW.category_id, ''),
-            '; brand=', IFNULL(NEW.brand, ''),
-            '; unit=', IFNULL(NEW.unit, ''),
-            '; cost_price=', IFNULL(NEW.cost_price, ''),
-            '; selling_price=', IFNULL(NEW.selling_price, ''),
-            '; stock_quantity=', IFNULL(NEW.stock_quantity, ''),
-            '; reorder_level=', IFNULL(NEW.reorder_level, ''),
-            '; on_order_level=', IFNULL(NEW.on_order_level, ''),
-            '; expiry_date=', IFNULL(NEW.expiry_date, ''),
-            '; is_active=', IFNULL(NEW.is_active, '')
-        )
-    );
-END
-$$
-DELIMITER ;
-DELIMITER $$
-CREATE TRIGGER `trg_products_audit_update` AFTER UPDATE ON `products` FOR EACH ROW BEGIN
-    INSERT INTO audit_logs (
-        table_name,
-        record_id,
-        action_type,
-        changed_by,
-        old_values,
-        new_values
-    ) VALUES (
-        'products',
-        NEW.id,
-        'UPDATE',
-        NULL,
-        CONCAT(
-            'product_code=', IFNULL(OLD.product_code, ''),
-            '; product_name=', IFNULL(OLD.product_name, ''),
-            '; category_id=', IFNULL(OLD.category_id, ''),
-            '; brand=', IFNULL(OLD.brand, ''),
-            '; unit=', IFNULL(OLD.unit, ''),
-            '; cost_price=', IFNULL(OLD.cost_price, ''),
-            '; selling_price=', IFNULL(OLD.selling_price, ''),
-            '; stock_quantity=', IFNULL(OLD.stock_quantity, ''),
-            '; reorder_level=', IFNULL(OLD.reorder_level, ''),
-            '; on_order_level=', IFNULL(OLD.on_order_level, ''),
-            '; expiry_date=', IFNULL(OLD.expiry_date, ''),
-            '; is_active=', IFNULL(OLD.is_active, '')
-        ),
-        CONCAT(
-            'product_code=', IFNULL(NEW.product_code, ''),
-            '; product_name=', IFNULL(NEW.product_name, ''),
-            '; category_id=', IFNULL(NEW.category_id, ''),
-            '; brand=', IFNULL(NEW.brand, ''),
-            '; unit=', IFNULL(NEW.unit, ''),
-            '; cost_price=', IFNULL(NEW.cost_price, ''),
-            '; selling_price=', IFNULL(NEW.selling_price, ''),
-            '; stock_quantity=', IFNULL(NEW.stock_quantity, ''),
-            '; reorder_level=', IFNULL(NEW.reorder_level, ''),
-            '; on_order_level=', IFNULL(NEW.on_order_level, ''),
-            '; expiry_date=', IFNULL(NEW.expiry_date, ''),
-            '; is_active=', IFNULL(NEW.is_active, '')
-        )
-    );
 END
 $$
 DELIMITER ;
@@ -725,7 +556,10 @@ INSERT INTO `registration_requests` (`id`, `request_code`, `employee_no`, `full_
 (11, 'REQ-20260416-0001', 'EMP-300', 'Joshua Malvar Isla', 'joshuaisla04@gmail.com', '09565038115', 'Gruar Cainta Rizal', 'Joshie', '$2y$10$PRLCnIxDSI2CufbLKo7te.Glu9ha4O6JHAlJA4rtnh40ncAig0eLe', 'uploads/valid_ids/valid_id_69e07767604e08.15732705.jpg', 'employee', 'approved', 'Acccepted! <3', 4, '2026-04-16 07:46:22', '2026-04-16 05:45:11'),
 (12, 'REQ-20260424-0001', '5555', 'Farma', 'win@gmail.com', '09303318958', 'sa tabi', 'Elwin', '$2y$10$QwwxTj9eASQdSoxSp0jny.PLR2/4kZTnHqqU84RO5BJbuYeNoVlr2', 'uploads/valid_ids/valid_id_69eb7c20360783.95488227.png', 'owner', 'approved', 'Approved by system administrator', 4, '2026-04-24 16:20:40', '2026-04-24 14:20:16'),
 (13, 'REQ-20260424-0002', 'Yoonwin', 'yoon win', 'yoonwinmin0709@gmail.com', '09303318958', 'dyan lang', 'yonwin', '$2y$10$xCnSF3sj8vJ4bV1Rx7G/Ne3xdZHZGR7sp76xIaEDyNjrQqgM7yo7K', 'uploads/valid_ids/valid_id_69eb870ce06916.09612755.jpg', 'owner', 'rejected', 'Incomplete valid ID submitted.', 4, '2026-04-24 17:07:32', '2026-04-24 15:06:53'),
-(14, 'REQ-20260427-0001', '2004', 'sedriiicc', 'sedsed@gmail.com', '09543765432', 'dyan lang', 'sedsed', '$2y$10$RjOnjF8ljrzeWXqe8FU43.xuOh5Wu5TLKny68wW/Ki.b1XSqpCEqa', 'uploads/valid_ids/valid_id_69ef2f87627442.66866205.jpg', 'owner', 'approved', 'yes', 4, '2026-04-27 11:58:48', '2026-04-27 09:42:31');
+(14, 'REQ-20260427-0001', '2004', 'sedriiicc', 'sedsed@gmail.com', '09543765432', 'dyan lang', 'sedsed', '$2y$10$RjOnjF8ljrzeWXqe8FU43.xuOh5Wu5TLKny68wW/Ki.b1XSqpCEqa', 'uploads/valid_ids/valid_id_69ef2f87627442.66866205.jpg', 'owner', 'approved', 'yes', 4, '2026-04-27 11:58:48', '2026-04-27 09:42:31'),
+(15, 'REQ-20260511-0001', '99', 'joshuaisla', 'joshuaisla13@gmial.com', '09565038115', 'Gruar Cainta Rizal', 'JoshuaIsla', '$2y$10$/DagVzTfstrt0BLrta7YkOssm2O1mgyI/dlg5scPTqAAXoNfGeVIC', 'uploads/valid_ids/valid_id_6a0197e19b6652.85836141.jpg', 'owner', 'approved', 'yes accept', 4, '2026-05-11 16:55:34', '2026-05-11 08:48:33'),
+(16, 'REQ-20260511-0002', '50', 'joshuaisla', 'joshuaisla13@gmail.com', '09565038115', 'Gruar Cainta Rizal', 'JoshuaIsla17', '$2y$10$dZng8xVaKwTFidsXN29D1uXQQZG9M5nZmWTIfYH2Rwz6ulR5q2Uva', 'uploads/valid_ids/valid_id_6a019cdd509aa0.59582846.jpg', 'owner', 'approved', 'yes approve', 4, '2026-05-11 17:12:13', '2026-05-11 09:09:49'),
+(17, 'REQ-20260515-0001', '34', 'Sevirino Alexander', 'Sevirino@gmail.com', '09876545678', 'Cainta, Rizal', 'Sevi', '$2y$10$LDx.Rjf.sslgX3SeALZG6OdxGK0L2fMpXu/zJTuk3.pawto63JNeC', 'uploads/valid_ids/valid_id_6a06cb48bcb3c6.13960256.png', 'owner', 'approved', 'approved', 4, '2026-05-15 15:45:01', '2026-05-15 07:29:12');
 
 -- --------------------------------------------------------
 
@@ -794,7 +628,57 @@ INSERT INTO `sales` (`id`, `sales_no`, `salesperson_id`, `customer_id`, `total_a
 (45, 'SAL-20260428-132535', 15, NULL, 285.00, 'Paid', 'Cash', 'Fulfilled', '2026-04-28 19:26:07', '2026-04-28 11:26:07'),
 (46, 'SAL-20260428-134710', 15, NULL, 25.00, 'Paid', 'Cash', 'Fulfilled', '2026-04-28 19:47:37', '2026-04-28 11:47:37'),
 (47, 'SAL-20260428-140800', 15, NULL, 25.00, 'Paid', 'Cash', 'Fulfilled', '2026-04-28 20:08:21', '2026-04-28 12:08:21'),
-(48, 'SAL-20260428-140851', 15, NULL, 35.00, 'Paid', 'Cash', 'Fulfilled', '2026-04-28 20:08:58', '2026-04-28 12:08:58');
+(48, 'SAL-20260428-140851', 15, NULL, 35.00, 'Paid', 'Cash', 'Fulfilled', '2026-04-28 20:08:58', '2026-04-28 12:08:58'),
+(49, 'SAL-20260506-184746', 2, 1, 225.00, 'Paid', 'Cash', 'Fulfilled', '2026-05-06 18:50:06', '2026-05-06 10:50:06'),
+(50, 'SAL-20260515-175139', 2, 8, 50.00, 'Paid', 'Cash', 'Fulfilled', '2026-05-15 17:52:14', '2026-05-15 09:52:14'),
+(51, 'SAL-20260517-183243', 2, 1, 124.00, 'Paid', 'Cash', 'Fulfilled', '2026-05-17 18:33:10', '2026-05-17 10:33:10'),
+(52, 'SAL-20260517-184308', 2, 11, 186.00, 'Paid', 'Cash', 'Fulfilled', '2026-05-17 18:43:30', '2026-05-17 10:43:30'),
+(53, 'SAL-20260517-184735', 2, 4, 126.00, 'Paid', 'Cash', 'Fulfilled', '2026-05-17 18:47:54', '2026-05-17 10:47:54'),
+(54, 'SAL-20260517-185230', 2, 5, 260.00, 'Paid', 'Cash', 'Fulfilled', '2026-05-17 18:53:44', '2026-05-17 10:53:44'),
+(55, 'SAL-20260517-185458', 2, 7, 84.00, 'Paid', 'Cash', 'Fulfilled', '2026-05-17 18:55:26', '2026-05-17 10:55:26'),
+(56, 'SAL-20260521-131634', 2, 9, 42.00, 'Paid', 'Cash', 'Fulfilled', '2026-05-21 13:17:04', '2026-05-21 05:17:04'),
+(57, 'SAL-20260521-132917', 2, 12, 75.00, 'Paid', 'Cash', 'Fulfilled', '2026-05-21 13:29:59', '2026-05-21 05:29:59'),
+(58, 'SAL-20260522-144345', 2, 12, 51.00, 'Paid', 'Cash', 'Fulfilled', '2026-05-22 14:44:18', '2026-05-22 06:44:18'),
+(59, 'SAL-20260522-151028', 2, 12, 100.00, 'Paid', 'Cash', 'Fulfilled', '2026-05-22 15:11:29', '2026-05-22 07:11:29');
+
+--
+-- Triggers `sales`
+--
+DELIMITER $$
+CREATE TRIGGER `trg_sales_after_update` AFTER UPDATE ON `sales` FOR EACH ROW BEGIN
+    IF OLD.payment_status <> NEW.payment_status
+    OR OLD.order_status   <> NEW.order_status
+    THEN
+        INSERT INTO `audit_logs` (
+            `table_name`, `action`, `record_id`,
+            `changed_by`, `ip_address`,
+            `old_values`, `new_values`, `remarks`
+        )
+        VALUES (
+            'sales',
+            'PAYMENT',
+            NEW.id,
+            @audit_user_id,
+            @audit_ip,
+            JSON_OBJECT(
+                'payment_status', OLD.payment_status,
+                'order_status',   OLD.order_status
+            ),
+            JSON_OBJECT(
+                'payment_status', NEW.payment_status,
+                'order_status',   NEW.order_status
+            ),
+            CONCAT(
+                'Sales synced — Payment: ', OLD.payment_status,
+                ' → ', NEW.payment_status,
+                ' | Order: ', OLD.order_status,
+                ' → ', NEW.order_status
+            )
+        );
+    END IF;
+END
+$$
+DELIMITER ;
 
 -- --------------------------------------------------------
 
@@ -866,7 +750,18 @@ INSERT INTO `sale_items` (`id`, `sale_id`, `product_id`, `quantity`, `unit_price
 (53, 45, 6, 1, 285.00, 285.00),
 (54, 46, 11, 1, 25.00, 25.00),
 (55, 47, 9, 1, 25.00, 25.00),
-(56, 48, 14, 1, 35.00, 35.00);
+(56, 48, 14, 1, 35.00, 35.00),
+(57, 49, 8, 3, 75.00, 225.00),
+(58, 50, 4, 5, 10.00, 50.00),
+(59, 51, 16, 2, 62.00, 124.00),
+(60, 52, 17, 3, 62.00, 186.00),
+(61, 53, 24, 3, 42.00, 126.00),
+(62, 54, 1, 13, 20.00, 260.00),
+(63, 55, 24, 2, 42.00, 84.00),
+(64, 56, 20, 3, 14.00, 42.00),
+(65, 57, 9, 3, 25.00, 75.00),
+(66, 58, 10, 3, 17.00, 51.00),
+(67, 59, 11, 4, 25.00, 100.00);
 
 -- --------------------------------------------------------
 
@@ -938,7 +833,18 @@ INSERT INTO `stock_movements` (`id`, `product_id`, `movement_type`, `quantity`, 
 (50, 6, 'stock_out', 1, 'Sale recorded: SAL-20260428-132535', 15, '2026-04-28 11:26:07'),
 (51, 11, 'stock_out', 1, 'Sale recorded: SAL-20260428-134710', 15, '2026-04-28 11:47:37'),
 (52, 9, 'stock_out', 1, 'Sale recorded: SAL-20260428-140800', 15, '2026-04-28 12:08:21'),
-(53, 14, 'stock_out', 1, 'Sale recorded: SAL-20260428-140851', 15, '2026-04-28 12:08:58');
+(53, 14, 'stock_out', 1, 'Sale recorded: SAL-20260428-140851', 15, '2026-04-28 12:08:58'),
+(54, 8, 'stock_out', 3, 'Sale recorded: SAL-20260506-184746', 2, '2026-05-06 10:50:06'),
+(55, 4, 'stock_out', 5, 'Sale recorded: SAL-20260515-175139', 2, '2026-05-15 09:52:14'),
+(56, 16, 'stock_out', 2, 'Sale recorded: SAL-20260517-183243', 2, '2026-05-17 10:33:10'),
+(57, 17, 'stock_out', 3, 'Sale recorded: SAL-20260517-184308', 2, '2026-05-17 10:43:30'),
+(58, 24, 'stock_out', 3, 'Sale recorded: SAL-20260517-184735', 2, '2026-05-17 10:47:54'),
+(59, 1, 'stock_out', 13, 'Sale recorded: SAL-20260517-185230', 2, '2026-05-17 10:53:44'),
+(60, 24, 'stock_out', 2, 'Sale recorded: SAL-20260517-185458', 2, '2026-05-17 10:55:26'),
+(61, 20, 'stock_out', 3, 'Sale recorded: SAL-20260521-131634', 2, '2026-05-21 05:17:04'),
+(62, 9, 'stock_out', 3, 'Sale recorded: SAL-20260521-132917', 2, '2026-05-21 05:29:59'),
+(63, 10, 'stock_out', 3, 'Sale recorded: SAL-20260522-144345', 2, '2026-05-22 06:44:18'),
+(64, 11, 'stock_out', 4, 'Sale recorded: SAL-20260522-151028', 2, '2026-05-22 07:11:29');
 
 -- --------------------------------------------------------
 
@@ -983,8 +889,8 @@ CREATE TABLE `users` (
 
 INSERT INTO `users` (`id`, `username`, `full_name`, `employee_no`, `email`, `phone`, `address`, `otp_preference`, `otp_code`, `otp_expires_at`, `password`, `role`, `account_status`, `profile_image`, `valid_id_path`, `is_verified`, `approved_by`, `approved_at`, `rejection_reason`, `created_at`, `can_inventory`, `can_sales`, `can_sales_analytics`, `can_accounts_receivable`, `last_login_at`, `failed_login_attempts`, `locked_until`, `last_failed_login_at`) VALUES
 (1, 'Sedric', 'Sedric Macasieb', NULL, 'sedricmacasieb29@gmail.com', '09925853329', 'Cainta, Rizal', 'email', NULL, NULL, '$2y$10$8LTEkfEdEj2w5Wi2W3UT..VatOEd/OYZ75Uqc/4aygeroWMMQGtru', 'owner', 'active', 'uploads/profile_69ae63b4f27ea6.93611954.jpg', NULL, 0, NULL, NULL, NULL, '2026-03-06 15:19:38', 1, 1, 1, 1, '2026-04-14 00:35:37', 0, NULL, NULL),
-(2, 'Desinomeme', 'Matt Railey Valdevia', NULL, 'mvaldevia@gmail.com', '09957266803', '443 Avocado St. Napico Manggahan Pasig City mayor vico i lab u', 'email', NULL, NULL, '$2y$10$ugVIrlkRfIH4rsi/XujzceWS5VBzFM512rnrKIUIRnm/x7AGptGci', 'owner', 'active', 'uploads/profile_69ac3303264562.74696813.jpg', NULL, 0, NULL, NULL, NULL, '2026-03-07 14:15:31', 1, 1, 1, 1, '2026-04-23 19:05:29', 0, NULL, NULL),
-(4, 'NexGenAdmin', 'System Administrator', 'ADMIN-001', 'mattraileyvaldevia@gmail.com', '09957266803', 'Main Office', 'email', '848122', '2026-04-27 13:46:21', '$2y$10$xUbWxg5FjIoo3YRR64iRrOxvFMzlkSPM8v5IQJNhX2hTSndfaT57u', 'system_admin', 'active', 'uploads/profile_69b57647dc3837.12693462.png', NULL, 1, NULL, NULL, NULL, '2026-03-14 13:13:10', 0, 0, 0, 0, '2026-04-28 22:31:57', 1, NULL, '2026-04-28 22:32:18'),
+(2, 'Desinomeme', 'Matt Railey Valdevia', NULL, 'mvaldevia@gmail.com', '09957266803', '443 Avocado St. Napico Manggahan Pasig City mayor vico i lab u', 'email', NULL, NULL, '$2y$10$ugVIrlkRfIH4rsi/XujzceWS5VBzFM512rnrKIUIRnm/x7AGptGci', 'owner', 'active', 'uploads/profile_69ac3303264562.74696813.jpg', NULL, 0, NULL, NULL, NULL, '2026-03-07 14:15:31', 1, 1, 1, 1, '2026-05-22 15:10:17', 0, NULL, NULL),
+(4, 'NexGenAdmin', 'System Administrator', 'ADMIN-001', 'mattraileyvaldevia@gmail.com', '09957266803', 'Main Office', 'email', '848122', '2026-04-27 13:46:21', '$2y$10$xUbWxg5FjIoo3YRR64iRrOxvFMzlkSPM8v5IQJNhX2hTSndfaT57u', 'system_admin', 'active', 'uploads/profile_69b57647dc3837.12693462.png', NULL, 1, NULL, NULL, NULL, '2026-03-14 13:13:10', 0, 0, 0, 0, '2026-05-22 15:21:47', 0, NULL, NULL),
 (5, 'Juswa', 'Joshua Malvar Isla', NULL, 'joshuaisla@gmail.com', '09034562422', NULL, 'email', NULL, NULL, '$2y$10$RSkUCsvf0SlWffXpVFJW2elcp.x0YiOy9p7qSsiLOdTllslnMBUcq', 'employee', 'pending', 'uploads/profile_69b56a8f504900.42054425.jpg', NULL, 0, NULL, NULL, NULL, '2026-03-14 14:02:55', 1, 1, 0, 1, NULL, 0, NULL, NULL),
 (6, 'Chuchu', 'Chu K Umani', 'EMP-030', 'chuchu@gmail.com', '09784574125', 'Tiga kela Sed', 'email', NULL, NULL, '$2y$10$jiWRmhk3ttT76vSyi8xP9OAySYUnowPON3L7gnisGPG5nvbpVyQfu', 'employee', 'active', 'uploads/profile_69b58869e83ae8.54802663.jpg', 'uploads/valid_ids/valid_id_69b58496be2010.52169437.jpg', 1, 4, '2026-03-14 17:09:21', NULL, '2026-03-14 16:09:21', 1, 0, 0, 0, '2026-04-13 10:22:39', 0, NULL, NULL),
 (7, 'Joshua', 'Joshua Malvar Isla', '10', 'joshuaisla3@gmail.com', '09565038115', 'Gruar Cainta Rizal', 'email', NULL, NULL, '$2y$10$7kyu20xZez4pHDt2j2ZdkuRAg1QR5X8ZtopUDQIQZ5WmjM2AKXfmq', 'owner', 'active', 'uploads/default.png', 'uploads/valid_ids/valid_id_69d4c44d790201.79995650.png', 1, 4, '2026-04-07 10:47:27', NULL, '2026-04-07 08:47:27', 0, 0, 0, 0, NULL, 0, NULL, NULL),
@@ -993,89 +899,11 @@ INSERT INTO `users` (`id`, `username`, `full_name`, `employee_no`, `email`, `pho
 (10, 'RAC', 'RAC', 'oo', 'rac.microenterprise@gmail.com', '12345', 'dyan lang', 'email', NULL, NULL, '$2y$10$kRqZ3rKRPahNKJJJ.ZBVIOx.NKnx.WbzW0PnEDMoNpDVI9B.Omdve', 'owner', 'active', 'uploads/default.png', 'uploads/valid_ids/valid_id_69d6057267f976.18547648.png', 1, 4, '2026-04-08 09:36:55', NULL, '2026-04-08 07:36:55', 1, 1, 1, 1, '2026-04-15 11:47:55', 0, NULL, NULL),
 (11, 'averyval', 'Avery Isaac Valdevia', 'EMP-024', 'averyisaac17@gmail.com', '09325865747', '32 Amethyst St. Greenpark Village Cainta, Rizal', 'email', NULL, NULL, '$2y$10$PnLZaek77AI2PCnr4pPxZuJjxLlsw4S5HM4cD9tgkyVuI.52GN7yK', 'employee', 'active', 'uploads/default.png', 'uploads/valid_ids/valid_id_69dbb6caeff840.16254119.png', 1, 4, '2026-04-13 12:06:55', NULL, '2026-04-13 10:06:55', 1, 0, 0, 1, '2026-04-13 19:49:17', 0, NULL, NULL),
 (12, 'common_matter', 'Matt Valdevia', 'EMP-365', 'common@gmail.com', '09957266803', 'Pasig City', 'email', NULL, NULL, '$2y$10$tV8fEqu/HUPU9rk3oBptt.IAEYFm9xDoQ7czP5AXhJG8YeFDrmIOy', 'owner', 'active', 'uploads/default.png', 'uploads/valid_ids/valid_id_69dd0fd716bf68.18573264.png', 1, 4, '2026-04-13 17:47:22', NULL, '2026-04-13 15:47:22', 1, 1, 1, 1, '2026-04-13 23:47:40', 0, NULL, NULL),
-(13, 'Joshie', 'Joshua Malvar Isla', 'EMP-300', 'joshuaisla04@gmail.com', '09565038115', 'Gruar Cainta Rizal', 'email', NULL, NULL, '$2y$10$PRLCnIxDSI2CufbLKo7te.Glu9ha4O6JHAlJA4rtnh40ncAig0eLe', 'employee', 'active', 'uploads/profile_69e077ed3f5e87.44891711.jpg', 'uploads/valid_ids/valid_id_69e07767604e08.15732705.jpg', 1, 4, '2026-04-16 07:46:22', NULL, '2026-04-16 05:46:22', 1, 1, 0, 1, '2026-04-16 19:42:32', 0, NULL, NULL),
+(13, 'Joshie', 'Joshua Malvar Isla', 'EMP-300', 'joshuaisla04@gmail.com', '09565038115', 'Gruar Cainta Rizal', 'email', NULL, NULL, '$2y$10$PRLCnIxDSI2CufbLKo7te.Glu9ha4O6JHAlJA4rtnh40ncAig0eLe', 'employee', 'active', 'uploads/profile_69e077ed3f5e87.44891711.jpg', 'uploads/valid_ids/valid_id_69e07767604e08.15732705.jpg', 1, 4, '2026-04-16 07:46:22', NULL, '2026-04-16 05:46:22', 0, 1, 0, 1, '2026-04-16 19:42:32', 0, NULL, NULL),
 (14, 'Elwin', 'Farma', '5555', 'win@gmail.com', '09303318958', 'sa tabi', 'email', NULL, NULL, '$2y$10$QwwxTj9eASQdSoxSp0jny.PLR2/4kZTnHqqU84RO5BJbuYeNoVlr2', 'owner', 'active', 'uploads/profile_69eb7caf493a50.85691126.jpg', 'uploads/valid_ids/valid_id_69eb7c20360783.95488227.png', 1, 4, '2026-04-24 16:20:40', NULL, '2026-04-24 14:20:40', 1, 1, 1, 1, '2026-04-28 22:32:34', 0, NULL, NULL),
-(15, 'sedsed', 'sedriiicc', '2004', 'sedsed@gmail.com', '09543765432', 'dyan lang', 'email', '035445', '2026-04-28 18:21:56', '$2y$10$RjOnjF8ljrzeWXqe8FU43.xuOh5Wu5TLKny68wW/Ki.b1XSqpCEqa', 'owner', 'active', 'uploads/profile_69f0afa3786b51.93262467.png', 'uploads/valid_ids/valid_id_69ef2f87627442.66866205.jpg', 1, 4, '2026-04-27 11:58:48', NULL, '2026-04-27 09:58:48', 1, 1, 1, 1, '2026-04-28 20:59:49', 3, '2026-04-28 22:25:25', '2026-04-28 22:10:25');
-
---
--- Triggers `users`
---
-DELIMITER $$
-CREATE TRIGGER `trg_users_audit_insert` AFTER INSERT ON `users` FOR EACH ROW BEGIN
-    INSERT INTO audit_logs (
-        table_name,
-        record_id,
-        action_type,
-        changed_by,
-        old_values,
-        new_values
-    ) VALUES (
-        'users',
-        NEW.id,
-        'INSERT',
-        NEW.id,
-        NULL,
-        CONCAT(
-            'username=', IFNULL(NEW.username, ''),
-            '; full_name=', IFNULL(NEW.full_name, ''),
-            '; employee_no=', IFNULL(NEW.employee_no, ''),
-            '; email=', IFNULL(NEW.email, ''),
-            '; role=', IFNULL(NEW.role, ''),
-            '; account_status=', IFNULL(NEW.account_status, ''),
-            '; can_inventory=', IFNULL(NEW.can_inventory, ''),
-            '; can_sales=', IFNULL(NEW.can_sales, ''),
-            '; can_sales_analytics=', IFNULL(NEW.can_sales_analytics, ''),
-            '; can_accounts_receivable=', IFNULL(NEW.can_accounts_receivable, ''),
-            '; last_login_at=', IFNULL(NEW.last_login_at, '')
-        )
-    );
-END
-$$
-DELIMITER ;
-DELIMITER $$
-CREATE TRIGGER `trg_users_audit_update` AFTER UPDATE ON `users` FOR EACH ROW BEGIN
-    INSERT INTO audit_logs (
-        table_name,
-        record_id,
-        action_type,
-        changed_by,
-        old_values,
-        new_values
-    ) VALUES (
-        'users',
-        NEW.id,
-        'UPDATE',
-        NEW.id,
-        CONCAT(
-            'username=', IFNULL(OLD.username, ''),
-            '; full_name=', IFNULL(OLD.full_name, ''),
-            '; employee_no=', IFNULL(OLD.employee_no, ''),
-            '; email=', IFNULL(OLD.email, ''),
-            '; role=', IFNULL(OLD.role, ''),
-            '; account_status=', IFNULL(OLD.account_status, ''),
-            '; can_inventory=', IFNULL(OLD.can_inventory, ''),
-            '; can_sales=', IFNULL(OLD.can_sales, ''),
-            '; can_sales_analytics=', IFNULL(OLD.can_sales_analytics, ''),
-            '; can_accounts_receivable=', IFNULL(OLD.can_accounts_receivable, ''),
-            '; last_login_at=', IFNULL(OLD.last_login_at, '')
-        ),
-        CONCAT(
-            'username=', IFNULL(NEW.username, ''),
-            '; full_name=', IFNULL(NEW.full_name, ''),
-            '; employee_no=', IFNULL(NEW.employee_no, ''),
-            '; email=', IFNULL(NEW.email, ''),
-            '; role=', IFNULL(NEW.role, ''),
-            '; account_status=', IFNULL(NEW.account_status, ''),
-            '; can_inventory=', IFNULL(NEW.can_inventory, ''),
-            '; can_sales=', IFNULL(NEW.can_sales, ''),
-            '; can_sales_analytics=', IFNULL(NEW.can_sales_analytics, ''),
-            '; can_accounts_receivable=', IFNULL(NEW.can_accounts_receivable, ''),
-            '; last_login_at=', IFNULL(NEW.last_login_at, '')
-        )
-    );
-END
-$$
-DELIMITER ;
+(15, 'sedsed', 'sedriiicc', '2004', 'sedsed@gmail.com', '09543765432', 'dyan lang', 'email', '035445', '2026-04-28 18:21:56', '$2y$10$RjOnjF8ljrzeWXqe8FU43.xuOh5Wu5TLKny68wW/Ki.b1XSqpCEqa', 'owner', 'active', 'uploads/profile_69f0afa3786b51.93262467.png', 'uploads/valid_ids/valid_id_69ef2f87627442.66866205.jpg', 1, 4, '2026-04-27 11:58:48', NULL, '2026-04-27 09:58:48', 1, 1, 1, 1, '2026-04-28 20:59:49', 3, '2026-04-28 22:25:25', '2026-04-28 22:10:25'),
+(17, 'JoshuaIsla17', 'joshuaisla', '50', 'joshuaisla13@gmail.com', '09565038115', 'Gruar Cainta Rizal', 'email', NULL, NULL, '$2y$10$dZng8xVaKwTFidsXN29D1uXQQZG9M5nZmWTIfYH2Rwz6ulR5q2Uva', 'owner', 'active', 'uploads/profile_6a01a5bdaeb602.38194442.jpg', 'uploads/valid_ids/valid_id_6a019cdd509aa0.59582846.jpg', 1, 4, '2026-05-11 17:12:13', NULL, '2026-05-11 09:12:13', 1, 1, 1, 1, '2026-05-15 14:09:02', 0, NULL, NULL),
+(18, 'Sevi', 'Sevirino Alexander', '34', 'Sevirino@gmail.com', '09876545678', 'Cainta, Rizal', 'email', NULL, NULL, '$2y$10$LDx.Rjf.sslgX3SeALZG6OdxGK0L2fMpXu/zJTuk3.pawto63JNeC', 'owner', 'active', 'uploads/default.png', 'uploads/valid_ids/valid_id_6a06cb48bcb3c6.13960256.png', 1, 4, '2026-05-15 15:45:01', NULL, '2026-05-15 07:45:01', 1, 1, 1, 1, NULL, 0, NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -1171,7 +999,11 @@ ALTER TABLE `admin_logs`
 -- Indexes for table `audit_logs`
 --
 ALTER TABLE `audit_logs`
-  ADD PRIMARY KEY (`id`);
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_table_record` (`table_name`,`record_id`),
+  ADD KEY `idx_changed_by` (`changed_by`),
+  ADD KEY `idx_ip_address` (`ip_address`),
+  ADD KEY `idx_created_at` (`created_at`);
 
 --
 -- Indexes for table `categories`
@@ -1253,19 +1085,19 @@ ALTER TABLE `accounts_masterlist`
 -- AUTO_INCREMENT for table `accounts_receivable`
 --
 ALTER TABLE `accounts_receivable`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=13;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=24;
 
 --
 -- AUTO_INCREMENT for table `admin_logs`
 --
 ALTER TABLE `admin_logs`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=48;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=52;
 
 --
 -- AUTO_INCREMENT for table `audit_logs`
 --
 ALTER TABLE `audit_logs`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=179;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
 
 --
 -- AUTO_INCREMENT for table `categories`
@@ -1289,31 +1121,31 @@ ALTER TABLE `products`
 -- AUTO_INCREMENT for table `registration_requests`
 --
 ALTER TABLE `registration_requests`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=18;
 
 --
 -- AUTO_INCREMENT for table `sales`
 --
 ALTER TABLE `sales`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=49;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=60;
 
 --
 -- AUTO_INCREMENT for table `sale_items`
 --
 ALTER TABLE `sale_items`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=57;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=68;
 
 --
 -- AUTO_INCREMENT for table `stock_movements`
 --
 ALTER TABLE `stock_movements`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=54;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=65;
 
 --
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=19;
 
 --
 -- Constraints for dumped tables

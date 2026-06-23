@@ -90,6 +90,10 @@ if (in_array($payment_status, ['Unpaid', 'Partially Paid'], true) && $customer_i
     exit();
 }
 
+$maxRetries = 3;
+
+for ($attempt = 1; $attempt <= $maxRetries; $attempt++) {
+
 $conn->begin_transaction();
 
 try {
@@ -340,15 +344,23 @@ try {
     ], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
     exit();
 
-} catch (Exception $e) {
-    $conn->rollback();
+    } catch (Exception $e) {
+        $conn->rollback();
 
-    error_log('process_sale_ajax.php error: ' . $e->getMessage());
+        // Retry on deadlock (MySQL error 1213), otherwise fail immediately
+        if ($conn->errno === 1213 && $attempt < $maxRetries) {
+            usleep(100000 * $attempt); // wait 100ms, 200ms before retrying
+            continue;
+        }
 
-    echo json_encode([
-        'success' => false,
-        'message' => 'Unable to save the sale. Please check the form and try again.'
-    ], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
-    exit();
-}
+        error_log('process_sale_ajax.php error: ' . $e->getMessage());
+
+        echo json_encode([
+            'success' => false,
+            'message' => 'Unable to save the sale. Please check the form and try again.'
+        ], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
+        exit();
+    }
+
+} // end retry loop
 ?>

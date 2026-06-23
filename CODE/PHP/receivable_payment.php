@@ -1,7 +1,8 @@
 <?php
 session_start();
 require_once("config.php");
-
+require_once(__DIR__ . "/audit_helper.php");
+set_audit_context($conn); 
 
 
 if (!isset($_SESSION['user_id'])) {
@@ -33,33 +34,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit();
     }
 
+    $maxRetries = 3;
+
+    for ($attempt = 1; $attempt <= $maxRetries; $attempt++) {
+
     $conn->begin_transaction();
 
     try {
-       
-        $stmt = $conn->prepare("
+        // Step 1: Read WITHOUT lock to get sale_id (no lock held yet)
+        $stmtRead = $conn->prepare("
             SELECT id, sale_id, total_amount, amount_paid, balance_due, due_date
             FROM accounts_receivable
             WHERE id = ?
-            FOR UPDATE
         ");
 
-        if (!$stmt) {
-            throw new Exception('Failed to prepare receivable lock query.');
+        if (!$stmtRead) {
+            throw new Exception('Failed to prepare receivable read query.');
         }
 
-        $stmt->bind_param("i", $id);
-        $stmt->execute();
-        $row = $stmt->get_result()->fetch_assoc();
-        $stmt->close();
+        $stmtRead->bind_param("i", $id);
+        $stmtRead->execute();
+        $rowRead = $stmtRead->get_result()->fetch_assoc();
+        $stmtRead->close();
 
-        if (!$row) {
+        if (!$rowRead) {
             throw new Exception('Receivable not found.');
         }
 
-        $saleId = (int)$row['sale_id'];
+        $saleId = (int)$rowRead['sale_id'];
 
-        
+        // Step 2: Lock SALES first (global order: sales → accounts_receivable)
         $saleLock = $conn->prepare("
             SELECT id
             FROM sales
@@ -78,6 +82,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (!$saleRow) {
             throw new Exception('Related sale record not found.');
+        }
+
+        // Step 3: Lock ACCOUNTS_RECEIVABLE second (correct global order)
+        $stmt = $conn->prepare("
+            SELECT id, sale_id, total_amount, amount_paid, balance_due, due_date
+            FROM accounts_receivable
+            WHERE id = ?
+            FOR UPDATE
+        ");
+
+        if (!$stmt) {
+            throw new Exception('Failed to prepare receivable lock query.');
+        }
+
+        $stmt->bind_param("i", $id);
+        $stmt->execute();
+        $row = $stmt->get_result()->fetch_assoc();
+        $stmt->close();
+
+        if (!$row) {
+            throw new Exception('Receivable not found.');
         }
 
         $totalAmount = (float)$row['total_amount'];
@@ -174,10 +199,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } catch (Exception $e) {
         $conn->rollback();
 
+        // Retry on deadlock (MySQL error 1213), otherwise fail immediately
+        if ($conn->errno === 1213 && $attempt < $maxRetries) {
+            usleep(100000 * $attempt); // wait 100ms, 200ms before retrying
+            continue;
+        }
+
         $_SESSION['error'] = $e->getMessage();
         header("Location: /NexGen/CODE/PHP/receivable_payment.php?id=" . $id);
         exit();
     }
+
+    } // end retry loop
 }
 
 $stmt = $conn->prepare("

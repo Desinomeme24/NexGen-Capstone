@@ -14,6 +14,8 @@ if ((int)($_SESSION['can_sales'] ?? 0) !== 1) {
 
 include 'config.php';
 
+
+
 if ($_SERVER["REQUEST_METHOD"] !== "POST") {
     header("Location: /NexGen/CODE/PHP/sales_recording.php");
     exit();
@@ -65,6 +67,7 @@ $conn->begin_transaction();
 try {
     $total_amount = 0;
     $items = [];
+    $requiredByProduct = [];
 
     for ($i = 0; $i < count($product_ids); $i++) {
         $product_id = (int)($product_ids[$i] ?? 0);
@@ -75,21 +78,6 @@ try {
             throw new Exception("Invalid product, quantity, or unit price.");
         }
 
-        $checkStmt = $conn->prepare("SELECT stock_quantity, product_name FROM products WHERE id = ? LIMIT 1");
-        $checkStmt->bind_param("i", $product_id);
-        $checkStmt->execute();
-        $checkResult = $checkStmt->get_result();
-
-        if ($checkResult->num_rows === 0) {
-            throw new Exception("Product not found.");
-        }
-
-        $product = $checkResult->fetch_assoc();
-        if ((int)$product['stock_quantity'] < $qty) {
-            throw new Exception("Not enough stock for " . $product['product_name']);
-        }
-        $checkStmt->close();
-
         $subtotal = $qty * $price;
         $total_amount += $subtotal;
 
@@ -99,7 +87,45 @@ try {
             'unit_price' => $price,
             'subtotal' => $subtotal
         ];
+
+        if (!isset($requiredByProduct[$product_id])) {
+            $requiredByProduct[$product_id] = 0;
+        }
+
+        $requiredByProduct[$product_id] += $qty;
     }
+
+   
+    ksort($requiredByProduct);
+
+    $checkStmt = $conn->prepare("
+        SELECT id, product_name, stock_quantity
+        FROM products
+        WHERE id = ?
+        FOR UPDATE
+    ");
+
+    if (!$checkStmt) {
+        throw new Exception("Failed to prepare product lock query.");
+    }
+
+    foreach ($requiredByProduct as $product_id => $requiredQty) {
+        $checkStmt->bind_param("i", $product_id);
+        $checkStmt->execute();
+        $checkResult = $checkStmt->get_result();
+
+        if ($checkResult->num_rows === 0) {
+            throw new Exception("Product not found.");
+        }
+
+        $product = $checkResult->fetch_assoc();
+
+        if ((int)$product['stock_quantity'] < $requiredQty) {
+            throw new Exception("Not enough stock for " . $product['product_name']);
+        }
+    }
+
+    $checkStmt->close();
 
     if ($payment_status === 'Paid') {
         $amount_paid_input = $total_amount;
@@ -108,14 +134,17 @@ try {
     } elseif ($payment_status === 'Unpaid') {
         $amount_paid_input = 0;
         $order_status = 'Pending';
+
         if ($due_date === '') {
             throw new Exception('Due date is required for unpaid sales.');
         }
     } elseif ($payment_status === 'Partially Paid') {
         $order_status = 'Pending';
+
         if ($amount_paid_input <= 0 || $amount_paid_input >= $total_amount) {
             throw new Exception('For partially paid sales, amount paid must be greater than 0 and less than the total amount.');
         }
+
         if ($due_date === '') {
             throw new Exception('Due date is required for partially paid sales.');
         }
@@ -132,8 +161,17 @@ try {
             sales_no, salesperson_id, customer_id, total_amount, payment_status, payment_method, order_status
         ) VALUES (?, ?, ?, ?, ?, ?, ?)
     ");
+
+    if (!$saleStmt) {
+        throw new Exception("Failed to prepare sales insert query.");
+    }
+
     $saleStmt->bind_param("siidsss", $sales_no, $user_id, $customerParam, $total_amount, $payment_status, $payment_method, $order_status);
-    $saleStmt->execute();
+
+    if (!$saleStmt->execute()) {
+        throw new Exception("Failed to save sale record.");
+    }
+
     $sale_id = $conn->insert_id;
     $saleStmt->close();
 
@@ -142,22 +180,54 @@ try {
             INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, subtotal)
             VALUES (?, ?, ?, ?, ?)
         ");
+
+        if (!$itemStmt) {
+            throw new Exception("Failed to prepare sale item query.");
+        }
+
         $itemStmt->bind_param("iiidd", $sale_id, $item['product_id'], $item['quantity'], $item['unit_price'], $item['subtotal']);
-        $itemStmt->execute();
+
+        if (!$itemStmt->execute()) {
+            throw new Exception("Failed to save sale item.");
+        }
+
         $itemStmt->close();
 
-        $updateStock = $conn->prepare("UPDATE products SET stock_quantity = stock_quantity - ? WHERE id = ?");
+        $updateStock = $conn->prepare("
+            UPDATE products
+            SET stock_quantity = stock_quantity - ?
+            WHERE id = ?
+        ");
+
+        if (!$updateStock) {
+            throw new Exception("Failed to prepare stock update query.");
+        }
+
         $updateStock->bind_param("ii", $item['quantity'], $item['product_id']);
-        $updateStock->execute();
+
+        if (!$updateStock->execute()) {
+            throw new Exception("Failed to deduct stock.");
+        }
+
         $updateStock->close();
 
         $remarks = "Sale recorded: " . $sales_no;
+
         $stockStmt = $conn->prepare("
             INSERT INTO stock_movements (product_id, movement_type, quantity, remarks, created_by)
             VALUES (?, 'stock_out', ?, ?, ?)
         ");
+
+        if (!$stockStmt) {
+            throw new Exception("Failed to prepare stock movement query.");
+        }
+
         $stockStmt->bind_param("iisi", $item['product_id'], $item['quantity'], $remarks, $user_id);
-        $stockStmt->execute();
+
+        if (!$stockStmt->execute()) {
+            throw new Exception("Failed to save stock movement.");
+        }
+
         $stockStmt->close();
     }
 
@@ -166,6 +236,7 @@ try {
         $balance_due = max(0, $total_amount - $amount_paid);
 
         $receivableStatus = 'Unpaid';
+
         if ($amount_paid > 0 && $balance_due > 0) {
             $receivableStatus = 'Partially Paid';
         } elseif ($balance_due <= 0) {
@@ -177,6 +248,11 @@ try {
                 sale_id, customer_id, total_amount, amount_paid, balance_due, due_date, status, created_by
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         ");
+
+        if (!$stmtAr) {
+            throw new Exception("Failed to prepare accounts receivable query.");
+        }
+
         $stmtAr->bind_param(
             "iidddssi",
             $sale_id,
@@ -188,17 +264,23 @@ try {
             $receivableStatus,
             $user_id
         );
-        $stmtAr->execute();
+
+        if (!$stmtAr->execute()) {
+            throw new Exception("Failed to save accounts receivable record.");
+        }
+
         $stmtAr->close();
     }
 
     $conn->commit();
+
     $_SESSION['success'] = 'Sale recorded successfully.';
     header("Location: sale_view.php?id=" . $sale_id);
     exit();
 
 } catch (Exception $e) {
     $conn->rollback();
+
     $_SESSION['error'] = "Error saving sale: " . $e->getMessage();
     header("Location: /NexGen/CODE/PHP/sales_recording.php");
     exit();

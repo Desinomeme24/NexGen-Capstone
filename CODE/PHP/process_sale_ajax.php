@@ -1,6 +1,6 @@
 <?php
 session_start();
-header('Content-Type: application/json');
+header('Content-Type: application/json; charset=UTF-8');
 require_once("config.php");
 
 if (!isset($_SESSION['user_id'])) {
@@ -95,17 +95,7 @@ $conn->begin_transaction();
 try {
     $total_amount = 0;
     $items = [];
-
-    $productCheckStmt = $conn->prepare("
-        SELECT id, product_name, stock_quantity
-        FROM products
-        WHERE id = ? AND is_active = 1
-        LIMIT 1
-    ");
-
-    if (!$productCheckStmt) {
-        throw new Exception('Failed to prepare product validation query.');
-    }
+    $requiredByProduct = [];
 
     for ($i = 0; $i < count($product_ids); $i++) {
         $product_id = (int) ($product_ids[$i] ?? 0);
@@ -116,6 +106,39 @@ try {
             throw new Exception('Invalid product, quantity, or unit price detected.');
         }
 
+        $subtotal = $quantity * $unit_price;
+        $total_amount += $subtotal;
+
+        $items[] = [
+            'product_id' => $product_id,
+            'quantity' => $quantity,
+            'unit_price' => $unit_price,
+            'subtotal' => $subtotal
+        ];
+
+        if (!isset($requiredByProduct[$product_id])) {
+            $requiredByProduct[$product_id] = 0;
+        }
+
+        $requiredByProduct[$product_id] += $quantity;
+    }
+
+    ksort($requiredByProduct);
+
+    $productCheckStmt = $conn->prepare("
+        SELECT id, product_name, stock_quantity
+        FROM products
+        WHERE id = ? AND is_active = 1
+        FOR UPDATE
+    ");
+
+    if (!$productCheckStmt) {
+        throw new Exception('Failed to prepare product lock query.');
+    }
+
+    $productNames = [];
+
+    foreach ($requiredByProduct as $product_id => $requiredQty) {
         $productCheckStmt->bind_param("i", $product_id);
         $productCheckStmt->execute();
         $productResult = $productCheckStmt->get_result();
@@ -126,24 +149,18 @@ try {
 
         $product = $productResult->fetch_assoc();
         $availableStock = (int) $product['stock_quantity'];
+        $productNames[$product_id] = $product['product_name'];
 
-        if ($quantity > $availableStock) {
-            throw new Exception('Insufficient stock for product: ' . $product['product_name']);
+        if ($requiredQty > $availableStock) {
+            throw new Exception('Insufficient stock for one of the selected products.');
         }
-
-        $subtotal = $quantity * $unit_price;
-        $total_amount += $subtotal;
-
-        $items[] = [
-            'product_id' => $product_id,
-            'product_name' => $product['product_name'],
-            'quantity' => $quantity,
-            'unit_price' => $unit_price,
-            'subtotal' => $subtotal
-        ];
     }
 
     $productCheckStmt->close();
+
+    foreach ($items as $index => $item) {
+        $items[$index]['product_name'] = $productNames[$item['product_id']] ?? 'Product';
+    }
 
     if ($payment_status === 'Paid') {
         $amount_paid_input = $total_amount;
@@ -196,7 +213,11 @@ try {
         $payment_method,
         $order_status
     );
-    $saleStmt->execute();
+
+    if (!$saleStmt->execute()) {
+        throw new Exception('Failed to save sale record.');
+    }
+
     $sale_id = $conn->insert_id;
     $saleStmt->close();
 
@@ -218,7 +239,11 @@ try {
             $item['unit_price'],
             $item['subtotal']
         );
-        $itemStmt->execute();
+
+        if (!$itemStmt->execute()) {
+            throw new Exception('Failed to save sale item.');
+        }
+
         $itemStmt->close();
 
         $stockStmt = $conn->prepare("
@@ -232,7 +257,11 @@ try {
         }
 
         $stockStmt->bind_param("ii", $item['quantity'], $item['product_id']);
-        $stockStmt->execute();
+
+        if (!$stockStmt->execute()) {
+            throw new Exception('Failed to deduct product stock.');
+        }
+
         $stockStmt->close();
 
         $remarks = "Sale recorded: " . $sales_no;
@@ -253,7 +282,11 @@ try {
             $remarks,
             $user_id
         );
-        $movementStmt->execute();
+
+        if (!$movementStmt->execute()) {
+            throw new Exception('Failed to save stock movement history.');
+        }
+
         $movementStmt->close();
     }
 
@@ -290,7 +323,11 @@ try {
             $receivableStatus,
             $user_id
         );
-        $arStmt->execute();
+
+        if (!$arStmt->execute()) {
+            throw new Exception('Failed to save accounts receivable record.');
+        }
+
         $arStmt->close();
     }
 
@@ -300,16 +337,18 @@ try {
         'success' => true,
         'message' => 'Sale recorded successfully.',
         'sale_id' => $sale_id
-    ]);
+    ], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
     exit();
 
 } catch (Exception $e) {
     $conn->rollback();
 
+    error_log('process_sale_ajax.php error: ' . $e->getMessage());
+
     echo json_encode([
         'success' => false,
-        'message' => $e->getMessage()
-    ]);
+        'message' => 'Unable to save the sale. Please check the form and try again.'
+    ], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
     exit();
 }
-?>x
+?>

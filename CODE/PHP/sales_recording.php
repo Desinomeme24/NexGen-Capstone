@@ -188,6 +188,162 @@ unset($_SESSION['success'], $_SESSION['error']);
         .cancel-btn {
             display: none !important;
         }
+        .customer-block {
+    position: relative;
+}
+
+.customer-block {
+    position: relative;
+}
+
+.customer-sticky-bar {
+    position: sticky;
+    top: 0;
+    z-index: 15;
+    background: linear-gradient(180deg, rgba(23, 62, 170, 0.98), rgba(23, 62, 170, 0.92));
+    padding: 0 0 12px 0;
+    margin-bottom: 6px;
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    border-radius: 14px 14px 0 0;
+}
+
+.customer-sticky-bar .btn-primary {
+    min-width: 208px;
+}
+.customer-inline-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.customer-inline-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 220px;
+    gap: 12px;
+    align-items: center;
+    width: 100%;
+}
+
+.customer-inline-row select,
+.customer-inline-row .customer-inline-btn {
+    margin: 0;
+}
+
+.customer-inline-btn {
+    width: 100%;
+    min-width: 220px;
+    height: 52px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+}
+
+.sale-confirm-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 100001;
+    padding: 20px;
+}
+
+.sale-confirm-overlay.show {
+    display: flex;
+}
+
+.sale-confirm-box {
+    width: 100%;
+    max-width: 400px;
+    background: linear-gradient(180deg, #1f3c88 0%, #1a3578 100%);
+    border-radius: 22px;
+    padding: 26px 22px;
+    box-shadow: 0 22px 50px rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255,255,255,0.12);
+    text-align: center;
+    color: #fff;
+}
+
+.sale-confirm-icon {
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 14px;
+    border-radius: 50%;
+    background: rgba(247, 217, 139, 0.16);
+    color: #f7d98b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    font-weight: 900;
+}
+
+.sale-confirm-box h3 {
+    margin: 0 0 10px;
+    font-size: 26px;
+    font-weight: 900;
+}
+
+.sale-confirm-box p {
+    margin: 0 0 20px;
+    font-size: 15px;
+    line-height: 1.6;
+    color: rgba(255,255,255,0.88);
+}
+
+.sale-confirm-actions {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.sale-confirm-cancel,
+.sale-confirm-yes {
+    border: none;
+    border-radius: 12px;
+    padding: 12px 18px;
+    min-width: 130px;
+    font-size: 14px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: 0.2s ease;
+}
+
+.sale-confirm-cancel {
+    background: rgba(255,255,255,0.14);
+    color: #fff;
+}
+
+.sale-confirm-cancel:hover {
+    background: rgba(255,255,255,0.22);
+}
+
+.sale-confirm-yes {
+    background: #f7d98b;
+    color: #17306b;
+}
+
+.sale-confirm-yes:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 20px rgba(247, 217, 139, 0.25);
+}
+
+@media (max-width: 768px) {
+    .customer-inline-row {
+        grid-template-columns: 1fr;
+    }
+
+    .customer-inline-btn {
+        min-width: 100%;
+    }
+}
     </style>
 </head>
 <body>
@@ -410,18 +566,22 @@ unset($_SESSION['success'], $_SESSION['error']);
                             </select>
                         </div>
 
-                        <div class="form-group full-span">
-                            <button type="button" class="btn-primary" id="openCustomerBtn">＋ New Customer</button>
-                            <label>Customer</label>
-                            <select name="customer_id" id="customerSelect">
-                                <option value="">Walk-in / Optional for Paid</option>
-                                <?php foreach ($customerList as $customer): ?>
-                                    <option value="<?php echo (int)$customer['id']; ?>">
-                                        <?php echo htmlspecialchars($customer['customer_name'] . ' (' . $customer['customer_code'] . ')'); ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
+   <div class="form-group full-span customer-inline-group">
+    <label>Customer</label>
+
+    <div class="customer-inline-row">
+        <select name="customer_id" id="customerSelect">
+            <option value="">Walk-in / Optional for Paid</option>
+            <?php foreach ($customerList as $customer): ?>
+                <option value="<?php echo (int)$customer['id']; ?>">
+                    <?php echo htmlspecialchars($customer['customer_name'] . ' (' . $customer['customer_code'] . ')'); ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
+
+        <button type="button" class="btn-primary customer-inline-btn" id="openCustomerBtn">＋ New Customer</button>
+    </div>
+</div>
 
                         <div class="form-group" id="amountPaidGroup">
                             <label>Amount Paid</label>
@@ -501,6 +661,18 @@ unset($_SESSION['success'], $_SESSION['error']);
         </form>
     </div>
 </div>
+<div class="sale-confirm-overlay" id="saleConfirmOverlay">
+    <div class="sale-confirm-box">
+        <div class="sale-confirm-icon">?</div>
+        <h3>Confirm Sale</h3>
+        <p>Are you sure you want to save this new sale?</p>
+
+        <div class="sale-confirm-actions">
+            <button type="button" class="sale-confirm-cancel" id="saleConfirmCancel">Cancel</button>
+            <button type="button" class="sale-confirm-yes" id="saleConfirmYes">Yes</button>
+        </div>
+    </div>
+</div>
 
 <footer class="footer-section" id="footer-section">
     <div class="footer-top-line"></div>
@@ -510,7 +682,7 @@ unset($_SESSION['success'], $_SESSION['error']);
 <?php include 'chatbot.php'; ?>
 
 <script>
-window.products = <?php echo json_encode($productList); ?>;
+window.products = <?php echo json_encode($productList, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 </script>
 <script src="/NexGen/CODE/JS/header.js?v=5"></script>
 <script src="/NexGen/CODE/JS/sales_recording.js?v=5"></script>

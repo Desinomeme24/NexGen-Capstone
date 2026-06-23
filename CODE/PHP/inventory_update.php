@@ -2,6 +2,7 @@
 session_start();
 require_once("config.php");
 
+
 if (!isset($_SESSION['user_id'])) {
     header("Location: /NexGen/CODE/PHP/index.php");
     exit();
@@ -53,6 +54,7 @@ $imagePath = $oldImage;
 
 if (!empty($_FILES['product_image']['name'])) {
     $uploadDir = __DIR__ . "/uploads/products/";
+
     if (!is_dir($uploadDir)) {
         mkdir($uploadDir, 0777, true);
     }
@@ -74,84 +76,147 @@ if (!empty($_FILES['product_image']['name'])) {
     }
 }
 
-if ($isOwner) {
-    $stmt = $conn->prepare("
-        UPDATE products SET
-            product_code = ?,
-            product_name = ?,
-            category_id = ?,
-            brand = ?,
-            unit = ?,
-            cost_price = ?,
-            selling_price = ?,
-            stock_quantity = ?,
-            reorder_level = ?,
-            on_order_level = ?,
-            expiry_date = ?,
-            product_image = ?,
-            description = ?,
-            is_active = ?
+$conn->begin_transaction();
+
+try {
+   
+    $lockStmt = $conn->prepare("
+        SELECT id
+        FROM products
         WHERE id = ?
+        FOR UPDATE
     ");
 
-    $stmt->bind_param(
-        "ssissddiiisssii",
-        $product_code,
-        $product_name,
-        $category_id,
-        $brand,
-        $unit,
-        $cost_price,
-        $selling_price,
-        $stock_quantity,
-        $reorder_level,
-        $on_order_level,
-        $expiry_date,
-        $imagePath,
-        $description,
-        $is_active,
-        $id
-    );
-} else {
-    $stmt = $conn->prepare("
-        UPDATE products SET
-            product_code = ?,
-            product_name = ?,
-            category_id = ?,
-            brand = ?,
-            unit = ?,
-            cost_price = ?,
-            selling_price = ?,
-            stock_quantity = ?,
-            expiry_date = ?,
-            product_image = ?,
-            description = ?,
-            is_active = ?
-        WHERE id = ?
+    if (!$lockStmt) {
+        throw new Exception("Failed to prepare product lock query.");
+    }
+
+    $lockStmt->bind_param("i", $id);
+    $lockStmt->execute();
+    $product = $lockStmt->get_result()->fetch_assoc();
+    $lockStmt->close();
+
+    if (!$product) {
+        throw new Exception("Product not found.");
+    }
+
+  
+    $checkCode = $conn->prepare("
+        SELECT id
+        FROM products
+        WHERE product_code = ? AND id <> ?
+        LIMIT 1
     ");
 
-    $stmt->bind_param(
-        "ssissddisssii",
-        $product_code,
-        $product_name,
-        $category_id,
-        $brand,
-        $unit,
-        $cost_price,
-        $selling_price,
-        $stock_quantity,
-        $expiry_date,
-        $imagePath,
-        $description,
-        $is_active,
-        $id
-    );
-}
+    if (!$checkCode) {
+        throw new Exception("Failed to prepare duplicate product code check.");
+    }
 
-if ($stmt->execute()) {
+    $checkCode->bind_param("si", $product_code, $id);
+    $checkCode->execute();
+    $duplicate = $checkCode->get_result()->fetch_assoc();
+    $checkCode->close();
+
+    if ($duplicate) {
+        throw new Exception("Failed to update product. Product code may already exist.");
+    }
+
+    if ($isOwner) {
+        $stmt = $conn->prepare("
+            UPDATE products SET
+                product_code = ?,
+                product_name = ?,
+                category_id = ?,
+                brand = ?,
+                unit = ?,
+                cost_price = ?,
+                selling_price = ?,
+                stock_quantity = ?,
+                reorder_level = ?,
+                on_order_level = ?,
+                expiry_date = ?,
+                product_image = ?,
+                description = ?,
+                is_active = ?
+            WHERE id = ?
+        ");
+
+        if (!$stmt) {
+            throw new Exception("Failed to prepare owner product update query.");
+        }
+
+        $stmt->bind_param(
+            "ssissddiiisssii",
+            $product_code,
+            $product_name,
+            $category_id,
+            $brand,
+            $unit,
+            $cost_price,
+            $selling_price,
+            $stock_quantity,
+            $reorder_level,
+            $on_order_level,
+            $expiry_date,
+            $imagePath,
+            $description,
+            $is_active,
+            $id
+        );
+    } else {
+        $stmt = $conn->prepare("
+            UPDATE products SET
+                product_code = ?,
+                product_name = ?,
+                category_id = ?,
+                brand = ?,
+                unit = ?,
+                cost_price = ?,
+                selling_price = ?,
+                stock_quantity = ?,
+                expiry_date = ?,
+                product_image = ?,
+                description = ?,
+                is_active = ?
+            WHERE id = ?
+        ");
+
+        if (!$stmt) {
+            throw new Exception("Failed to prepare product update query.");
+        }
+
+        $stmt->bind_param(
+            "ssissddisssii",
+            $product_code,
+            $product_name,
+            $category_id,
+            $brand,
+            $unit,
+            $cost_price,
+            $selling_price,
+            $stock_quantity,
+            $expiry_date,
+            $imagePath,
+            $description,
+            $is_active,
+            $id
+        );
+    }
+
+    if (!$stmt->execute()) {
+        throw new Exception("Failed to update product.");
+    }
+
+    $stmt->close();
+
+    $conn->commit();
+
     $_SESSION['inventory_success'] = "Product updated successfully.";
-} else {
-    $_SESSION['inventory_error'] = "Failed to update product.";
+
+} catch (Exception $e) {
+    $conn->rollback();
+
+    $_SESSION['inventory_error'] = $e->getMessage();
 }
 
 header("Location: /NexGen/CODE/PHP/inventory_management.php");

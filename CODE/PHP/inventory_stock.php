@@ -2,6 +2,8 @@
 session_start();
 require_once("config.php");
 
+
+
 if (!isset($_SESSION['user_id'])) {
     header("Location: /NexGen/CODE/PHP/index.php");
     exit();
@@ -14,6 +16,7 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST") {
 
 $role = $_SESSION['role'] ?? 'employee';
 $isOwner = ($role === 'owner');
+$user_id = (int)($_SESSION['user_id'] ?? 0);
 
 $product_id = intval($_POST['product_id'] ?? 0);
 $movement_type = trim($_POST['movement_type'] ?? '');
@@ -44,12 +47,18 @@ if ($quantity <= 0) {
 try {
     $conn->begin_transaction();
 
+    
     $productStmt = $conn->prepare("
         SELECT id, product_name, stock_quantity, on_order_level, is_active
         FROM products
         WHERE id = ?
-        LIMIT 1
+        FOR UPDATE
     ");
+
+    if (!$productStmt) {
+        throw new Exception("Failed to prepare product lock query.");
+    }
+
     $productStmt->bind_param("i", $product_id);
     $productStmt->execute();
     $productResult = $productStmt->get_result();
@@ -75,6 +84,7 @@ try {
 
             if ($deduct_from_on_order) {
                 $newOnOrder -= $quantity;
+
                 if ($newOnOrder < 0) {
                     $newOnOrder = 0;
                 }
@@ -98,6 +108,11 @@ try {
             SET stock_quantity = ?, on_order_level = ?
             WHERE id = ?
         ");
+
+        if (!$updateStmt) {
+            throw new Exception("Failed to prepare owner stock update query.");
+        }
+
         $updateStmt->bind_param("iii", $newStock, $newOnOrder, $product_id);
     } else {
         $updateStmt = $conn->prepare("
@@ -105,28 +120,41 @@ try {
             SET stock_quantity = ?
             WHERE id = ?
         ");
+
+        if (!$updateStmt) {
+            throw new Exception("Failed to prepare stock update query.");
+        }
+
         $updateStmt->bind_param("ii", $newStock, $product_id);
     }
 
     if (!$updateStmt->execute()) {
         throw new Exception("Failed to update product stock.");
     }
+
     $updateStmt->close();
 
     $movementStmt = $conn->prepare("
-        INSERT INTO stock_movements (product_id, movement_type, quantity, remarks, created_at)
-        VALUES (?, ?, ?, ?, NOW())
+        INSERT INTO stock_movements (product_id, movement_type, quantity, remarks, created_by, created_at)
+        VALUES (?, ?, ?, ?, ?, NOW())
     ");
-    $movementStmt->bind_param("isis", $product_id, $movement_type, $quantity, $remarks);
+
+    if (!$movementStmt) {
+        throw new Exception("Failed to prepare stock movement history query.");
+    }
+
+    $movementStmt->bind_param("isisi", $product_id, $movement_type, $quantity, $remarks, $user_id);
 
     if (!$movementStmt->execute()) {
         throw new Exception("Failed to save stock movement history.");
     }
+
     $movementStmt->close();
 
     $conn->commit();
 
     $_SESSION['inventory_success'] = "Stock movement saved successfully for {$productName}.";
+
 } catch (Exception $e) {
     $conn->rollback();
     $_SESSION['inventory_error'] = $e->getMessage();

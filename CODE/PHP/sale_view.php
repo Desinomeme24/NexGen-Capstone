@@ -588,7 +588,7 @@ unset($_SESSION['success'], $_SESSION['error']);
                 <div class="menu-icon">👁</div>
                 <div class="header-title">Sale Details</div>
             </div>
-            <a href="sales_recording.php" class="btn btn-secondary">Back to Sales Recording</a>
+            <a href="sales_recording.php" class="btn btn-secondary">Back to Sales</a>
         </div>
 
         <div class="content">

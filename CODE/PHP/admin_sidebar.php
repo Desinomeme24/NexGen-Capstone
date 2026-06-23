@@ -48,6 +48,7 @@ $currentPage   = basename($_SERVER['PHP_SELF']);
         <div class="logout-confirm-actions">
             <button type="button" class="logout-btn-cancel" onclick="closeLogoutModal()">Cancel</button>
             <form action="/NexGen/CODE/PHP/logout.php" method="POST" style="margin:0;">
+                <input type="hidden" name="csrf_token" value="<?php echo e(generateCsrfToken('logout_form')); ?>">
                 <button type="submit" class="logout-btn-confirm">Log Out</button>
             </form>
         </div>

@@ -352,18 +352,21 @@ document.addEventListener("DOMContentLoaded", function () {
                 },
                 scales: {
                     y: {
-                        beginAtZero: true,
-                        grid: {
-                            color: commonGrid,
-                            drawBorder: false
-                        },
-                        ticks: {
-                            callback: function (value) {
-                                return "₱" + Number(value).toLocaleString();
-                            },
-                            color: commonTicks
-                        }
-                    },
+    beginAtZero: true,
+    min: 0,
+    max: 3000,
+    ticks: {
+        stepSize: 500,
+        callback: function (value) {
+            return "₱" + Number(value).toLocaleString();
+        },
+        color: commonTicks
+    },
+    grid: {
+        color: commonGrid,
+        drawBorder: false
+    }
+},
                     x: {
                         grid: {
                             display: false
@@ -427,18 +430,21 @@ document.addEventListener("DOMContentLoaded", function () {
                 },
                 scales: {
                     y: {
-                        beginAtZero: true,
-                        grid: {
-                            color: commonGrid,
-                            drawBorder: false
-                        },
-                        ticks: {
-                            callback: function (value) {
-                                return "₱" + Number(value).toLocaleString();
-                            },
-                            color: commonTicks
-                        }
-                    },
+    beginAtZero: true,
+    min: 0,
+    max: 30000,
+    ticks: {
+        stepSize: 5000,
+        callback: function (value) {
+            return "₱" + Number(value).toLocaleString();
+        },
+        color: commonTicks
+    },
+    grid: {
+        color: commonGrid,
+        drawBorder: false
+    }
+},
                     x: {
                         grid: {
                             display: false

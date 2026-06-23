@@ -36,10 +36,15 @@ $backLink = "/NexGen/CODE/PHP/dashboard.php";
 if (isset($_SESSION['role']) && $_SESSION['role'] === 'system_admin') {
     $backLink = "/NexGen/CODE/PHP/admin_dashboard.php";
 }
-?>
-<?php
+
 $otpNewPasswordValue = $_SESSION['otp_new_password_plain'] ?? '';
 $otpConfirmPasswordValue = $_SESSION['otp_confirm_password_plain'] ?? '';
+
+/* SECURITY: Generate CSRF tokens for settings forms */
+$accountCsrfToken = generateCsrfToken('update_account_form');
+$directPasswordCsrfToken = generateCsrfToken('change_password_direct_form');
+$requestOtpCsrfToken = generateCsrfToken('request_password_change_form');
+$verifyOtpCsrfToken = generateCsrfToken('verify_password_otp_form');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -139,6 +144,14 @@ $otpConfirmPasswordValue = $_SESSION['otp_confirm_password_plain'] ?? '';
         </nav>
 
         <div class="back-link-wrap">
+            <a href="/NexGen/CODE/PHP/privacy_policy.php" class="back-link" style="margin-bottom:10px; display:inline-block;">
+                Privacy Policy
+            </a>
+            <br>
+            <a href="/NexGen/CODE/PHP/privacy_policy.php#cookie-notice" class="back-link" style="margin-bottom:10px; display:inline-block;">
+                Cookie Notice
+            </a>
+            <br>
             <a href="<?php echo $backLink; ?>" class="back-link">← Back to Dashboard</a>
         </div>
     </aside>
@@ -150,6 +163,8 @@ $otpConfirmPasswordValue = $_SESSION['otp_confirm_password_plain'] ?? '';
             </div>
 
             <form action="/NexGen/CODE/PHP/update_account.php" method="POST" class="account-form" id="accountForm">
+                <input type="hidden" name="csrf_token" value="<?php echo e($accountCsrfToken); ?>">
+
                 <div class="form-top-actions">
                     <button type="reset" class="btn btn-reset">Reset</button>
                     <button type="submit" class="btn btn-save">Save</button>
@@ -202,6 +217,8 @@ $otpConfirmPasswordValue = $_SESSION['otp_confirm_password_plain'] ?? '';
 
                 <div class="security-method" id="current-password-method">
                     <form action="/NexGen/CODE/PHP/change_password_direct.php" method="POST" class="password-form" id="directPasswordForm">
+                        <input type="hidden" name="csrf_token" value="<?php echo e($directPasswordCsrfToken); ?>">
+
                         <div class="form-group full">
                             <label>Current Password</label>
                             <input type="password" name="current_password" required>
@@ -227,6 +244,8 @@ $otpConfirmPasswordValue = $_SESSION['otp_confirm_password_plain'] ?? '';
 
                 <div class="security-method" id="otp-method">
                     <form action="/NexGen/CODE/PHP/request_password_change.php" method="POST" class="password-form" id="otpRequestForm">
+                        <input type="hidden" name="csrf_token" value="<?php echo e($requestOtpCsrfToken); ?>">
+
                         <div class="form-group full">
                             <label>Email Verification</label>
                             <input type="email" value="<?php echo htmlspecialchars($user['email'] ?? ''); ?>" readonly>
@@ -236,7 +255,6 @@ $otpConfirmPasswordValue = $_SESSION['otp_confirm_password_plain'] ?? '';
                             <div class="form-group">
                                 <label>New Password</label>
                                 <input type="password" name="new_password" id="otpNewPassword" required>
-
                             </div>
 
                             <div class="form-group">
@@ -251,6 +269,8 @@ $otpConfirmPasswordValue = $_SESSION['otp_confirm_password_plain'] ?? '';
                     </form>
 
                     <form action="/NexGen/CODE/PHP/verify_password_otp.php" method="POST" class="otp-form" id="otpVerifyForm">
+                        <input type="hidden" name="csrf_token" value="<?php echo e($verifyOtpCsrfToken); ?>">
+
                         <div class="form-group full">
                             <label>Enter OTP sent to your email</label>
                             <input type="text" name="otp_code" maxlength="6" placeholder="Enter the 6-digit OTP" required>
@@ -374,6 +394,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 });
 </script>
+
 <script>
 document.addEventListener("DOMContentLoaded", function () {
     const otpRequestForm = document.getElementById("otpRequestForm");
@@ -422,7 +443,6 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 
-    /* clear only after successful password change */
     if (popupText.includes("password changed successfully")) {
         sessionStorage.removeItem("otp_new_password");
         sessionStorage.removeItem("otp_confirm_password");

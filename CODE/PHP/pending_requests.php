@@ -131,6 +131,7 @@ if (
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pending Requests - NextGen</title>
     <link rel="stylesheet" href="/NexGen/CODE/STYLE/admin_module.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 
     <style>
         .pending-requests-table-wrap {
@@ -290,10 +291,6 @@ if (
         <div class="topbar">
             <div class="page-title">
                 <h1>Registration Requests</h1>
-            </div>
-            <div class="user-pill">
-                <img src="/NexGen/CODE/PHP/<?php echo e($profileImage); ?>" alt="Profile">
-                <span><?php echo e($fullName); ?></span>
             </div>
         </div>
 

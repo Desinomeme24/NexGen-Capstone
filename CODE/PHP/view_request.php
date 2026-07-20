@@ -170,6 +170,312 @@ $isPdf = ($ext === 'pdf');
             transform: translateY(-1px);
             box-shadow: 0 10px 20px rgba(247, 217, 139, 0.25);
         }
+
+        /* =========================
+           REQUEST REVIEW LAYOUT
+        ========================= */
+        .request-layout {
+            display: grid;
+            grid-template-columns: 1.35fr 1fr;
+            gap: 18px;
+            align-items: start;
+        }
+
+        .request-main-col,
+        .request-side-col {
+            min-width: 0;
+        }
+
+        .request-side-col {
+            position: sticky;
+            top: 18px;
+        }
+
+        .section-divider {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 18px 0 12px;
+            padding-top: 14px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .section-divider span {
+            font-size: 12px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: rgba(255, 255, 255, 0.55);
+            white-space: nowrap;
+        }
+
+        /* Compact spec-sheet style for applicant/masterlist details */
+        .kv-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(170px, 1fr));
+            gap: 0 22px;
+        }
+
+        .kv-item {
+            background: transparent;
+            border: none;
+            border-radius: 0;
+            padding: 9px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .kv-item label {
+            font-size: 10.5px;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            color: rgba(255, 255, 255, 0.5);
+            margin-bottom: 3px;
+            font-weight: 700;
+        }
+
+        .kv-item .value {
+            font-size: 13.5px;
+            font-weight: 600;
+        }
+
+        .id-preview-frame {
+            display: block;
+            border-radius: 14px;
+            overflow: hidden;
+            line-height: 0;
+        }
+
+        .id-preview-frame img {
+            cursor: zoom-in;
+        }
+
+        .request-id-preview img,
+        .request-id-preview iframe {
+            max-height: 62vh;
+        }
+
+        .admin-actions-extra {
+            margin-top: 14px;
+        }
+
+        /* =========================
+           ATTACHMENT CHIP (Valid ID)
+        ========================= */
+        .attachment-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 12px;
+            padding: 9px 14px;
+            text-decoration: none;
+            transition: 0.2s ease;
+            max-width: 100%;
+        }
+
+        .attachment-chip:hover {
+            background: rgba(255, 255, 255, 0.12);
+            transform: translateY(-1px);
+        }
+
+        .attachment-icon {
+            width: 34px;
+            height: 34px;
+            flex: 0 0 34px;
+            border-radius: 9px;
+            background: rgba(247, 217, 139, 0.18);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 17px;
+        }
+
+        .attachment-meta {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+
+        .attachment-name {
+            font-size: 13px;
+            font-weight: 700;
+            color: #fff;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 220px;
+        }
+
+        .attachment-sub {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.55);
+        }
+
+        .attachment-action {
+            margin-left: 6px;
+            font-size: 11.5px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            color: #f7d98b;
+            white-space: nowrap;
+        }
+
+        /* =========================
+           ADMIN ACTIONS — COMPACT MODERN CARD
+        ========================= */
+        .admin-actions-panel .panel-header {
+            padding-bottom: 8px;
+        }
+
+        .admin-actions-panel .panel-header h2 {
+            font-size: 15px;
+        }
+
+        .admin-actions-panel .panel-body {
+            padding-top: 6px;
+        }
+
+        .modern-action-form {
+            max-width: 360px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .modern-field label {
+            display: block;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            color: rgba(255, 255, 255, 0.5);
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .modern-select-shell {
+            position: relative;
+        }
+
+        .modern-select-shell::after {
+            content: "";
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            width: 7px;
+            height: 7px;
+            border-right: 2px solid rgba(255, 255, 255, 0.55);
+            border-bottom: 2px solid rgba(255, 255, 255, 0.55);
+            transform: translateY(-65%) rotate(45deg);
+            pointer-events: none;
+        }
+
+        .modern-select-shell select {
+            appearance: none;
+            -webkit-appearance: none;
+            width: 100%;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            border-radius: 10px;
+            color: #fff;
+            font-size: 12.5px;
+            font-weight: 600;
+            padding: 8px 30px 8px 11px;
+            cursor: pointer;
+            transition: 0.18s ease;
+        }
+
+        .modern-select-shell select:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .modern-select-shell select:focus {
+            outline: none;
+            border-color: #f7d98b;
+            box-shadow: 0 0 0 3px rgba(247, 217, 139, 0.18);
+        }
+
+        .modern-select-shell select option {
+            background: #16255c;
+            color: #fff;
+        }
+
+        #remarksWrapper {
+            overflow: hidden;
+            max-height: 0;
+            opacity: 0;
+            margin: 0;
+            transition: max-height 0.25s ease, opacity 0.2s ease, margin 0.25s ease;
+        }
+
+        #remarksWrapper.is-visible {
+            max-height: 140px;
+            opacity: 1;
+        }
+
+        .modern-textarea {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            border-radius: 10px;
+            color: #fff;
+            font-size: 12.5px;
+            font-family: inherit;
+            padding: 9px 11px;
+            resize: vertical;
+            min-height: 56px;
+            transition: 0.18s ease;
+        }
+
+        .modern-textarea::placeholder {
+            color: rgba(255, 255, 255, 0.4);
+        }
+
+        .modern-textarea:focus {
+            outline: none;
+            border-color: #f7d98b;
+            box-shadow: 0 0 0 3px rgba(247, 217, 139, 0.18);
+        }
+
+        .modern-submit-btn {
+            align-self: flex-start;
+            border: none;
+            border-radius: 10px;
+            padding: 8px 18px;
+            font-size: 12.5px;
+            font-weight: 700;
+            color: #17306b;
+            background: #f7d98b;
+            cursor: pointer;
+            transition: 0.18s ease;
+        }
+
+        .modern-submit-btn:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 8px 16px rgba(247, 217, 139, 0.25);
+        }
+
+        .modern-submit-btn:disabled {
+            background: rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.35);
+            cursor: not-allowed;
+        }
+
+        .modern-submit-btn.is-success { background: #7ce0a8; }
+        .modern-submit-btn.is-danger  { background: #f28b8b; }
+        .modern-submit-btn.is-warning { background: #f7c873; }
+
+        @media (max-width: 1080px) {
+            .request-layout {
+                grid-template-columns: 1fr;
+            }
+
+            .request-side-col {
+                position: static;
+                top: auto;
+            }
+        }
     </style>
 </head>
 <body>
@@ -181,10 +487,6 @@ $isPdf = ($ext === 'pdf');
             <div class="page-title">
                 <h1>Request #<?php echo (int)$request['id']; ?></h1>
                 <p>Review the registration details and uploaded ID</p>
-            </div>
-            <div class="user-pill">
-                <img src="/NexGen/CODE/PHP/<?php echo e($profileImage); ?>" alt="Profile">
-                <span><?php echo e($_SESSION['full_name'] ?? 'Admin'); ?></span>
             </div>
         </div>
 
@@ -211,15 +513,27 @@ $isPdf = ($ext === 'pdf');
                     <div class="kv-item"><label>Status</label><div class="value"><span class="badge badge-<?php echo e($request['request_status']); ?>"><?php echo e(ucfirst($request['request_status'])); ?></span></div></div>
                     <div class="kv-item"><label>Submitted At</label><div class="value"><?php echo e(date('M d, Y h:i A', strtotime($request['created_at']))); ?></div></div>
                     <div class="kv-item"><label>Masterlist Match</label><div class="value"><?php echo $employeeMatched ? 'Matched' : 'Not Found'; ?></div></div>
+                    <div class="kv-item" style="grid-column: 1 / -1;">
+                        <label>Valid ID</label>
+                        <div class="value">
+                            <?php if (!empty($filePath)): ?>
+                                <a class="attachment-chip" href="/NexGen/CODE/PHP/<?php echo e($filePath); ?>" target="_blank" rel="noopener" title="Open uploaded valid ID">
+                                    <span class="attachment-icon"><?php echo $isImage ? '🖼️' : ($isPdf ? '📄' : '📎'); ?></span>
+                                    <span class="attachment-meta">
+                                        <span class="attachment-name">Valid_ID.<?php echo e($ext ?: 'file'); ?></span>
+                                        <span class="attachment-sub"><?php echo $isImage ? 'Image file' : ($isPdf ? 'PDF document' : 'Uploaded file'); ?></span>
+                                    </span>
+                                    <span class="attachment-action">View &rarr;</span>
+                                </a>
+                            <?php else: ?>
+                                <span class="notice notice-error" style="display:inline-block;">No uploaded ID file found.</span>
+                            <?php endif; ?>
+                        </div>
+                    </div>
                 </div>
-            </div>
-        </section>
 
-        <section class="panel">
-            <div class="panel-header">
-                <h2>Employee Masterlist Check</h2>
-            </div>
-            <div class="panel-body">
+                <div class="section-divider"><span>Employee Masterlist Check</span></div>
+
                 <?php if ($employeeMatched && $employeeData): ?>
                     <div class="kv-grid">
                         <div class="kv-item"><label>Masterlist Full Name</label><div class="value"><?php echo e($employeeData['full_name']); ?></div></div>
@@ -235,62 +549,35 @@ $isPdf = ($ext === 'pdf');
             </div>
         </section>
 
-        <section class="panel">
-            <div class="panel-header">
-                <h2>Uploaded Valid ID</h2>
-            </div>
-            <div class="panel-body">
-                <?php if (!empty($filePath)): ?>
-                    <div class="request-id-preview">
-                        <?php if ($isImage): ?>
-                            <img src="/NexGen/CODE/PHP/<?php echo e($filePath); ?>" alt="Valid ID">
-                        <?php elseif ($isPdf): ?>
-                            <iframe src="/NexGen/CODE/PHP/<?php echo e($filePath); ?>"></iframe>
-                        <?php else: ?>
-                            <p><a class="link-white" target="_blank" href="/NexGen/CODE/PHP/<?php echo e($filePath); ?>">Open uploaded ID file</a></p>
-                        <?php endif; ?>
-                    </div>
-                <?php else: ?>
-                    <div class="notice notice-error">No uploaded ID file found.</div>
-                <?php endif; ?>
-            </div>
-        </section>
-
-        <section class="panel">
+        <section class="panel admin-actions-panel">
             <div class="panel-header">
                 <h2>Admin Actions</h2>
             </div>
             <div class="panel-body">
-                <div class="form-grid">
-                    <form action="approve_request.php" method="POST" class="kv-item request-action-form" data-confirm-message="Approve this registration request?">
-                        <label>Approval Remarks</label>
-                        <input type="hidden" name="request_id" value="<?php echo (int)$request['id']; ?>">
-                        <textarea name="remarks" class="textarea" placeholder="Optional remarks for approval"></textarea>
-                        <div class="form-actions">
-                            <button class="btn btn-success" type="submit">Approve Request</button>
-                        </div>
-                    </form>
+                <form id="adminActionForm" method="POST" class="request-action-form modern-action-form" data-confirm-message="Are you sure you want to continue?">
+                    <input type="hidden" name="request_id" value="<?php echo (int)$request['id']; ?>">
 
-                    <form action="reject_request.php" method="POST" class="kv-item request-action-form" data-confirm-message="Reject this registration request?">
-                        <label>Rejection Reason</label>
-                        <input type="hidden" name="request_id" value="<?php echo (int)$request['id']; ?>">
-                        <textarea name="remarks" class="textarea" placeholder="State why this request is rejected" required></textarea>
-                        <div class="form-actions">
-                            <button class="btn btn-danger" type="submit">Reject Request</button>
+                    <div class="modern-field">
+                        <label>Select Action</label>
+                        <div class="modern-select-shell">
+                            <select name="action_type" id="actionSelect" required>
+                                <option value="" disabled selected>Choose an action</option>
+                                <option value="approve">Approve Request</option>
+                                <option value="reject">Reject Request</option>
+                                <option value="resubmit">Send for Resubmission</option>
+                            </select>
                         </div>
-                    </form>
-                </div>
+                    </div>
 
-                <div style="margin-top:16px;">
-                    <form action="resubmit_request.php" method="POST" class="kv-item request-action-form" data-confirm-message="Mark this request for resubmission?">
-                        <label>Correction / Resubmission Instructions</label>
-                        <input type="hidden" name="request_id" value="<?php echo (int)$request['id']; ?>">
-                        <textarea name="remarks" class="textarea" placeholder="Tell the applicant what needs to be corrected" required></textarea>
-                        <div class="form-actions">
-                            <button class="btn btn-warning" type="submit">Send for Resubmission</button>
-                        </div>
-                    </form>
-                </div>
+                    <div class="modern-field" id="remarksWrapper">
+                        <label id="remarksLabel">Remarks</label>
+                        <textarea name="remarks" id="remarksInput" class="modern-textarea" placeholder="Add remarks" rows="2"></textarea>
+                    </div>
+
+                    <div class="form-actions">
+                        <button class="modern-submit-btn" id="submitActionBtn" type="submit" disabled>Submit</button>
+                    </div>
+                </form>
             </div>
         </section>
     </main>
@@ -338,7 +625,69 @@ function showCustomConfirm(message, onConfirm) {
     };
 }
 
+const ADMIN_ACTION_CONFIG = {
+    approve: {
+        endpoint: 'approve_request.php',
+        remarksLabel: 'Approval Remarks',
+        remarksPlaceholder: 'Optional remarks for approval',
+        remarksRequired: false,
+        confirmMessage: 'Approve this registration request?',
+        buttonText: 'Approve Request',
+        buttonClass: 'is-success'
+    },
+    reject: {
+        endpoint: 'reject_request.php',
+        remarksLabel: 'Rejection Reason',
+        remarksPlaceholder: 'State why this request is rejected',
+        remarksRequired: true,
+        confirmMessage: 'Reject this registration request?',
+        buttonText: 'Reject Request',
+        buttonClass: 'is-danger'
+    },
+    resubmit: {
+        endpoint: 'resubmit_request.php',
+        remarksLabel: 'Correction / Resubmission Instructions',
+        remarksPlaceholder: 'Tell the applicant what needs to be corrected',
+        remarksRequired: true,
+        confirmMessage: 'Mark this request for resubmission?',
+        buttonText: 'Send for Resubmission',
+        buttonClass: 'is-warning'
+    }
+};
+
 document.addEventListener('DOMContentLoaded', function() {
+    const actionSelect = document.getElementById('actionSelect');
+    const adminActionForm = document.getElementById('adminActionForm');
+    const remarksWrapper = document.getElementById('remarksWrapper');
+    const remarksLabel = document.getElementById('remarksLabel');
+    const remarksInput = document.getElementById('remarksInput');
+    const submitBtn = document.getElementById('submitActionBtn');
+
+    if (actionSelect && adminActionForm && remarksWrapper && remarksLabel && remarksInput && submitBtn) {
+        actionSelect.addEventListener('change', function() {
+            const config = ADMIN_ACTION_CONFIG[actionSelect.value];
+
+            if (!config) {
+                remarksWrapper.classList.remove('is-visible');
+                submitBtn.disabled = true;
+                return;
+            }
+
+            adminActionForm.setAttribute('action', config.endpoint);
+            adminActionForm.setAttribute('data-confirm-message', config.confirmMessage);
+
+            remarksWrapper.classList.add('is-visible');
+            remarksLabel.textContent = config.remarksLabel;
+            remarksInput.placeholder = config.remarksPlaceholder;
+            remarksInput.required = config.remarksRequired;
+
+            submitBtn.textContent = config.buttonText;
+            submitBtn.classList.remove('is-success', 'is-danger', 'is-warning');
+            submitBtn.classList.add(config.buttonClass);
+            submitBtn.disabled = false;
+        });
+    }
+
     document.querySelectorAll('.request-action-form').forEach(function(form) {
         form.addEventListener('submit', function(e) {
             e.preventDefault();

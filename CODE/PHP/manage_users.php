@@ -657,6 +657,7 @@ if (
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Manage Users - NextGen</title>
     <link rel="stylesheet" href="/NexGen/CODE/STYLE/admin_module.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <style>
         .manage-users-table-wrap {
             max-height: 470px;
@@ -786,10 +787,35 @@ if (
             word-break: break-word;
         }
 
+        /* =========================
+           EDIT MODAL — SECTIONED LAYOUT
+        ========================= */
+        .modal-section {
+            margin-bottom: 26px;
+        }
+
+        .modal-section:last-of-type {
+            margin-bottom: 0;
+        }
+
+        .modal-section-title {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 0 0 16px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+            font-size: 12px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            color: rgba(255, 255, 255, 0.55);
+        }
+
         .editor-grid {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 16px;
+            gap: 16px 20px;
         }
 
         .editor-grid .full {
@@ -799,13 +825,15 @@ if (
         .field-group {
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 6px;
         }
 
         .field-group label {
-            color: #fff;
+            color: rgba(255, 255, 255, 0.65);
             font-weight: 700;
-            font-size: 14px;
+            font-size: 11.5px;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
         }
 
         .field-group input,
@@ -814,21 +842,37 @@ if (
             width: 100%;
             border: 1px solid rgba(255, 255, 255, 0.14);
             border-radius: 12px;
-            padding: 12px 14px;
-            background: rgba(255, 255, 255, 0.08);
+            padding: 11px 14px;
+            background: rgba(255, 255, 255, 0.06);
             color: #fff;
+            font-size: 13.5px;
             outline: none;
             box-sizing: border-box;
+            transition: 0.18s ease;
+        }
+
+        .field-group input:hover,
+        .field-group select:hover,
+        .field-group textarea:hover {
+            background: rgba(255, 255, 255, 0.09);
+        }
+
+        .field-group input:focus,
+        .field-group select:focus,
+        .field-group textarea:focus {
+            border-color: #f7d98b;
+            background: rgba(255, 255, 255, 0.09);
+            box-shadow: 0 0 0 3px rgba(247, 217, 139, 0.16);
         }
 
         .field-group textarea {
-            min-height: 100px;
+            min-height: 76px;
             resize: vertical;
         }
 
         .field-group input::placeholder,
         .field-group textarea::placeholder {
-            color: rgba(255, 255, 255, 0.6);
+            color: rgba(255, 255, 255, 0.4);
         }
 
         .field-group select option {
@@ -837,75 +881,136 @@ if (
 
         .form-actions {
             display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 24px;
+            padding-top: 18px;
+            border-top: 1px solid rgba(255, 255, 255, 0.10);
+        }
+
+        .form-actions-primary {
+            display: flex;
             gap: 10px;
             flex-wrap: wrap;
-            margin-top: 18px;
+        }
+
+        .btn-ghost {
+            background: transparent;
+            border: 1px dashed rgba(255, 255, 255, 0.25);
+            color: rgba(255, 255, 255, 0.7);
+            border-radius: 12px;
+            padding: 11px 16px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.18s ease;
+        }
+
+        .btn-ghost:hover {
+            border-color: rgba(255, 255, 255, 0.45);
+            color: #fff;
         }
 
         .access-box {
-            grid-column: 1 / -1;
-            background: rgba(255, 255, 255, 0.06);
-            border: 1px solid rgba(255, 255, 255, 0.10);
-            border-radius: 16px;
-            padding: 18px;
-        }
-
-        .access-box h3 {
-            margin: 0 0 8px;
-            color: #fff;
-            font-size: 18px;
-            font-weight: 800;
+            background: transparent;
+            border: none;
+            border-radius: 0;
+            padding: 0;
         }
 
         .access-box p {
             margin: 0 0 16px;
-            color: rgba(255, 255, 255, 0.82);
-            font-size: 14px;
-            line-height: 1.5;
+            color: rgba(255, 255, 255, 0.65);
+            font-size: 13px;
+            line-height: 1.6;
         }
 
         .access-grid {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 12px;
+            gap: 10px;
         }
 
         .check-card {
             display: flex;
             align-items: center;
             gap: 12px;
-            background: rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.05);
             border: 1px solid rgba(255, 255, 255, 0.10);
-            border-radius: 14px;
-            padding: 14px;
+            border-radius: 12px;
+            padding: 12px 14px;
+            transition: 0.18s ease;
+        }
+
+        .check-card:has(input:checked) {
+            background: rgba(247, 217, 139, 0.10);
+            border-color: rgba(247, 217, 139, 0.35);
         }
 
         .check-card input[type="checkbox"] {
-            width: 18px;
-            height: 18px;
+            width: 17px;
+            height: 17px;
             accent-color: #f7d98b;
             cursor: pointer;
             flex-shrink: 0;
         }
 
         .check-card input[type="checkbox"]:disabled {
-            opacity: 0.45;
+            opacity: 0.4;
             cursor: not-allowed;
         }
 
         .check-card label {
             margin: 0;
             color: #fff;
-            font-weight: 700;
+            font-weight: 600;
+            font-size: 13px;
             cursor: pointer;
         }
 
         .role-note {
-            grid-column: 1 / -1;
-            margin-top: 6px;
-            font-size: 13px;
-            color: rgba(255, 255, 255, 0.75);
+            margin-top: 12px;
+            font-size: 12.5px;
+            color: rgba(255, 255, 255, 0.6);
             line-height: 1.6;
+            background: rgba(255, 255, 255, 0.04);
+            border-radius: 10px;
+            padding: 10px 12px;
+        }
+
+        .security-panel {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 12px;
+        }
+
+        .security-stat {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.10);
+            border-radius: 12px;
+            padding: 12px 14px;
+        }
+
+        .security-stat label {
+            display: block;
+            font-size: 10.5px;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            color: rgba(255, 255, 255, 0.5);
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .security-stat .value {
+            font-size: 14px;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .security-stat.is-locked .value {
+            color: #f7a8a8;
         }
 
         .edit-modal-overlay,
@@ -939,7 +1044,7 @@ if (
         }
 
         .edit-modal-box {
-            width: min(1100px, 96vw);
+            width: min(940px, 96vw);
             max-height: 90vh;
             overflow-y: auto;
         }
@@ -958,15 +1063,15 @@ if (
             justify-content: space-between;
             align-items: center;
             gap: 14px;
-            padding: 22px 24px;
+            padding: 20px 24px;
             border-bottom: 1px solid rgba(255, 255, 255, 0.10);
         }
 
         .edit-modal-header h2 {
             margin: 0;
             color: #fff;
-            font-size: 30px;
-            font-weight: 900;
+            font-size: 20px;
+            font-weight: 800;
         }
 
         .edit-modal-body {
@@ -976,21 +1081,22 @@ if (
         .modal-close-btn {
             appearance: none;
             border: none;
-            background: rgba(255, 255, 255, 0.14);
+            background: rgba(255, 255, 255, 0.10);
             color: #fff;
-            width: 46px;
-            height: 46px;
+            width: 34px;
+            height: 34px;
             border-radius: 50%;
-            font-size: 28px;
+            font-size: 20px;
             line-height: 1;
             cursor: pointer;
             display: inline-flex;
             align-items: center;
             justify-content: center;
+            transition: 0.18s ease;
         }
 
         .modal-close-btn:hover {
-            background: rgba(255, 255, 255, 0.22);
+            background: rgba(255, 255, 255, 0.2);
         }
 
         .custom-confirm-icon,
@@ -1097,7 +1203,11 @@ if (
             }
 
             .edit-modal-header h2 {
-                font-size: 24px;
+                font-size: 17px;
+            }
+
+            .security-panel {
+                grid-template-columns: 1fr;
             }
         }
     </style>
@@ -1121,10 +1231,6 @@ if (
         <div class="topbar">
             <div class="page-title">
                 <h1>Manage Users</h1>
-            </div>
-            <div class="user-pill">
-                <img src="/NexGen/CODE/PHP/<?php echo e($profileImage); ?>" alt="Profile">
-                <span><?php echo e($fullName); ?></span>
             </div>
         </div>
 
@@ -1192,68 +1298,76 @@ if (
                 <input type="hidden" name="action" value="update_user">
                 <input type="hidden" name="user_id" value="<?php echo (int)$editUser['id']; ?>">
 
-                <div class="editor-grid">
-                    <div class="field-group">
-                        <label for="employee_no">Employee Number</label>
-                        <input type="text" id="employee_no" name="employee_no" value="<?php echo e($editUser['employee_no']); ?>">
-                    </div>
+                <div class="modal-section">
+                    <h3 class="modal-section-title">Account Details</h3>
+                    <div class="editor-grid">
+                        <div class="field-group">
+                            <label for="employee_no">Employee Number</label>
+                            <input type="text" id="employee_no" name="employee_no" value="<?php echo e($editUser['employee_no']); ?>">
+                        </div>
 
-                    <div class="field-group">
-                        <label for="full_name">Full Name</label>
-                        <input type="text" id="full_name" name="full_name" value="<?php echo e($editUser['full_name']); ?>" required>
-                    </div>
+                        <div class="field-group">
+                            <label for="full_name">Full Name</label>
+                            <input type="text" id="full_name" name="full_name" value="<?php echo e($editUser['full_name']); ?>" required>
+                        </div>
 
-                    <div class="field-group">
-                        <label for="username">Username</label>
-                        <input type="text" id="username" name="username" value="<?php echo e($editUser['username']); ?>" required>
-                    </div>
+                        <div class="field-group">
+                            <label for="username">Username</label>
+                            <input type="text" id="username" name="username" value="<?php echo e($editUser['username']); ?>" required>
+                        </div>
 
-                    <div class="field-group">
-                        <label for="email">Email</label>
-                        <input type="email" id="email" name="email" value="<?php echo e($editUser['email']); ?>" required>
-                    </div>
+                        <div class="field-group">
+                            <label for="email">Email</label>
+                            <input type="email" id="email" name="email" value="<?php echo e($editUser['email']); ?>" required>
+                        </div>
 
-                    <div class="field-group">
-                        <label for="phone">Phone</label>
-                        <input type="text" id="phone" name="phone" value="<?php echo e($editUser['phone']); ?>">
-                    </div>
+                        <div class="field-group">
+                            <label for="phone">Phone</label>
+                            <input type="text" id="phone" name="phone" value="<?php echo e($editUser['phone']); ?>">
+                        </div>
 
-                    <div class="field-group full">
-                        <label for="address">Address</label>
-                        <textarea id="address" name="address"><?php echo e($editUser['address']); ?></textarea>
-                    </div>
-
-                    <div class="field-group">
-                        <label for="role">Role</label>
-                        <select id="role" name="role" required onchange="handleRoleChange()">
-                            <option value="owner" <?php echo $editUser['role'] === 'owner' ? 'selected' : ''; ?>>Owner</option>
-                            <option value="employee" <?php echo $editUser['role'] === 'employee' ? 'selected' : ''; ?>>Employee</option>
-                            <option value="customer" <?php echo $editUser['role'] === 'customer' ? 'selected' : ''; ?>>Customer</option>
-                        </select>
-                    </div>
-
-                    <div class="field-group">
-                        <label for="account_status">Account Status</label>
-                        <select id="account_status" name="account_status" required>
-                            <option value="active" <?php echo $editUser['account_status'] === 'active' ? 'selected' : ''; ?>>Active</option>
-                            <option value="inactive" <?php echo $editUser['account_status'] === 'inactive' ? 'selected' : ''; ?>>Inactive</option>
-                            <option value="disabled" <?php echo $editUser['account_status'] === 'disabled' ? 'selected' : ''; ?>>Disabled</option>
-                        </select>
-                    </div>
-
-                    <div class="field-group full">
-                        <div class="check-card">
-                            <input type="checkbox" id="is_verified" name="is_verified" value="1" <?php echo !empty($editUser['is_verified']) ? 'checked' : ''; ?>>
-                            <label for="is_verified">Verified Account</label>
+                        <div class="field-group full">
+                            <label for="address">Address</label>
+                            <textarea id="address" name="address"><?php echo e($editUser['address']); ?></textarea>
                         </div>
                     </div>
+                </div>
 
+                <div class="modal-section">
+                    <h3 class="modal-section-title">Role &amp; Status</h3>
+                    <div class="editor-grid">
+                        <div class="field-group">
+                            <label for="role">Role</label>
+                            <select id="role" name="role" required onchange="handleRoleChange()">
+                                <option value="owner" <?php echo $editUser['role'] === 'owner' ? 'selected' : ''; ?>>Owner</option>
+                                <option value="employee" <?php echo $editUser['role'] === 'employee' ? 'selected' : ''; ?>>Employee</option>
+                                <option value="customer" <?php echo $editUser['role'] === 'customer' ? 'selected' : ''; ?>>Customer</option>
+                            </select>
+                        </div>
+
+                        <div class="field-group">
+                            <label for="account_status">Account Status</label>
+                            <select id="account_status" name="account_status" required>
+                                <option value="active" <?php echo $editUser['account_status'] === 'active' ? 'selected' : ''; ?>>Active</option>
+                                <option value="inactive" <?php echo $editUser['account_status'] === 'inactive' ? 'selected' : ''; ?>>Inactive</option>
+                                <option value="disabled" <?php echo $editUser['account_status'] === 'disabled' ? 'selected' : ''; ?>>Disabled</option>
+                            </select>
+                        </div>
+
+                        <div class="field-group full">
+                            <div class="check-card">
+                                <input type="checkbox" id="is_verified" name="is_verified" value="1" <?php echo !empty($editUser['is_verified']) ? 'checked' : ''; ?>>
+                                <label for="is_verified">Verified Account</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-section">
+                    <h3 class="modal-section-title">Module Access</h3>
                     <div class="access-box">
-                        <h3>Module Access</h3>
                         <p>
-                            Owner has access to all 4 business modules.
-                            Employee has access to all except Sales Analytics.
-                            Customer has no access to the 4 business modules.
+                            Owner has access to all 4 business modules. Employee has access to all except Sales Analytics. Customer has no access to the 4 business modules.
                         </p>
 
                         <div class="access-grid">
@@ -1281,44 +1395,54 @@ if (
                         <div class="role-note" id="roleNote">
                             You can manage module access here based on the selected non-admin role.
                         </div>
+                    </div>
+                </div>
 
-                        <div class="role-note" style="margin-top: 12px;">
-                            Failed Login Attempts:
-                            <strong><?php echo (int)($editUser['failed_login_attempts'] ?? 0); ?></strong>
-                            <br>
-                            Attempts Available:
-                            <strong><?php echo max(0, 5 - (int)($editUser['failed_login_attempts'] ?? 0)); ?></strong>
-                            <br>
-                            Lock Status:
-                            <strong>
+                <div class="modal-section">
+                    <h3 class="modal-section-title">Security</h3>
+                    <?php
+                        $isLocked = !empty($editUser['locked_until']) && strtotime((string)$editUser['locked_until']) > time();
+                    ?>
+                    <div class="security-panel">
+                        <div class="security-stat">
+                            <label>Failed Login Attempts</label>
+                            <div class="value"><?php echo (int)($editUser['failed_login_attempts'] ?? 0); ?></div>
+                        </div>
+                        <div class="security-stat">
+                            <label>Attempts Available</label>
+                            <div class="value"><?php echo max(0, 5 - (int)($editUser['failed_login_attempts'] ?? 0)); ?></div>
+                        </div>
+                        <div class="security-stat<?php echo $isLocked ? ' is-locked' : ''; ?>">
+                            <label>Lock Status</label>
+                            <div class="value">
                                 <?php
-                                if (!empty($editUser['locked_until']) && strtotime((string)$editUser['locked_until']) > time()) {
+                                if ($isLocked) {
                                     echo 'Locked until ' . e(date('M d, Y h:i A', strtotime((string)$editUser['locked_until'])));
                                 } else {
                                     echo 'Not locked';
                                 }
                                 ?>
-                            </strong>
+                            </div>
                         </div>
                     </div>
+
+                    <?php if ($isLocked): ?>
+                        <form method="POST" style="margin-top: 12px;" class="unlock-user-form" data-username="<?php echo e($editUser['username']); ?>">
+                            <input type="hidden" name="action" value="unlock_user">
+                            <input type="hidden" name="user_id" value="<?php echo (int)$editUser['id']; ?>">
+                            <button type="submit" class="btn btn-gold">Unlock Account</button>
+                        </form>
+                    <?php endif; ?>
                 </div>
 
                 <div class="form-actions">
-                    <button type="submit" class="btn btn-gold">Save Changes</button>
-                    <button type="button" class="btn btn-silver" onclick="closeEditModal()">Cancel</button>
-                    <button type="button" class="btn btn-silver" onclick="applyRoleDefaults()">Apply Role Default Access</button>
+                    <div class="form-actions-primary">
+                        <button type="submit" class="btn btn-gold">Save Changes</button>
+                        <button type="button" class="btn btn-silver" onclick="closeEditModal()">Cancel</button>
+                    </div>
+                    <button type="button" class="btn-ghost" onclick="applyRoleDefaults()">Reset to Role Default Access</button>
                 </div>
             </form>
-
-            <?php if (!empty($editUser['locked_until']) && strtotime((string)$editUser['locked_until']) > time()): ?>
-                <form method="POST" style="margin-top: 14px;" class="unlock-user-form" data-username="<?php echo e($editUser['username']); ?>">
-                    <input type="hidden" name="action" value="unlock_user">
-                    <input type="hidden" name="user_id" value="<?php echo (int)$editUser['id']; ?>">
-                    <div class="form-actions">
-                        <button type="submit" class="btn btn-gold">Unlock Account</button>
-                    </div>
-                </form>
-            <?php endif; ?>
         </div>
     </div>
 </div>
@@ -1652,4 +1776,4 @@ document.addEventListener('keydown', function(e) {
 });
 </script>
 </body>
-</html>
+</html> 

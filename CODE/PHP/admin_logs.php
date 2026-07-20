@@ -111,39 +111,58 @@ function renderAdminLogsTable(array $logs): void
                 <tr>
                     <th>ID</th>
                     <th>Admin</th>
-                    <th>Username</th>
                     <th>Action</th>
-                    <th>Target Type</th>
-                    <th>Target ID</th>
-                    <th>Description</th>
+                    <th>Target</th>
                     <th>Integrity</th>
-                    <th>Date & Time</th>
+                    <th>Date &amp; Time</th>
+                    <th>Details</th>
                 </tr>
             </thead>
             <tbody>
             <?php if (empty($logs)): ?>
                 <tr>
-                    <td colspan="9">No admin log records found.</td>
+                    <td colspan="7">No admin log records found.</td>
                 </tr>
             <?php else: ?>
                 <?php foreach ($logs as $log): ?>
                     <?php
                     $isValidIntegrity = !empty($log['log_hash']) && verifyAdminLogRowIntegrity($log);
+                    $targetLabel = trim(($log['target_type'] ?? '') . ' #' . (int)($log['target_id'] ?? 0));
                     ?>
                     <tr>
                         <td><?php echo (int)$log['id']; ?></td>
-                        <td><?php echo e($log['admin_name'] ?? 'Unknown Admin'); ?></td>
-                        <td><?php echo e($log['admin_username'] ?? 'N/A'); ?></td>
-                        <td><?php echo e($log['action']); ?></td>
-                        <td><?php echo e($log['target_type']); ?></td>
-                        <td><?php echo (int)$log['target_id']; ?></td>
-                        <td><?php echo e($log['description']); ?></td>
+                        <td>
+                            <div class="log-admin-cell">
+                                <span class="log-admin-name"><?php echo e($log['admin_name'] ?? 'Unknown Admin'); ?></span>
+                                <span class="log-admin-username">@<?php echo e($log['admin_username'] ?? 'N/A'); ?></span>
+                            </div>
+                        </td>
+                        <td><span class="log-action-chip"><?php echo e($log['action']); ?></span></td>
+                        <td><?php echo e($targetLabel); ?></td>
                         <td>
                             <span class="mini-badge <?php echo $isValidIntegrity ? 'yes' : 'no'; ?>">
                                 <?php echo $isValidIntegrity ? 'Valid' : 'Legacy/Check'; ?>
                             </span>
                         </td>
-                        <td><?php echo e(date('M d, Y h:i A', strtotime($log['created_at']))); ?></td>
+                        <td><?php echo !empty($log['created_at']) ? e(date('M d, Y h:i A', strtotime($log['created_at']))) : '—'; ?></td>
+                        <td>
+                            <button
+                                type="button"
+                                class="btn btn-silver log-details-btn"
+                                data-id="<?php echo (int)$log['id']; ?>"
+                                data-admin="<?php echo e($log['admin_name'] ?? 'Unknown Admin'); ?>"
+                                data-username="<?php echo e($log['admin_username'] ?? 'N/A'); ?>"
+                                data-action="<?php echo e($log['action']); ?>"
+                                data-target="<?php echo e($targetLabel); ?>"
+                                data-description="<?php echo e($log['description'] ?? ''); ?>"
+                                data-integrity="<?php echo $isValidIntegrity ? 'Valid' : 'Legacy/Check'; ?>"
+                                data-ip="<?php echo e($log['ip_address'] ?? '—'); ?>"
+                                data-agent="<?php echo e($log['user_agent'] ?? '—'); ?>"
+                                data-date="<?php echo !empty($log['created_at']) ? e(date('M d, Y h:i A', strtotime($log['created_at']))) : '—'; ?>"
+                            >
+                                <i class="bi bi-eye"></i> View
+                            </button>
+                        </td>
                     </tr>
                 <?php endforeach; ?>
             <?php endif; ?>
@@ -168,6 +187,7 @@ if (
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Logs - NextGen</title>
     <link rel="stylesheet" href="/NexGen/CODE/STYLE/admin_module.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 
     <style>
         .logs-table-wrap {
@@ -235,6 +255,171 @@ if (
             background: rgba(255, 107, 107, 0.18);
             color: #ffb0b0;
         }
+
+        .log-admin-cell {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            line-height: 1.3;
+        }
+
+        .log-admin-name {
+            font-weight: 600;
+            color: #ffffff;
+        }
+
+        .log-admin-username {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.55);
+        }
+
+        .log-action-chip {
+            display: inline-block;
+            padding: 3px 9px;
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            font-size: 11.5px;
+            font-weight: 600;
+            color: #cfe0ff;
+            white-space: nowrap;
+        }
+
+        .log-details-btn {
+            padding: 6px 12px !important;
+            font-size: 12px !important;
+        }
+
+        /* LOG DETAIL MODAL */
+        .log-detail-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transition: 0.22s ease;
+            z-index: 99999;
+            padding: 20px;
+        }
+
+        .log-detail-overlay.show {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+        }
+
+        .log-detail-box {
+            width: 100%;
+            max-width: 560px;
+            max-height: 84vh;
+            overflow-y: auto;
+            background: linear-gradient(180deg, #1f3c88 0%, #16307a 100%);
+            border-radius: 18px;
+            padding: 24px;
+            box-shadow: 0 20px 45px rgba(0, 0, 0, 0.3);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            transform: translateY(12px) scale(0.97);
+            transition: 0.2s ease;
+        }
+
+        .log-detail-overlay.show .log-detail-box {
+            transform: translateY(0) scale(1);
+        }
+
+        .log-detail-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+            padding-bottom: 14px;
+        }
+
+        .log-detail-header h3 {
+            font-size: 18px;
+            font-weight: 800;
+            margin-bottom: 4px;
+        }
+
+        .log-detail-header p {
+            font-size: 12.5px;
+            color: rgba(255, 255, 255, 0.65);
+        }
+
+        .log-detail-close {
+            background: rgba(255, 255, 255, 0.12);
+            border: none;
+            color: #fff;
+            width: 32px;
+            height: 32px;
+            border-radius: 999px;
+            cursor: pointer;
+            flex-shrink: 0;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .log-detail-close:hover {
+            background: rgba(255, 255, 255, 0.22);
+        }
+
+        .log-detail-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px 18px;
+            margin-bottom: 16px;
+        }
+
+        .log-detail-field {
+            min-width: 0;
+        }
+
+        .log-detail-field.full {
+            grid-column: 1 / -1;
+        }
+
+        .log-detail-field label {
+            display: block;
+            font-size: 10.5px;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            color: rgba(255, 255, 255, 0.55);
+            margin-bottom: 4px;
+            font-weight: 700;
+        }
+
+        .log-detail-field div {
+            font-size: 13.5px;
+            word-break: break-word;
+            line-height: 1.45;
+        }
+
+        .log-detail-description {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 12px 14px;
+            font-size: 13.5px;
+            line-height: 1.55;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+
+        @media (max-width: 520px) {
+            .log-detail-grid {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
 <body>
@@ -257,10 +442,7 @@ if (
             <div class="page-title">
                 <h1>Admin Logs</h1>
             </div>
-            <div class="user-pill">
-                <img src="/NexGen/CODE/PHP/<?php echo e($profileImage); ?>" alt="Profile">
-                <span><?php echo e($fullName); ?></span>
-            </div>
+            
         </div>
 
         <section class="panel">
@@ -297,6 +479,53 @@ if (
             </div>
         </section>
     </main>
+</div>
+
+<div class="log-detail-overlay" id="logDetailOverlay">
+    <div class="log-detail-box">
+        <div class="log-detail-header">
+            <div>
+                <h3 id="logDetailTitle">Log #0</h3>
+                <p id="logDetailAction">—</p>
+            </div>
+            <button type="button" class="log-detail-close" id="logDetailClose" aria-label="Close">&times;</button>
+        </div>
+
+        <div class="log-detail-grid">
+            <div class="log-detail-field">
+                <label>Admin</label>
+                <div id="logDetailAdmin">—</div>
+            </div>
+            <div class="log-detail-field">
+                <label>Username</label>
+                <div id="logDetailUsername">—</div>
+            </div>
+            <div class="log-detail-field">
+                <label>Target</label>
+                <div id="logDetailTarget">—</div>
+            </div>
+            <div class="log-detail-field">
+                <label>Integrity</label>
+                <div id="logDetailIntegrity">—</div>
+            </div>
+            <div class="log-detail-field">
+                <label>Date &amp; Time</label>
+                <div id="logDetailDate">—</div>
+            </div>
+            <div class="log-detail-field">
+                <label>IP Address</label>
+                <div id="logDetailIp">—</div>
+            </div>
+            <div class="log-detail-field full">
+                <label>User Agent</label>
+                <div id="logDetailAgent">—</div>
+            </div>
+            <div class="log-detail-field full">
+                <label>Description</label>
+                <div class="log-detail-description" id="logDetailDescription">—</div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script src="/NexGen/CODE/JS/admin_module.js"></script>
@@ -362,6 +591,56 @@ document.addEventListener('DOMContentLoaded', function() {
     if (actionFilter) {
         actionFilter.addEventListener('change', updateLogs);
     }
+
+    /* LOG DETAIL MODAL */
+    const overlay = document.getElementById('logDetailOverlay');
+    const closeBtn = document.getElementById('logDetailClose');
+
+    function openLogDetail(btn) {
+        document.getElementById('logDetailTitle').textContent = 'Log #' + btn.dataset.id;
+        document.getElementById('logDetailAction').textContent = btn.dataset.action || '—';
+        document.getElementById('logDetailAdmin').textContent = btn.dataset.admin || '—';
+        document.getElementById('logDetailUsername').textContent = '@' + (btn.dataset.username || 'N/A');
+        document.getElementById('logDetailTarget').textContent = btn.dataset.target || '—';
+        document.getElementById('logDetailIntegrity').textContent = btn.dataset.integrity || '—';
+        document.getElementById('logDetailDate').textContent = btn.dataset.date || '—';
+        document.getElementById('logDetailIp').textContent = btn.dataset.ip || '—';
+        document.getElementById('logDetailAgent').textContent = btn.dataset.agent || '—';
+        document.getElementById('logDetailDescription').textContent = btn.dataset.description || 'No description provided.';
+
+        overlay.classList.add('show');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeLogDetail() {
+        overlay.classList.remove('show');
+        document.body.style.overflow = '';
+    }
+
+    container.addEventListener('click', function(e) {
+        const btn = e.target.closest('.log-details-btn');
+        if (btn) {
+            openLogDetail(btn);
+        }
+    });
+
+    if (closeBtn) {
+        closeBtn.addEventListener('click', closeLogDetail);
+    }
+
+    if (overlay) {
+        overlay.addEventListener('click', function(e) {
+            if (e.target === overlay) {
+                closeLogDetail();
+            }
+        });
+    }
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeLogDetail();
+        }
+    });
 });
 </script>
 </body>

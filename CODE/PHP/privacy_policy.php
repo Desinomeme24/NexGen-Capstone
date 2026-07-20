@@ -5,9 +5,9 @@ $backLink = "/NexGen/CODE/PHP/index.php";
 
 if (isset($_SESSION['user_id'])) {
     if (isset($_SESSION['role']) && $_SESSION['role'] === 'system_admin') {
-        $backLink = "/NexGen/CODE/PHP/admin_dashboard.php";
+        $backLink = "/NexGen/CODE/PHP/settings.php";
     } else {
-        $backLink = "/NexGen/CODE/PHP/dashboard.php";
+        $backLink = "/NexGen/CODE/PHP/settings.php";
     }
 } else {
     $returnTo = $_GET['return_to'] ?? '';

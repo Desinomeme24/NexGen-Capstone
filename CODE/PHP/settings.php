@@ -53,58 +53,7 @@ $verifyOtpCsrfToken = generateCsrfToken('verify_password_otp_form');
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Settings - NextGen</title>
     <link rel="stylesheet" href="/NexGen/CODE/STYLE/settings.css">
-    <style>
-        .security-option-box {
-            background: rgba(255,255,255,0.08);
-            border: 1px solid rgba(255,255,255,0.15);
-            border-radius: 16px;
-            padding: 20px;
-            margin-bottom: 20px;
-        }
-
-        .security-option-box label {
-            display: block;
-            margin-bottom: 10px;
-            font-weight: 600;
-            color: #fff;
-        }
-
-        .security-option-box select {
-            width: 100%;
-            padding: 12px 14px;
-            border-radius: 10px;
-            border: 1px solid rgba(255,255,255,0.2);
-            background: rgba(255,255,255,0.08);
-            color: #fff;
-            outline: none;
-            font-size: 15px;
-        }
-
-        .security-option-box select option {
-            color: #000;
-        }
-
-        .security-method {
-            display: none;
-            margin-top: 20px;
-            animation: fadeIn 0.3s ease;
-        }
-
-        .security-method.active-method {
-            display: block;
-        }
-
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-    </style>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 </head>
 <body>
 
@@ -126,7 +75,7 @@ $verifyOtpCsrfToken = generateCsrfToken('verify_password_otp_form');
                 <form action="/NexGen/CODE/PHP/update_profile_image.php" method="POST" enctype="multipart/form-data" class="profile-edit-form" id="profileImageForm">
                     <div class="profile-image-wrapper">
                         <img src="/NexGen/CODE/PHP/<?php echo htmlspecialchars($profileImage); ?>" alt="Profile" class="sidebar-profile-img">
-                        <label for="new_profile_image" class="profile-edit-btn">✎</label>
+                        <label for="new_profile_image" class="profile-edit-btn"><i class="bi bi-camera-fill"></i></label>
                         <input type="file" name="new_profile_image" id="new_profile_image" accept="image/*" hidden>
                     </div>
                 </form>
@@ -139,20 +88,22 @@ $verifyOtpCsrfToken = generateCsrfToken('verify_password_otp_form');
         </div>
 
         <nav class="settings-nav">
-            <button class="nav-item active" data-target="account-panel" type="button">Account</button>
-            <button class="nav-item" data-target="security-panel" type="button">Security & Access</button>
+            <button class="nav-item active" data-target="account-panel" type="button"><i class="bi bi-person"></i><span>Account</span></button>
+            <button class="nav-item" data-target="security-panel" type="button"><i class="bi bi-shield-lock"></i><span>Security &amp; Access</span></button>
         </nav>
 
-        <div class="back-link-wrap">
-            <a href="/NexGen/CODE/PHP/privacy_policy.php" class="back-link" style="margin-bottom:10px; display:inline-block;">
-                Privacy Policy
-            </a>
-            <br>
-            <a href="/NexGen/CODE/PHP/privacy_policy.php#cookie-notice" class="back-link" style="margin-bottom:10px; display:inline-block;">
-                Cookie Notice
-            </a>
-            <br>
-            <a href="<?php echo $backLink; ?>" class="back-link">← Back to Dashboard</a>
+        <div class="settings-sidebar-footer">
+            <div class="legal-links">
+                <a href="/NexGen/CODE/PHP/privacy_policy.php" class="back-link">
+                    <i class="bi bi-file-earmark-text"></i> Privacy Policy
+                </a>
+                <a href="/NexGen/CODE/PHP/privacy_policy.php#cookie-notice" class="back-link">
+                    <i class="bi bi-cookie"></i> Cookie Notice
+                </a>
+            </div>
+            <div class="back-link-wrap">
+                <a href="<?php echo $backLink; ?>" class="back-link back-to-dashboard"><i class="bi bi-arrow-left"></i> Back to Dashboard</a>
+            </div>
         </div>
     </aside>
 
@@ -160,6 +111,7 @@ $verifyOtpCsrfToken = generateCsrfToken('verify_password_otp_form');
         <section class="settings-panel active-panel" id="account-panel">
             <div class="panel-header">
                 <h1>Account Settings</h1>
+                <p class="panel-subtitle">Manage your personal information and how it's displayed.</p>
             </div>
 
             <form action="/NexGen/CODE/PHP/update_account.php" method="POST" class="account-form" id="accountForm">
@@ -194,92 +146,123 @@ $verifyOtpCsrfToken = generateCsrfToken('verify_password_otp_form');
 
                 <div class="form-group full">
                     <label>OTP Verification Method</label>
-                    <input type="text" value="Email only" readonly>
+                    <div class="info-chip"><i class="bi bi-envelope-check"></i> Email only</div>
                 </div>
             </form>
         </section>
 
         <section class="settings-panel" id="security-panel">
             <div class="panel-header">
-                <h2>Security & Access</h2>
+                <h2>Security &amp; Access</h2>
+                <p class="panel-subtitle">Choose how you'd like to change your password.</p>
             </div>
 
             <div class="password-box">
 
-                <div class="security-option-box">
-                    <label for="securityChoice">Choose how you want to proceed</label>
-                    <select id="securityChoice">
-                        <option value="">-- Select an option --</option>
-                        <option value="current-password-method">Use Current Password to Change Password</option>
-                        <option value="otp-method">Send OTP to Email</option>
-                    </select>
+                <div class="segmented-control" id="securityChoiceGroup">
+                    <button type="button" class="segmented-btn" data-method="current-password-method">
+                        <i class="bi bi-key"></i> Use Current Password
+                    </button>
+                    <button type="button" class="segmented-btn" data-method="otp-method">
+                        <i class="bi bi-envelope-check"></i> Send OTP to Email
+                    </button>
                 </div>
 
                 <div class="security-method" id="current-password-method">
-                    <form action="/NexGen/CODE/PHP/change_password_direct.php" method="POST" class="password-form" id="directPasswordForm">
-                        <input type="hidden" name="csrf_token" value="<?php echo e($directPasswordCsrfToken); ?>">
-
-                        <div class="form-group full">
-                            <label>Current Password</label>
-                            <input type="password" name="current_password" required>
-                        </div>
-
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>New Password</label>
-                                <input type="password" name="new_password" value="<?php echo htmlspecialchars($otpNewPasswordValue); ?>" required>
-                            </div>
-
-                            <div class="form-group">
-                                <label>Confirm New Password</label>
-                                <input type="password" name="confirm_new_password" value="<?php echo htmlspecialchars($otpConfirmPasswordValue); ?>" required>
+                    <div class="method-card">
+                        <div class="method-card-header">
+                            <div class="method-icon"><i class="bi bi-key-fill"></i></div>
+                            <div>
+                                <h3>Change with Current Password</h3>
+                                <p>Verify it's you using your existing password.</p>
                             </div>
                         </div>
 
-                        <div class="form-actions-left">
-                            <button type="submit" class="btn btn-save">Change Password</button>
-                        </div>
-                    </form>
+                        <form action="/NexGen/CODE/PHP/change_password_direct.php" method="POST" class="password-form" id="directPasswordForm">
+                            <input type="hidden" name="csrf_token" value="<?php echo e($directPasswordCsrfToken); ?>">
+
+                            <div class="form-group full">
+                                <label>Current Password</label>
+                                <input type="password" name="current_password" required>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>New Password</label>
+                                    <input type="password" name="new_password" value="<?php echo htmlspecialchars($otpNewPasswordValue); ?>" required>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Confirm New Password</label>
+                                    <input type="password" name="confirm_new_password" value="<?php echo htmlspecialchars($otpConfirmPasswordValue); ?>" required>
+                                </div>
+                            </div>
+
+                            <div class="form-actions-left">
+                                <button type="submit" class="btn btn-save">Change Password</button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
 
                 <div class="security-method" id="otp-method">
-                    <form action="/NexGen/CODE/PHP/request_password_change.php" method="POST" class="password-form" id="otpRequestForm">
-                        <input type="hidden" name="csrf_token" value="<?php echo e($requestOtpCsrfToken); ?>">
-
-                        <div class="form-group full">
-                            <label>Email Verification</label>
-                            <input type="email" value="<?php echo htmlspecialchars($user['email'] ?? ''); ?>" readonly>
-                        </div>
-
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>New Password</label>
-                                <input type="password" name="new_password" id="otpNewPassword" required>
-                            </div>
-
-                            <div class="form-group">
-                                <label>Confirm New Password</label>
-                                <input type="password" name="confirm_new_password" id="otpConfirmPassword" required>
+                    <div class="method-card">
+                        <div class="method-card-header">
+                            <div class="method-icon"><i class="bi bi-envelope-check-fill"></i></div>
+                            <div>
+                                <h3>Change via Email OTP</h3>
+                                <p>We'll send a one-time code to verify it's you.</p>
                             </div>
                         </div>
 
-                        <div class="form-actions-left">
-                            <button type="submit" class="btn btn-send-otp">Send OTP to Email</button>
-                        </div>
-                    </form>
+                        <div class="step-flow">
+                            <div>
+                                <div class="step-label"><span class="step-badge">1</span> Request a code</div>
 
-                    <form action="/NexGen/CODE/PHP/verify_password_otp.php" method="POST" class="otp-form" id="otpVerifyForm">
-                        <input type="hidden" name="csrf_token" value="<?php echo e($verifyOtpCsrfToken); ?>">
+                                <form action="/NexGen/CODE/PHP/request_password_change.php" method="POST" class="password-form" id="otpRequestForm">
+                                    <input type="hidden" name="csrf_token" value="<?php echo e($requestOtpCsrfToken); ?>">
 
-                        <div class="form-group full">
-                            <label>Enter OTP sent to your email</label>
-                            <input type="text" name="otp_code" maxlength="6" placeholder="Enter the 6-digit OTP" required>
-                        </div>
+                                    <div class="form-group full">
+                                        <label>Email Verification</label>
+                                        <div class="info-chip"><i class="bi bi-envelope"></i> <?php echo htmlspecialchars($user['email'] ?? ''); ?></div>
+                                    </div>
 
-                        <div class="form-actions-left">
-                            <button type="submit" class="btn btn-save">Verify OTP & Change Password</button>
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label>New Password</label>
+                                            <input type="password" name="new_password" id="otpNewPassword" required>
+                                        </div>
+
+                                        <div class="form-group">
+                                            <label>Confirm New Password</label>
+                                            <input type="password" name="confirm_new_password" id="otpConfirmPassword" required>
+                                        </div>
+                                    </div>
+
+                                    <div class="form-actions-left">
+                                        <button type="submit" class="btn btn-send-otp">Send OTP to Email</button>
+                                    </div>
+                                </form>
+                            </div>
+
+                            <div>
+                                <div class="step-label"><span class="step-badge">2</span> Verify &amp; confirm</div>
+
+                                <form action="/NexGen/CODE/PHP/verify_password_otp.php" method="POST" class="otp-form" id="otpVerifyForm">
+                                    <input type="hidden" name="csrf_token" value="<?php echo e($verifyOtpCsrfToken); ?>">
+
+                                    <div class="form-group full">
+                                        <label>Enter OTP sent to your email</label>
+                                        <input type="text" name="otp_code" maxlength="6" placeholder="Enter the 6-digit OTP" required>
+                                    </div>
+
+                                    <div class="form-actions-left">
+                                        <button type="submit" class="btn btn-save">Verify OTP &amp; Change Password</button>
+                                    </div>
+                                </form>
+                            </div>
                         </div>
-                    </form>
+                    </div>
                 </div>
 
             </div>
@@ -293,7 +276,7 @@ $verifyOtpCsrfToken = generateCsrfToken('verify_password_otp_form');
 document.addEventListener("DOMContentLoaded", function () {
     const navItems = document.querySelectorAll(".settings-nav .nav-item");
     const panels = document.querySelectorAll(".settings-panel");
-    const securityChoice = document.getElementById("securityChoice");
+    const segmentedBtns = document.querySelectorAll(".segmented-btn");
     const securityMethods = document.querySelectorAll(".security-method");
 
     const accountForm = document.getElementById("accountForm");
@@ -321,11 +304,14 @@ document.addEventListener("DOMContentLoaded", function () {
             method.classList.remove("active-method");
         });
 
+        segmentedBtns.forEach(btn => {
+            btn.classList.toggle("active", btn.dataset.method === methodId);
+        });
+
         if (methodId) {
             const selectedMethod = document.getElementById(methodId);
             if (selectedMethod) {
                 selectedMethod.classList.add("active-method");
-                securityChoice.value = methodId;
                 localStorage.setItem("settingsSecurityMethod", methodId);
             }
         }
@@ -337,17 +323,12 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     });
 
-    if (securityChoice) {
-        securityChoice.addEventListener("change", function () {
-            if (this.value) {
-                openSecurityMethod(this.value);
-                openPanel("security-panel");
-            } else {
-                securityMethods.forEach(method => method.classList.remove("active-method"));
-                localStorage.removeItem("settingsSecurityMethod");
-            }
+    segmentedBtns.forEach(btn => {
+        btn.addEventListener("click", function () {
+            openSecurityMethod(this.dataset.method);
+            openPanel("security-panel");
         });
-    }
+    });
 
     if (accountForm) {
         accountForm.addEventListener("submit", function () {

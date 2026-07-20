@@ -196,6 +196,7 @@ if (
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Accounts Masterlist - NextGen</title>
     <link rel="stylesheet" href="/NexGen/CODE/STYLE/admin_module.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <style>
         .accounts-table-wrap {
             max-height: 460px;
@@ -279,6 +280,24 @@ if (
         .empno-col {
             white-space: nowrap;
         }
+
+        #accountsSearchInput {
+            flex: 0 0 500px !important;
+            width: 500px !important;
+            max-width: 500px !important;
+        }
+
+        #accountsFilterForm {
+            padding-top: 20px !important;
+        }
+
+        @media (max-width: 992px) {
+            #accountsSearchInput {
+                flex: 1 1 100% !important;
+                width: 100% !important;
+                max-width: 100% !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -290,10 +309,7 @@ if (
             <div class="page-title">
                 <h1>Accounts Masterlist</h1>
             </div>
-            <div class="user-pill">
-                <img src="/NexGen/CODE/PHP/<?php echo e($profileImage); ?>" alt="Profile">
-                <span><?php echo e($fullName); ?></span>
-            </div>
+            
         </div>
 
         <?php if ($flash): ?>
@@ -309,7 +325,7 @@ if (
 
             <form method="GET" class="filters" id="accountsFilterForm" onsubmit="return false;">
                 <input
-                    class="input flex-1"
+                    class="input flex-3"
                     type="text"
                     name="search"
                     id="accountsSearchInput"

@@ -81,6 +81,7 @@ if ($result) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Dashboard - NextGen</title>
     <link rel="stylesheet" href="/NexGen/CODE/STYLE/admin_module.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <style>
         .dashboard-requests-table-wrap {
             max-height: 320px;
@@ -137,10 +138,6 @@ if ($result) {
         <div class="topbar">
             <div class="page-title">
                 <h1>System Administrator</h1>
-            </div>
-            <div class="user-pill">
-                <img src="/NexGen/CODE/PHP/<?php echo e($profileImage); ?>" alt="Profile">
-                <span><?php echo e($fullName); ?></span>
             </div>
         </div>
 
@@ -242,4 +239,4 @@ if ($result) {
     })();
 </script>
 </body>
-</html>
+</html> 

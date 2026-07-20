@@ -14,7 +14,12 @@ $adminFullName = $_SESSION['full_name'] ?? 'System Administrator';
 $currentPage   = basename($_SERVER['PHP_SELF']);
 ?>
 
-<aside class="admin-sidebar admin-sidebar-custom">
+<button type="button" class="mobile-nav-toggle" id="mobileNavToggle" aria-label="Open menu" aria-expanded="false" aria-controls="adminSidebar">
+    <i class="bi bi-list"></i>
+</button>
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+<aside class="admin-sidebar admin-sidebar-custom" id="adminSidebar">
     <div class="brand-box">
         <img src="/NexGen/CODE/PHP/<?php echo e($profileImage); ?>" alt="Profile">
         <div class="brand-meta">
@@ -25,16 +30,16 @@ $currentPage   = basename($_SERVER['PHP_SELF']);
 
     <nav class="admin-menu admin-menu-custom">
         <div class="admin-menu-main">
-            <a href="admin_dashboard.php" class="<?php echo $currentPage === 'admin_dashboard.php' ? 'active' : ''; ?>">Dashboard</a>
-            <a href="pending_requests.php" class="<?php echo $currentPage === 'pending_requests.php' ? 'active' : ''; ?>">Pending Requests</a>
-            <a href="manage_users.php" class="<?php echo $currentPage === 'manage_users.php' ? 'active' : ''; ?>">Manage Users</a>
-            <a href="accounts_masterlist.php" class="<?php echo $currentPage === 'accounts_masterlist.php' ? 'active' : ''; ?>">Accounts Masterlist</a>
-            <a href="admin_logs.php" class="<?php echo $currentPage === 'admin_logs.php' ? 'active' : ''; ?>">Admin Logs</a>
-            <a href="/NexGen/CODE/PHP/settings.php" class="<?php echo $currentPage === 'settings.php' ? 'active' : ''; ?>">Settings</a>
+            <a href="admin_dashboard.php" class="<?php echo $currentPage === 'admin_dashboard.php' ? 'active' : ''; ?>"><i class="bi bi-house"></i><span>Dashboard</span></a>
+            <a href="pending_requests.php" class="<?php echo $currentPage === 'pending_requests.php' ? 'active' : ''; ?>"><i class="bi bi-clock-history"></i><span>Pending Requests</span></a>
+            <a href="manage_users.php" class="<?php echo $currentPage === 'manage_users.php' ? 'active' : ''; ?>"><i class="bi bi-people"></i><span>Manage Users</span></a>
+            <a href="accounts_masterlist.php" class="<?php echo $currentPage === 'accounts_masterlist.php' ? 'active' : ''; ?>"><i class="bi bi-list-ul"></i><span>Accounts Masterlist</span></a>
+            <a href="admin_logs.php" class="<?php echo $currentPage === 'admin_logs.php' ? 'active' : ''; ?>"><i class="bi bi-file-earmark-text"></i><span>Admin Logs</span></a>
+            <a href="/NexGen/CODE/PHP/settings.php" class="<?php echo $currentPage === 'settings.php' ? 'active' : ''; ?>"><i class="bi bi-gear"></i><span>Settings</span></a>
         </div>
 
         <div class="admin-menu-bottom">
-            <a href="#" class="logout-link" onclick="openLogoutModal(event)">Log Out</a>
+            <a href="#" class="logout-link" onclick="openLogoutModal(event)"><i class="bi bi-box-arrow-right"></i><span>Log Out</span></a>
         </div>
     </nav>
 </aside>
@@ -76,18 +81,27 @@ $currentPage   = basename($_SERVER['PHP_SELF']);
 .admin-menu-main {
     display: flex;
     flex-direction: column;
-    justify-content: space-evenly;
+    justify-content: flex-start;
     flex: 1;
     min-height: 0;
-    gap: 14px;
+    gap: 8px;
 }
 
 .admin-menu-main a,
 .admin-menu-bottom a {
     display: flex;
     align-items: center;
-    min-height: 62px;
+    gap: 10px;
+    min-height: 44px;
     box-sizing: border-box;
+}
+
+.admin-menu-main a i,
+.admin-menu-bottom a i {
+    font-size: 16px;
+    width: 18px;
+    text-align: center;
+    flex-shrink: 0;
 }
 
 .admin-menu-bottom {
@@ -119,16 +133,16 @@ $currentPage   = basename($_SERVER['PHP_SELF']);
 
 .logout-confirm-box {
     width: 100%;
-    max-width: 360px;
+    max-width: 340px;
     background: linear-gradient(180deg, #1f3c88 0%, #1a3578 100%);
-    border-radius: 20px;
-    padding: 26px 22px;
-    box-shadow: 0 20px 45px rgba(0, 0, 0, 0.30);
+    border-radius: 14px;
+    padding: 22px 20px;
+    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.28);
     text-align: center;
     color: #fff;
     border: 1px solid rgba(255, 255, 255, 0.10);
-    transform: translateY(15px) scale(0.96);
-    transition: 0.25s ease;
+    transform: translateY(10px) scale(0.98);
+    transition: 0.2s ease;
 }
 
 .logout-confirm-overlay.show .logout-confirm-box {
@@ -136,28 +150,28 @@ $currentPage   = basename($_SERVER['PHP_SELF']);
 }
 
 .logout-confirm-icon {
-    width: 62px;
-    height: 62px;
-    margin: 0 auto 14px;
+    width: 48px;
+    height: 48px;
+    margin: 0 auto 12px;
     border-radius: 50%;
     background: rgba(255, 255, 255, 0.12);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 26px;
+    font-size: 20px;
     color: #f7d98b;
 }
 
 .logout-confirm-box h3 {
-    margin: 0 0 8px;
-    font-size: 25px;
-    font-weight: 800;
+    margin: 0 0 6px;
+    font-size: 19px;
+    font-weight: 700;
     color: #fff;
 }
 
 .logout-confirm-box p {
-    margin: 0 0 22px;
-    font-size: 15px;
+    margin: 0 0 18px;
+    font-size: 13.5px;
     color: rgba(255, 255, 255, 0.88);
     line-height: 1.5;
 }
@@ -172,13 +186,13 @@ $currentPage   = basename($_SERVER['PHP_SELF']);
 .logout-btn-cancel,
 .logout-btn-confirm {
     border: none;
-    border-radius: 12px;
-    padding: 11px 18px;
-    font-size: 14px;
-    font-weight: 700;
+    border-radius: 8px;
+    padding: 10px 18px;
+    font-size: 13.5px;
+    font-weight: 600;
     cursor: pointer;
-    min-width: 120px;
-    transition: 0.2s ease;
+    min-width: 110px;
+    transition: 0.15s ease;
 }
 
 .logout-btn-cancel {
@@ -208,11 +222,11 @@ $currentPage   = basename($_SERVER['PHP_SELF']);
 
     .admin-menu-main {
         justify-content: flex-start;
-        gap: 14px;
+        gap: 8px;
     }
 
     .admin-menu-bottom {
-        margin-top: 14px;
+        margin-top: 10px;
     }
 }
 </style>
@@ -245,6 +259,54 @@ document.addEventListener('click', function(e) {
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
         closeLogoutModal();
+        closeMobileSidebar();
+    }
+});
+
+/* MOBILE SIDEBAR: hamburger toggle + overlay for small screens */
+function openMobileSidebar() {
+    const sidebar = document.getElementById('adminSidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    const toggle = document.getElementById('mobileNavToggle');
+    if (sidebar) sidebar.classList.add('mobile-open');
+    if (overlay) overlay.classList.add('show');
+    if (toggle) toggle.setAttribute('aria-expanded', 'true');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeMobileSidebar() {
+    const sidebar = document.getElementById('adminSidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    const toggle = document.getElementById('mobileNavToggle');
+    if (sidebar) sidebar.classList.remove('mobile-open');
+    if (overlay) overlay.classList.remove('show');
+    if (toggle) toggle.setAttribute('aria-expanded', 'false');
+    document.body.style.overflow = '';
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const toggleBtn = document.getElementById('mobileNavToggle');
+    const overlay = document.getElementById('sidebarOverlay');
+    const sidebar = document.getElementById('adminSidebar');
+
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', function() {
+            if (sidebar && sidebar.classList.contains('mobile-open')) {
+                closeMobileSidebar();
+            } else {
+                openMobileSidebar();
+            }
+        });
+    }
+
+    if (overlay) {
+        overlay.addEventListener('click', closeMobileSidebar);
+    }
+
+    if (sidebar) {
+        sidebar.querySelectorAll('.admin-menu-main a, .admin-menu-bottom a:not(.logout-link)').forEach(function(link) {
+            link.addEventListener('click', closeMobileSidebar);
+        });
     }
 });
 </script>

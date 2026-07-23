@@ -69,7 +69,7 @@ unset($_SESSION['flash']);
 function renderPendingRequestsTable(array $requests): void
 {
     ?>
-    <div class="table-wrap pending-requests-table-wrap" id="pendingRequestsTableWrap">
+    <div class="table-wrap pending-requests-table-wrap" id="pendingRequestsTableWrap" data-mobile-cards>
         <table>
             <thead>
                 <tr>
@@ -92,19 +92,19 @@ function renderPendingRequestsTable(array $requests): void
             <?php else: ?>
                 <?php foreach ($requests as $row): ?>
                     <tr>
-                        <td><?php echo (int)$row['id']; ?></td>
-                        <td><?php echo e($row['employee_no']); ?></td>
-                        <td><?php echo e($row['full_name']); ?></td>
-                        <td><?php echo e($row['username']); ?></td>
-                        <td><?php echo e($row['email']); ?></td>
-                        <td><?php echo e(ucwords(str_replace('_', ' ', $row['requested_role']))); ?></td>
-                        <td>
+                        <td data-label="ID"><?php echo (int)$row['id']; ?></td>
+                        <td data-label="Employee No"><?php echo e($row['employee_no']); ?></td>
+                        <td data-label="Full Name"><?php echo e($row['full_name']); ?></td>
+                        <td data-label="Username"><?php echo e($row['username']); ?></td>
+                        <td data-label="Email"><?php echo e($row['email']); ?></td>
+                        <td data-label="Requested Role"><?php echo e(ucwords(str_replace('_', ' ', $row['requested_role']))); ?></td>
+                        <td data-label="Status">
                             <span class="badge badge-<?php echo e($row['request_status']); ?>">
                                 <?php echo e(ucfirst($row['request_status'])); ?>
                             </span>
                         </td>
-                        <td><?php echo e(date('M d, Y h:i A', strtotime($row['created_at']))); ?></td>
-                        <td>
+                        <td data-label="Submitted"><?php echo e(date('M d, Y h:i A', strtotime($row['created_at']))); ?></td>
+                        <td data-label="Action">
                             <a class="btn btn-silver" href="view_request.php?id=<?php echo (int)$row['id']; ?>">View</a>
                         </td>
                     </tr>
@@ -141,6 +141,13 @@ if (
             border-radius: 18px;
             position: relative;
             transition: opacity 0.15s ease;
+        }
+
+        @media (max-width: 700px) {
+            .pending-requests-table-wrap {
+                max-height: none;
+                overflow: visible;
+            }
         }
 
         .pending-requests-table-wrap.loading {
@@ -388,6 +395,10 @@ if (
     </div>
 </div>
 
+<button type="button" id="backToTopBtn" class="back-to-top-btn" aria-label="Back to top" title="Back to top">
+    <i class="bi bi-arrow-up"></i>
+</button>
+
 <script src="/NexGen/CODE/JS/admin_module.js"></script>
 <script>
 function openLogoutModal(event) {
@@ -478,6 +489,26 @@ document.addEventListener('DOMContentLoaded', function() {
         statusFilter.addEventListener('change', updatePendingRequests);
     }
 });
+
+(function() {
+    const backToTopBtn = document.getElementById('backToTopBtn');
+    if (!backToTopBtn) return;
+
+    function toggleBackToTop() {
+        if (window.scrollY > 300) {
+            backToTopBtn.classList.add('show');
+        } else {
+            backToTopBtn.classList.remove('show');
+        }
+    }
+
+    window.addEventListener('scroll', toggleBackToTop, { passive: true });
+    toggleBackToTop();  
+
+    backToTopBtn.addEventListener('click', function() {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+})();
 </script>
 </body>
 </html>

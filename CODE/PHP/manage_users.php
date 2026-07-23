@@ -538,7 +538,7 @@ function renderManageUsersTable(array $users, string $search, string $roleFilter
         <form method="POST" id="bulkActionForm">
             <input type="hidden" name="action" value="bulk_module_action">
 
-            <div class="table-wrap manage-users-table-wrap" id="manageUsersTableWrap">
+            <div class="table-wrap manage-users-table-wrap" id="manageUsersTableWrap" data-mobile-cards>
                 <table>
                     <colgroup>
                         <col style="width: 56px;">
@@ -587,7 +587,7 @@ function renderManageUsersTable(array $users, string $search, string $roleFilter
                             $isLocked = !empty($user['locked_until']) && strtotime((string)$user['locked_until']) > time();
                             ?>
                             <tr>
-                                <td class="select-col">
+                                <td class="select-col" data-label="Select">
                                     <input
                                         type="checkbox"
                                         class="row-check"
@@ -595,35 +595,35 @@ function renderManageUsersTable(array $users, string $search, string $roleFilter
                                         value="<?php echo (int)$user['id']; ?>"
                                     >
                                 </td>
-                                <td class="table-id"><?php echo (int)$user['id']; ?></td>
-                                <td class="table-employee"><?php echo e($user['employee_no']); ?></td>
-                                <td><?php echo e($user['full_name']); ?></td>
-                                <td><?php echo e($user['username']); ?></td>
-                                <td class="table-email"><?php echo e($user['email']); ?></td>
-                                <td class="table-phone"><?php echo e($user['phone']); ?></td>
-                                <td class="table-role"><?php echo e(ucwords(str_replace('_', ' ', $user['role']))); ?></td>
-                                <td class="table-verified">
+                                <td class="table-id" data-label="ID"><?php echo (int)$user['id']; ?></td>
+                                <td class="table-employee" data-label="Employee No"><?php echo e($user['employee_no']); ?></td>
+                                <td data-label="Full Name"><?php echo e($user['full_name']); ?></td>
+                                <td data-label="Username"><?php echo e($user['username']); ?></td>
+                                <td class="table-email" data-label="Email"><?php echo e($user['email']); ?></td>
+                                <td class="table-phone" data-label="Phone"><?php echo e($user['phone']); ?></td>
+                                <td class="table-role" data-label="Role"><?php echo e(ucwords(str_replace('_', ' ', $user['role']))); ?></td>
+                                <td class="table-verified" data-label="Verified">
                                     <span class="mini-badge <?php echo (int)$user['is_verified'] === 1 ? 'yes' : 'no'; ?>">
                                         <?php echo (int)$user['is_verified'] === 1 ? 'Verified' : 'Not Verified'; ?>
                                     </span>
                                 </td>
-                                <td class="table-failed">
+                                <td class="table-failed" data-label="Failed">
                                     <span class="mini-badge <?php echo (int)$user['failed_login_attempts'] > 0 ? 'no' : 'yes'; ?>">
                                         <?php echo (int)$user['failed_login_attempts']; ?>
                                     </span>
                                 </td>
-                                <td class="table-lock">
+                                <td class="table-lock" data-label="Lock">
                                     <span class="mini-badge <?php echo $isLocked ? 'no' : 'yes'; ?>">
                                         <?php echo $isLocked ? 'Locked' : 'Open'; ?>
                                     </span>
                                 </td>
-                                <td class="table-status">
+                                <td class="table-status" data-label="Status">
                                     <span class="badge badge-<?php echo e($user['account_status']); ?>">
                                         <?php echo e(ucfirst($user['account_status'])); ?>
                                     </span>
                                 </td>
-                                <td class="table-modules modules-cell"><?php echo e(moduleAccessSummary($user)); ?></td>
-                                <td class="table-action action-cell">
+                                <td class="table-modules modules-cell" data-label="Module Access"><?php echo e(moduleAccessSummary($user)); ?></td>
+                                <td class="table-action action-cell" data-label="Action">
                                     <a class="btn btn-silver" href="manage_users.php?<?php echo http_build_query([
                                         'search' => $search,
                                         'role_filter' => $roleFilter,
@@ -656,7 +656,7 @@ if (
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Manage Users - NextGen</title>
-    <link rel="stylesheet" href="/NexGen/CODE/STYLE/admin_module.css">
+    <link rel="stylesheet" href="/NexGen/CODE/STYLE/admin_module.css?v=20260723">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <style>
         .manage-users-table-wrap {
@@ -716,6 +716,57 @@ if (
         .toolbar-form .btn {
             width: 100%;
             box-sizing: border-box;
+        }
+
+        .toolbar-buttons {
+            display: contents;
+        }
+
+        /* =========================
+           RESPONSIVE TOOLBAR / TABLE
+           (tablet: 2-up fields; phone: stacked full-width
+           fields with the search bar spanning the top and
+           Apply/Reset paired side by side)
+        ========================= */
+        @media (max-width: 900px) {
+            .toolbar-form {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+
+            .toolbar-form .input {
+                grid-column: 1 / -1;
+            }
+        }
+
+        @media (max-width: 620px) {
+            .toolbar-form {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+
+            .toolbar-form .input,
+            .toolbar-form .select {
+                min-height: 46px;
+                font-size: 15px;
+            }
+
+            .toolbar-buttons {
+                display: flex;
+                gap: 10px;
+            }
+
+            .toolbar-buttons .btn {
+                flex: 1 1 0;
+                min-height: 46px;
+            }
+        }
+
+        @media (max-width: 700px) {
+            .manage-users-table-wrap {
+                max-height: none;
+                overflow: visible;
+                border-radius: 0;
+            }
         }
 
         .select-col {
@@ -1210,6 +1261,112 @@ if (
                 grid-template-columns: 1fr;
             }
         }
+
+        /* =========================
+           MOBILE CARD-STYLE TABLE
+           (kept inline, alongside the copy in admin_module.css,
+           so this page renders correctly even if that shared
+           stylesheet is served from an old cached copy)
+        ========================= */
+        @media (max-width: 700px) {
+            .manage-users-table-wrap[data-mobile-cards] {
+                overflow: visible;
+                border: none;
+                background: transparent;
+            }
+
+            .manage-users-table-wrap[data-mobile-cards] table {
+                min-width: 0;
+                width: 100%;
+                table-layout: auto;
+            }
+
+            .manage-users-table-wrap[data-mobile-cards] colgroup {
+                display: none;
+            }
+
+            .manage-users-table-wrap[data-mobile-cards] thead {
+                display: none;
+            }
+
+            .manage-users-table-wrap[data-mobile-cards] tbody,
+            .manage-users-table-wrap[data-mobile-cards] tr,
+            .manage-users-table-wrap[data-mobile-cards] td {
+                display: block;
+                width: 100%;
+            }
+
+            .manage-users-table-wrap[data-mobile-cards] tr {
+                background: rgba(255, 255, 255, 0.06);
+                border: 1px solid rgba(255, 255, 255, 0.14);
+                border-radius: 14px;
+                margin-bottom: 12px;
+                overflow: hidden;
+            }
+
+            .manage-users-table-wrap[data-mobile-cards] td {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 14px;
+                padding: 10px 14px;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+                text-align: right;
+                font-size: 13.5px;
+            }
+
+            .manage-users-table-wrap[data-mobile-cards] td:last-child {
+                border-bottom: none;
+            }
+
+            .manage-users-table-wrap[data-mobile-cards] td::before {
+                content: attr(data-label);
+                flex-shrink: 0;
+                margin-right: 12px;
+                font-size: 10.5px;
+                font-weight: 700;
+                text-transform: uppercase;
+                letter-spacing: 0.3px;
+                color: #ffe6a1;
+                text-align: left;
+            }
+
+            .manage-users-table-wrap[data-mobile-cards] td[data-label="Action"] {
+                justify-content: center;
+                padding: 12px 14px;
+                background: rgba(255, 255, 255, 0.04);
+            }
+
+            .manage-users-table-wrap[data-mobile-cards] td[data-label="Action"]::before {
+                display: none;
+            }
+
+            .manage-users-table-wrap[data-mobile-cards] td[data-label="Action"] .btn {
+                width: 100%;
+            }
+
+            .manage-users-table-wrap[data-mobile-cards] td[data-label="Select"] {
+                justify-content: center;
+                padding: 10px 14px;
+                background: rgba(255, 255, 255, 0.04);
+            }
+
+            .manage-users-table-wrap[data-mobile-cards] td[data-label="Select"]::before {
+                display: none;
+            }
+
+            .manage-users-table-wrap[data-mobile-cards] td[data-label="Select"] input {
+                width: 20px;
+                height: 20px;
+            }
+
+            .manage-users-table-wrap[data-mobile-cards] td[data-label="Full Name"] {
+                font-size: 15px;
+                font-weight: 700;
+                color: #ffe6a1;
+                background: rgba(255, 255, 255, 0.05);
+            }
+        }
     </style>
 </head>
 <body>
@@ -1275,8 +1432,10 @@ if (
                         <option value="revoke_access">Revoke Access</option>
                     </select>
 
-                    <button class="btn btn-gold" type="submit" form="bulkActionForm">Apply</button>
-                    <a class="btn btn-silver" href="manage_users.php">Reset</a>
+                    <div class="toolbar-buttons">
+                        <button class="btn btn-gold" type="button" id="applyFiltersBtn">Apply</button>
+                        <a class="btn btn-silver" href="manage_users.php">Reset</a>
+                    </div>
                 </form>
 
                 <?php renderManageUsersTable($users, $search, $roleFilter, $statusFilter); ?>
@@ -1470,6 +1629,10 @@ if (
         </div>
     </div>
 </div>
+
+<button type="button" id="backToTopBtn" class="back-to-top-btn" aria-label="Back to top" title="Back to top">
+    <i class="bi bi-arrow-up"></i>
+</button>
 
 <script src="/NexGen/CODE/JS/admin_module.js"></script>
 <script>
@@ -1730,6 +1893,28 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    const applyFiltersBtn = document.getElementById('applyFiltersBtn');
+    if (applyFiltersBtn) {
+        applyFiltersBtn.addEventListener('click', function() {
+            const bulkSelect = document.getElementById('bulkActionSelect');
+            const bulkForm = document.getElementById('bulkActionForm');
+
+            // Only route to the bulk-action form when the user has actually
+            // picked a bulk action; otherwise Apply just runs the search/filter,
+            // no row selection required.
+            if (bulkSelect && bulkSelect.value && bulkForm) {
+                if (bulkForm.requestSubmit) {
+                    bulkForm.requestSubmit();
+                } else {
+                    bulkForm.submit();
+                }
+                return;
+            }
+
+            updateUsers();
+        });
+    }
+
     if (roleFilter) {
         roleFilter.addEventListener('change', updateUsers);
     }
@@ -1774,6 +1959,26 @@ document.addEventListener('keydown', function(e) {
         }
     }
 });
+
+(function() {
+    const backToTopBtn = document.getElementById('backToTopBtn');
+    if (!backToTopBtn) return;
+
+    function toggleBackToTop() {
+        if (window.scrollY > 300) {
+            backToTopBtn.classList.add('show');
+        } else {
+            backToTopBtn.classList.remove('show');
+        }
+    }
+
+    window.addEventListener('scroll', toggleBackToTop, { passive: true });
+    toggleBackToTop();
+
+    backToTopBtn.addEventListener('click', function() {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+})();
 </script>
 </body>
-</html> 
+</html>

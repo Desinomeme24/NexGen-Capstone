@@ -137,7 +137,7 @@ if ($result) {
     <main class="admin-content">
         <div class="topbar">
             <div class="page-title">
-                <h1>System Administrator</h1>
+                <h1>SYSTEM ADMINISTRATOR</h1>
             </div>
         </div>
 

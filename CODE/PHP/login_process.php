@@ -371,12 +371,42 @@ $profileImage = !empty($user['profile_image']) ? $user['profile_image'] : 'uploa
             display: flex; align-items: center; justify-content: center;
         }
 
-        /* ── Floating content — no card box ── */
+        /* ── Glassmorphic content card ── */
         .content {
+            position: relative;
             text-align: center;
+            width: min(88vw, 360px);
+            padding: 44px 36px 36px;
+            border-radius: 28px;
+            background: linear-gradient(
+                165deg,
+                rgba(255, 255, 255, 0.16) 0%,
+                rgba(255, 255, 255, 0.06) 100%
+            );
+            border: 1px solid rgba(255, 255, 255, 0.28);
+            box-shadow:
+                0 24px 60px rgba(0, 0, 0, 0.45),
+                inset 0 1px 0 rgba(255, 255, 255, 0.35),
+                inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+            backdrop-filter: blur(22px) saturate(160%);
+            -webkit-backdrop-filter: blur(22px) saturate(160%);
             animation: floatIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
             opacity: 0;
             transform: translateY(28px);
+            overflow: hidden;
+        }
+        /* subtle top sheen for extra glass feel */
+        .content::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 50%;
+            background: linear-gradient(
+                180deg,
+                rgba(255, 255, 255, 0.14) 0%,
+                rgba(255, 255, 255, 0) 100%
+            );
+            pointer-events: none;
         }
         @keyframes floatIn {
             to { opacity: 1; transform: translateY(0); }

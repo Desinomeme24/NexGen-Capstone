@@ -281,6 +281,45 @@ if (
             transform: translateY(-1px);
             box-shadow: 0 10px 20px rgba(247, 217, 139, 0.25);
         }
+        /* ------------------------------------------------------------------
+           RESPONSIVE FIX: on narrow screens the filter bar (search input,
+           status select, reset button) was inheriting flex-grow from the
+           desktop row layout. When the bar wraps to a column on mobile,
+           "flex: 1" on the search input made it stretch to fill the
+           leftover vertical space instead of staying a normal single-line
+           field. Force a column layout with fixed-height controls instead.
+        ------------------------------------------------------------------ */
+        @media (max-width: 768px) {
+            .filters {
+                display: flex !important;
+                flex-direction: column !important;
+                align-items: stretch !important;
+                gap: 12px;
+            }
+
+            .filters .input.flex-1,
+            .filters .select.w-240,
+            .filters .btn {
+                flex: 0 0 auto !important;
+                width: 100% !important;
+                max-width: 100% !important;
+            }
+
+            .filters .input.flex-1,
+            .filters .select.w-240 {
+                height: 46px !important;
+                min-height: 46px !important;
+                max-height: 46px !important;
+            }
+
+            .pending-requests-table-wrap {
+                max-height: none;
+            }
+
+            .pending-requests-table-wrap table {
+                min-width: 640px;
+            }
+        }
     </style>
 </head>
 <body>

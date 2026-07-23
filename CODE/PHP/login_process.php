@@ -144,7 +144,7 @@ function recordFailedAttempt(mysqli $conn, array $user, string $reason = 'Invali
 
     if ($newAttempts >= $maxAttempts) {
         $newAttempts = $maxAttempts;
-        $lockedUntil = date('Y-m-d H:i:s', strtotime('+15 minutes'));
+        $lockedUntil = date('Y-m-d H:i:s', strtotime('+1 minutes'));
     }
 
     $updateFailSql = "UPDATE users
@@ -161,7 +161,7 @@ function recordFailedAttempt(mysqli $conn, array $user, string $reason = 'Invali
     $_SESSION['form_type'] = 'login';
 
     if ($lockedUntil !== null) {
-        $_SESSION['error'] = "Too many failed login attempts. Your account has been locked for 15 minutes.";
+        $_SESSION['error'] = "Too many failed login attempts. Your account has been locked for 1 minutes.";
         $_SESSION['lockout_until_ts'] = strtotime($lockedUntil);
         $_SESSION['lockout_username'] = $user['username'];
         $_SESSION['lockout_user_id'] = (int)$user['id'];

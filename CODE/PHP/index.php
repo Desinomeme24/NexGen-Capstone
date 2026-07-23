@@ -748,6 +748,228 @@ if (isset($_SESSION['error'])) {
     transform: translateY(-1px);
     box-shadow: 0 10px 20px rgba(247, 217, 139, 0.25);
 }
+        /* ========================================================
+           MODERN GLASS LOGIN CARD (keeps background visible)
+        ======================================================== */
+        #loginModal .login-glass-box {
+            position: relative;
+            width: 100%;
+            max-width: 420px;
+            margin: 0 auto;
+            padding: 44px 34px 34px;
+            border-radius: 26px;
+            background: linear-gradient(165deg, rgba(80, 140, 255, 0.16) 0%, rgba(30, 60, 130, 0.14) 55%, rgba(10, 20, 50, 0.16) 100%);
+            border: 1px solid rgba(140, 180, 255, 0.35);
+            box-shadow: 0 25px 70px rgba(0, 0, 0, 0.45), 0 0 70px rgba(70, 130, 255, 0.22), inset 0 1px 0 rgba(255,255,255,0.18);
+            backdrop-filter: blur(22px) saturate(160%);
+            -webkit-backdrop-filter: blur(22px) saturate(160%);
+            overflow: visible;
+        }
+
+        #loginModal .login-glass-box .close-modal {
+            position: absolute;
+            top: 16px;
+            right: 18px;
+            background: rgba(255,255,255,0.12);
+            border: none;
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            color: #fff;
+            font-size: 20px;
+            line-height: 1;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s ease;
+        }
+        #loginModal .login-glass-box .close-modal:hover {
+            background: rgba(255,255,255,0.24);
+        }
+
+        #loginModal .login-glass-box .modal-mini-logo {
+            width: 84px;
+            height: 84px;
+            margin: 0 auto 18px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 35% 30%, rgba(120,170,255,0.32), rgba(30,50,110,0.22));
+            border: 1px solid rgba(140,180,255,0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 10px 24px rgba(0,0,0,0.3), 0 0 30px rgba(80,140,255,0.25);
+        }
+        #loginModal .login-glass-box .modal-mini-logo img {
+            width: 52px;
+            height: 52px;
+            object-fit: contain;
+        }
+
+        #loginModal .login-glass-title {
+            text-align: center;
+            font-family: 'Sora', sans-serif;
+            font-size: 25px;
+            font-weight: 800;
+            letter-spacing: 0.3px;
+            color: #ffffff;
+            margin: 0 0 28px;
+            text-shadow: 0 2px 12px rgba(0,0,0,0.4);
+        }
+
+        #loginModal .glass-field {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            width: 100%;
+            height: 54px;
+            padding: 0 18px;
+            margin-bottom: 16px;
+            border-radius: 16px;
+            background: rgba(90, 140, 255, 0.10);
+            border: 1px solid rgba(130, 175, 255, 0.32);
+            transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+        }
+        #loginModal .glass-field:focus-within {
+            border-color: rgba(150, 195, 255, 0.65);
+            background: rgba(100, 150, 255, 0.15);
+            box-shadow: 0 0 0 3px rgba(90, 150, 255, 0.18), 0 0 20px rgba(80, 140, 255, 0.25);
+        }
+        #loginModal .glass-field-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            color: rgba(190, 215, 255, 0.85);
+        }
+        #loginModal .glass-field-icon svg {
+            width: 19px;
+            height: 19px;
+            stroke: currentColor;
+            stroke-width: 2;
+            fill: none;
+        }
+        #loginModal .glass-field input {
+            flex: 1;
+            min-width: 0;
+            height: 100%;
+            border: none;
+            outline: none;
+            background: transparent !important;
+            background-color: transparent !important;
+            color: #ffffff;
+            font-size: 15px;
+            font-family: inherit;
+            box-shadow: 0 0 0 1000px transparent inset;
+            caret-color: #ffffff;
+        }
+        #loginModal .glass-field input::placeholder {
+            color: rgba(210, 225, 255, 0.55);
+        }
+        /* Stop Chrome/Edge/Safari autofill from painting a white/blue block over the field */
+        #loginModal .glass-field input:-webkit-autofill,
+        #loginModal .glass-field input:-webkit-autofill:hover,
+        #loginModal .glass-field input:-webkit-autofill:focus,
+        #loginModal .glass-field input:-webkit-autofill:active {
+            -webkit-text-fill-color: #ffffff;
+            -webkit-box-shadow: 0 0 0 1000px rgba(90, 140, 255, 0.10) inset;
+            box-shadow: 0 0 0 1000px rgba(90, 140, 255, 0.10) inset;
+            caret-color: #ffffff;
+            transition: background-color 9999s ease-in-out 0s, color 9999s ease-in-out 0s;
+        }
+        #loginModal .glass-field:focus-within input:-webkit-autofill {
+            -webkit-box-shadow: 0 0 0 1000px rgba(100, 150, 255, 0.15) inset;
+            box-shadow: 0 0 0 1000px rgba(100, 150, 255, 0.15) inset;
+        }
+        #loginModal .glass-field.password-field-wrap {
+            padding-right: 12px;
+        }
+        #loginModal .glass-field .password-toggle-btn {
+            background: transparent;
+            border: none;
+            color: rgba(255,255,255,0.6);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        #loginModal .glass-field .password-toggle-btn svg {
+            width: 19px;
+            height: 19px;
+        }
+
+        #loginModal .glass-captcha-row {
+            margin: 4px 0 6px;
+        }
+        #loginModal .glass-captcha-row .captcha-checkbox-card {
+            background: rgba(90, 140, 255, 0.10);
+            border: 1px solid rgba(130, 175, 255, 0.32);
+            border-radius: 16px;
+        }
+        #loginModal .glass-captcha-row .captcha-checkbox-left label {
+            color: rgba(225, 235, 255, 0.9);
+        }
+
+        #loginModal .glass-forgot-row {
+            display: flex;
+            justify-content: flex-end;
+            margin: 2px 0 20px;
+        }
+        #loginModal .glass-forgot-row a {
+            color: rgba(255,255,255,0.75);
+            font-size: 13.5px;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        #loginModal .glass-forgot-row a:hover {
+            color: #ffffff;
+            text-decoration: underline;
+        }
+
+        #loginModal .glass-login-btn {
+            width: 100%;
+            height: 54px;
+            border: none;
+            border-radius: 999px;
+            background: linear-gradient(180deg, rgba(255,255,255,0.95) 0%, rgba(210,225,250,0.88) 100%);
+            color: #12213f;
+            font-size: 16px;
+            font-weight: 800;
+            letter-spacing: 0.3px;
+            cursor: pointer;
+            box-shadow: 0 14px 30px rgba(0,0,0,0.3), 0 0 26px rgba(90,150,255,0.35), inset 0 1px 0 rgba(255,255,255,0.85);
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        #loginModal .glass-login-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 18px 36px rgba(0,0,0,0.35), 0 0 34px rgba(90,150,255,0.45), inset 0 1px 0 rgba(255,255,255,0.9);
+        }
+        #loginModal .glass-login-btn:active {
+            transform: translateY(0);
+        }
+
+        #loginModal .glass-modal-text {
+            text-align: center;
+            font-size: 13.5px;
+            color: rgba(255,255,255,0.7);
+            margin: 14px 0 0;
+        }
+        #loginModal .glass-modal-text a {
+            color: #ffffff;
+            font-weight: 700;
+            text-decoration: none;
+        }
+        #loginModal .glass-modal-text a:hover {
+            text-decoration: underline;
+        }
+
+        #loginModal .login-lock-note {
+            color: #ffd7d7;
+            font-size: 12.5px;
+            text-align: center;
+            margin: -6px 0 14px;
+        }
     </style>
 </head>
 <body>
@@ -818,24 +1040,39 @@ if (isset($_SESSION['error'])) {
     </div>
 
     <div class="modal" id="loginModal">
-        <div class="modal-box">
+        <div class="modal-box login-glass-box">
             <button class="close-modal" id="closeLogin" type="button">&times;</button>
 
             <div class="modal-mini-logo">
                 <img src="/NexGen/IMAGES/NGlogo.png" alt="Logo">
             </div>
 
-            <h2>LOG IN YOUR NEXT GEN ACCOUNT</h2>
+            <h2 class="login-glass-title">Welcome Back</h2>
 
             <form action="/NexGen/CODE/PHP/login_process.php" method="POST" id="loginForm">
                 <input type="hidden" name="csrf_token" value="<?php echo e($loginCsrfToken); ?>">
 
-                <label>User Name</label>
-                <input type="text" name="username" id="loginUsername" required value="<?php echo htmlspecialchars($lockoutUsername); ?>">
+                <div class="glass-field">
+                    <span class="glass-field-icon">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <circle cx="12" cy="8" r="3.6"></circle>
+                            <path d="M4.5 20c1.2-3.8 4.2-5.8 7.5-5.8s6.3 2 7.5 5.8"></path>
+                        </svg>
+                    </span>
+                    <input type="text" name="username" id="loginUsername" placeholder="Username"
+                           aria-label="Username" required
+                           value="<?php echo htmlspecialchars($lockoutUsername); ?>">
+                </div>
 
-                <label>Password</label>
-                <div class="password-field-wrap">
-                    <input type="password" name="password" id="loginPassword" required>
+                <div class="glass-field password-field-wrap">
+                    <span class="glass-field-icon">
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                            <rect x="5" y="10.5" width="14" height="9.5" rx="2.2"></rect>
+                            <path d="M8 10.5V7.8a4 4 0 0 1 8 0v2.7"></path>
+                        </svg>
+                    </span>
+                    <input type="password" name="password" id="loginPassword" placeholder="Password"
+                           aria-label="Password" required>
                     <button type="button" class="password-toggle-btn" data-target="loginPassword" aria-label="Show password">
                         <span class="eye-icon eye-open">
                             <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -856,7 +1093,7 @@ if (isset($_SESSION['error'])) {
 
                 <p class="login-lock-note" id="loginLockNote">This specific account is temporarily locked. Other accounts can still log in.</p>
 
-                <div class="captcha-checkbox-wrap">
+                <div class="captcha-checkbox-wrap glass-captcha-row">
                     <div class="captcha-checkbox-card">
                         <div class="captcha-checkbox-left">
                             <input type="checkbox" id="loginRobotCheck">
@@ -870,13 +1107,13 @@ if (isset($_SESSION['error'])) {
                     <div class="captcha-verified-text" id="loginVerifiedText">Captcha verified. You can continue.</div>
                 </div>
 
-                <button type="submit" class="silver-btn" id="loginSubmitBtn">Log in</button>
+                <div class="glass-forgot-row">
+                    <a href="/NexGen/CODE/PHP/forgot_password.php">Forgot?</a>
+                </div>
 
-                <p class="modal-text">
-                    <a href="/NexGen/CODE/PHP/forgot_password.php">Forgot Password?</a>
-                </p>
+                <button type="submit" class="glass-login-btn" id="loginSubmitBtn">Login</button>
 
-                <p class="modal-text">
+                <p class="modal-text glass-modal-text">
                     Don’t have an account?
                     <a href="#" id="goToSignup">Sign Up</a>
                 </p>

@@ -248,6 +248,8 @@ body {
   font-weight: 700;
   line-height: 1.15;
   word-break: break-word;
+  color: #0f4c81;
+  font-weight: bold;
 }
 
 .page-title p {
@@ -948,9 +950,14 @@ a.link-white {
   .container,
   .admin-container,
   .dashboard-container,
-  .manage-users-container {
-    padding-left: 18px;
-    padding-right: 18px;
+  .manage-users-table-wrap {
+    overflow-x: auto;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .manage-users-table-wrap table {
+    min-width: 1400px;
   }
 }
 
@@ -1018,6 +1025,11 @@ a.link-white {
   .filters .btn {
     width: 100%;
     max-width: 100%;
+    /* Reset the row-layout flex-basis (320px) which becomes a HEIGHT
+       hint once the bar switches to a column, causing inputs to
+       balloon to 320px+ tall. Let height come from padding instead. */
+    flex: 0 1 auto;
+    min-width: 0;
   }
 
   table {
@@ -1075,6 +1087,116 @@ a.link-white {
   table {
     min-width: 680px;
   }
+
+  /* -----------------------------------------------------------
+     MOBILE CARD-STYLE TABLES
+     Any table inside .table-wrap whose <td> elements carry a
+     data-label="..." attribute (see pending_requests.php) turns
+     into a stack of labeled cards instead of a horizontally
+     scrolling table. Tables without data-label attributes fall
+     back to the normal scrollable table above.
+  ----------------------------------------------------------- */
+  .table-wrap[data-mobile-cards] {
+    overflow: visible;
+    border: none;
+    background: transparent;
+  }
+
+  .table-wrap[data-mobile-cards] table {
+    min-width: 0;
+    width: 100%;
+    table-layout: auto;
+  }
+
+  .table-wrap[data-mobile-cards] colgroup {
+    display: none;
+  }
+
+  .table-wrap[data-mobile-cards] thead {
+    display: none;
+  }
+
+  .table-wrap[data-mobile-cards] tbody,
+  .table-wrap[data-mobile-cards] tr,
+  .table-wrap[data-mobile-cards] td {
+    display: block;
+    width: 100%;
+  }
+
+  .table-wrap[data-mobile-cards] tr {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 14px;
+    margin-bottom: 12px;
+    overflow: hidden;
+  }
+
+  .table-wrap[data-mobile-cards] tbody tr:nth-child(even) td {
+    background: transparent;
+  }
+
+  .table-wrap[data-mobile-cards] td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 14px;
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    text-align: right;
+    font-size: 13.5px;
+  }
+
+  .table-wrap[data-mobile-cards] td:last-child {
+    border-bottom: none;
+  }
+
+  .table-wrap[data-mobile-cards] td::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    margin-right: 12px;
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: #ffe6a1;
+    text-align: left;
+  }
+
+  .table-wrap[data-mobile-cards] td[data-label="Action"] {
+    justify-content: center;
+    padding: 12px 14px;
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .table-wrap[data-mobile-cards] td[data-label="Action"]::before {
+    display: none;
+  }
+
+  .table-wrap[data-mobile-cards] td[data-label="Action"] .btn {
+    width: 100%;
+  }
+
+  .table-wrap[data-mobile-cards] td[data-label="Select"] {
+    justify-content: center;
+    padding: 10px 14px;
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .table-wrap[data-mobile-cards] td[data-label="Select"]::before {
+    display: none;
+  }
+
+  .table-wrap[data-mobile-cards] td[data-label="Select"] input {
+    width: 20px;
+    height: 20px;
+  }
+
+  .table-wrap[data-mobile-cards] td[data-label="Full Name"] {
+    font-size: 15px;
+    font-weight: 700;
+    color: #ffe6a1;
+    background: rgba(255, 255, 255, 0.05);
+  }
 }
 
 @media (max-width: 480px) {
@@ -1108,5 +1230,58 @@ a.link-white {
   .custom-confirm-box,
   .custom-alert-box {
     padding: 20px 16px;
+  }
+}
+
+/* =========================
+   BACK TO TOP BUTTON
+========================= */
+.back-to-top-btn {
+  position: fixed;
+  right: 24px;
+  bottom: 28px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 1px solid rgba(226, 184, 77, 0.65);
+  background: linear-gradient(180deg, var(--gold) 0%, var(--gold-dark) 100%);
+  color: #1f2e4d;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  z-index: 900;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(12px);
+  transition:
+    opacity 0.25s ease,
+    transform 0.25s ease,
+    visibility 0.25s ease;
+}
+
+.back-to-top-btn.show {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.back-to-top-btn:hover {
+  background: linear-gradient(180deg, #f0c66a 0%, var(--gold) 100%);
+}
+
+.back-to-top-btn:active {
+  transform: scale(0.94);
+}
+
+@media (max-width: 700px) {
+  .back-to-top-btn {
+    right: 16px;
+    bottom: 20px;
+    width: 44px;
+    height: 44px;
+    font-size: 18px;
   }
 }

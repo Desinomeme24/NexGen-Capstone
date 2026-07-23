@@ -198,28 +198,45 @@ $pageSubtitle = $isOwner
         </section>
     </section>
 
+    <div class="why-section-toggle-wrap">
+        <button type="button" class="why-section-toggle-btn" id="whySectionToggleBtn" aria-expanded="false" aria-controls="why-section">
+            <span>Why NextGen?</span>
+            <i class="bi bi-chevron-down" id="whySectionToggleIcon"></i>
+        </button>
+    </div>
+
     <section class="why-section" id="why-section">
         <div class="why-top-shape"></div>
         <div class="why-inner">
-            <div class="why-header-line">
+            <div class="why-header-line why-reveal why-reveal-up">
                 <span class="why-line"></span>
                 <h2>WHY US?</h2>
             </div>
 
-            <div class="why-outline-text">WHY US</div>
-            <div class="why-highlight-box">WHY NEXTGEN MICRO-ENTERPRISE?</div>
+            <div class="why-outline-text why-reveal why-reveal-up">WHY US</div>
+            <div class="why-highlight-box why-reveal why-reveal-up">WHY NEXTGEN MICRO-ENTERPRISE?</div>
 
             <div class="why-content">
-                <div class="why-left">
+                <div class="why-left why-reveal why-reveal-left">
                     <img src="/NexGen/IMAGES/whyus.jpg" alt="Why Us Image">
                 </div>
 
-                <div class="why-right">
+                <div class="why-right why-reveal why-reveal-right">
                     <div class="why-icon-text">
                         <div class="why-description">
                             <p><strong>Next Gen</strong> is designed to provide micro-enterprises with a simple, secure, and intelligent way to manage business operations.</p>
                             <p>We focus on usability, reliability, and real-time data access.</p>
                             <p class="why-closing">Choose Next Gen — where business management meets smart technology.</p>
+                        </div>
+
+                        <button type="button" class="why-toggle-btn" id="whyToggleBtn" aria-expanded="false" aria-controls="whyExtra">
+                            <span>More About Us</span>
+                            <i class="bi bi-chevron-down" id="whyToggleIcon"></i>
+                        </button>
+
+                        <div class="why-extra" id="whyExtra">
+                            <p>Founded to support small and growing businesses, Next Gen brings together inventory tracking, sales recording, and analytics in one connected platform — so owners spend less time juggling tools and more time growing.</p>
+                            <p>Every feature is built around real feedback from micro-enterprise owners, keeping the experience simple enough for daily use without sacrificing the insight larger businesses rely on.</p>
                         </div>
                     </div>
 

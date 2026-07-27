@@ -5,7 +5,7 @@ if (session_status() === PHP_SESSION_NONE) {
 
 require_once 'config.php';
 
-/* SESSION SECURITY: enforce 2-minute timeout on protected user pages using header */
+/* SESSION SECURITY: enforce 10-minute timeout on protected user pages using header */
 enforceSessionTimeout();
 
 $displayName  = $_SESSION['username'] ?? 'Client';
@@ -123,16 +123,6 @@ $showCategoryOpen = in_array(
         <span></span>
     </div>
 
-    <div class="topbar-right">
-        <a href="/NexGen/CODE/PHP/settings.php" class="top-user-info">
-            <img src="/NexGen/CODE/PHP/<?php echo htmlspecialchars($profileImage); ?>" alt="Profile" class="top-user-img">
-            <span class="top-user-name"><?php echo htmlspecialchars($displayName); ?></span>
-        </a>
-
-        <div class="top-logo">
-            <img src="/NexGen/IMAGES/NGlogo.png" alt="Logo">
-        </div>
-    </div>
 </header>
 
 <div class="logout-modal-overlay" id="logoutModal">
@@ -318,9 +308,9 @@ $showCategoryOpen = in_array(
         }
     });
 
-    /* SESSION SECURITY: client-side 5-minute inactivity auto logout */
+    /* SESSION SECURITY: client-side inactivity auto logout */
     (function () {
-        const timeoutMs =2 * 60 * 1000;
+        const timeoutMs = <?php echo (int)SESSION_TIMEOUT_SECONDS * 1000; ?>;
         let inactivityTimer = null;
 
         function triggerTimeoutLogout() {

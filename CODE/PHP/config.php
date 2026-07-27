@@ -9,6 +9,7 @@ if (session_status() === PHP_SESSION_NONE) {
         ini_set('session.use_only_cookies', '1');
         ini_set('session.cookie_httponly', '1');
         ini_set('session.use_strict_mode', '1');
+        ini_set('session.gc_maxlifetime', '600');
     }
     session_start();
 }
@@ -30,7 +31,7 @@ date_default_timezone_set('Asia/Manila');
 
 /* SESSION SECURITY: timeout constant */
 if (!defined('SESSION_TIMEOUT_SECONDS')) {
-    define('SESSION_TIMEOUT_SECONDS', 300); // 5 minutes
+    define('SESSION_TIMEOUT_SECONDS', 600); // 10 minutes
 }
 
 /* =========================================================================

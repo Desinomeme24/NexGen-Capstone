@@ -18,6 +18,62 @@ $user_id = $_SESSION['user_id'];
 $filter = isset($_GET['filter']) ? $_GET['filter'] : 'All';
 $search = isset($_GET['search']) ? trim($_GET['search']) : '';
 
+$period = isset($_GET['period']) ? $_GET['period'] : 'all';
+if (!in_array($period, ['all', 'daily', 'weekly', 'monthly', 'annual', 'range'], true)) {
+    $period = 'all';
+}
+
+$refDateInput = isset($_GET['ref_date']) ? trim($_GET['ref_date']) : date('Y-m-d');
+$refDate = DateTime::createFromFormat('Y-m-d', $refDateInput);
+if (!$refDate) {
+    $refDate = new DateTime();
+    $refDateInput = $refDate->format('Y-m-d');
+}
+
+$dateFromInput = isset($_GET['date_from']) ? trim($_GET['date_from']) : '';
+$dateToInput = isset($_GET['date_to']) ? trim($_GET['date_to']) : '';
+
+$dateStart = null;
+$dateEnd = null;
+$periodLabel = 'All Time';
+
+switch ($period) {
+    case 'daily':
+        $dateStart = (clone $refDate)->setTime(0, 0, 0);
+        $dateEnd = (clone $refDate)->setTime(23, 59, 59);
+        $periodLabel = 'Day: ' . $dateStart->format('M d, Y');
+        break;
+    case 'weekly':
+        $dateStart = (clone $refDate)->modify('monday this week')->setTime(0, 0, 0);
+        $dateEnd = (clone $dateStart)->modify('+6 days')->setTime(23, 59, 59);
+        $periodLabel = 'Week: ' . $dateStart->format('M d') . ' - ' . $dateEnd->format('M d, Y');
+        break;
+    case 'monthly':
+        $dateStart = (clone $refDate)->modify('first day of this month')->setTime(0, 0, 0);
+        $dateEnd = (clone $refDate)->modify('last day of this month')->setTime(23, 59, 59);
+        $periodLabel = 'Month: ' . $dateStart->format('F Y');
+        break;
+    case 'annual':
+        $dateStart = (clone $refDate)->setDate((int)$refDate->format('Y'), 1, 1)->setTime(0, 0, 0);
+        $dateEnd = (clone $refDate)->setDate((int)$refDate->format('Y'), 12, 31)->setTime(23, 59, 59);
+        $periodLabel = 'Year: ' . $dateStart->format('Y');
+        break;
+    case 'range':
+        $fromObj = DateTime::createFromFormat('Y-m-d', $dateFromInput);
+        $toObj = DateTime::createFromFormat('Y-m-d', $dateToInput);
+        if ($fromObj && $toObj) {
+            if ($fromObj > $toObj) {
+                [$fromObj, $toObj] = [$toObj, $fromObj];
+            }
+            $dateStart = (clone $fromObj)->setTime(0, 0, 0);
+            $dateEnd = (clone $toObj)->setTime(23, 59, 59);
+            $periodLabel = 'Range: ' . $dateStart->format('M d, Y') . ' - ' . $dateEnd->format('M d, Y');
+        } else {
+            $period = 'all';
+        }
+        break;
+}
+
 $where = " WHERE 1=1 ";
 $params = [];
 $types = "";
@@ -36,6 +92,13 @@ if (!empty($search)) {
     $like = "%{$search}%";
     $params[] = $like;
     $params[] = $like;
+    $types .= "ss";
+}
+
+if ($dateStart && $dateEnd) {
+    $where .= " AND s.sale_date BETWEEN ? AND ? ";
+    $params[] = $dateStart->format('Y-m-d H:i:s');
+    $params[] = $dateEnd->format('Y-m-d H:i:s');
     $types .= "ss";
 }
 
@@ -69,6 +132,16 @@ if (!empty($params)) {
 $stmt->execute();
 $result = $stmt->get_result();
 
+$summaryWhere = "";
+$summaryParams = [];
+$summaryTypes = "";
+if ($dateStart && $dateEnd) {
+    $summaryWhere = " WHERE sale_date BETWEEN ? AND ? ";
+    $summaryParams[] = $dateStart->format('Y-m-d H:i:s');
+    $summaryParams[] = $dateEnd->format('Y-m-d H:i:s');
+    $summaryTypes .= "ss";
+}
+
 $summarySql = "
     SELECT
         COUNT(*) AS total_orders,
@@ -80,8 +153,14 @@ $summarySql = "
         SUM(CASE WHEN payment_method = 'Cash' THEN 1 ELSE 0 END) AS cash_count,
         SUM(CASE WHEN payment_method = 'Gcash' OR payment_method = 'GCash' THEN 1 ELSE 0 END) AS gcash_count
     FROM sales
+    $summaryWhere
 ";
-$summaryResult = $conn->query($summarySql);
+$summaryStmt = $conn->prepare($summarySql);
+if (!empty($summaryParams)) {
+    $summaryStmt->bind_param($summaryTypes, ...$summaryParams);
+}
+$summaryStmt->execute();
+$summaryResult = $summaryStmt->get_result();
 $summary = $summaryResult ? $summaryResult->fetch_assoc() : [
     'total_orders' => 0,
     'paid_count' => 0,
@@ -150,7 +229,7 @@ unset($_SESSION['success'], $_SESSION['error']);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sales</title>
-    <link rel="stylesheet" href="/NexGen/CODE/STYLE/sales_recording.css?v=5">
+    <link rel="stylesheet" href="/NexGen/CODE/STYLE/sales_recording.css?v=6">
     <link rel="stylesheet" href="/NexGen/CODE/STYLE/header.css?v=5">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 
@@ -344,6 +423,43 @@ unset($_SESSION['success'], $_SESSION['error']);
         min-width: 100%;
     }
 }
+
+.sales-ledger-subtitle {
+    margin-top: 4px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-dim, #a9c3f7);
+}
+
+.date-jump-form {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+    margin-top: 4px;
+    padding-top: 10px;
+    border-top: 1px dashed rgba(255, 255, 255, 0.16);
+}
+
+.date-jump-label {
+    font-size: 12px;
+    font-weight: 700;
+    color: #f7fbff;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.date-jump-form input[type="date"] {
+    width: 100%;
+    background: rgba(255, 255, 255, 0.92);
+    border: none;
+    border-radius: 8px;
+    padding: 8px 10px;
+    color: #173e98;
+    font-size: 13px;
+    font-weight: 600;
+}
     </style>
 </head>
 <body>
@@ -367,20 +483,149 @@ unset($_SESSION['success'], $_SESSION['error']);
     </div>
 
     <div class="content">
+
+        <?php
+            $filters = ['All', 'Paid', 'Unpaid', 'Partially Paid', 'Fulfilled', 'Pending'];
+            $periods = [
+                'all' => 'All Time',
+                'daily' => 'Daily',
+                'weekly' => 'Weekly',
+                'monthly' => 'Monthly',
+                'annual' => 'Annual',
+            ];
+            function salesFilterHref($f, $search, $period, $refDateInput, $dateFromInput, $dateToInput) {
+                return '?' . http_build_query(['filter' => $f, 'search' => $search, 'period' => $period, 'ref_date' => $refDateInput, 'date_from' => $dateFromInput, 'date_to' => $dateToInput]);
+            }
+            function salesPeriodHref($p, $filter, $search, $refDateInput) {
+                return '?' . http_build_query(['filter' => $filter, 'search' => $search, 'period' => $p, 'ref_date' => $refDateInput]);
+            }
+        ?>
+
+        <!-- KPI OVERVIEW -->
+        <div class="kpi-strip">
+            <a href="<?php echo salesFilterHref('All', $search, $period, $refDateInput, $dateFromInput, $dateToInput); ?>" class="kpi-tile kpi-neutral <?php echo ($filter === 'All') ? 'active' : ''; ?>">
+                <i class="bi bi-receipt-cutoff"></i>
+                <div>
+                    <small>Total Orders</small>
+                    <strong><?php echo (int)($summary['total_orders'] ?? 0); ?></strong>
+                </div>
+            </a>
+            <a href="<?php echo salesFilterHref('Paid', $search, $period, $refDateInput, $dateFromInput, $dateToInput); ?>" class="kpi-tile kpi-green <?php echo ($filter === 'Paid') ? 'active' : ''; ?>">
+                <i class="bi bi-check-circle"></i>
+                <div>
+                    <small>Paid</small>
+                    <strong><?php echo (int)($summary['paid_count'] ?? 0); ?></strong>
+                </div>
+            </a>
+            <a href="<?php echo salesFilterHref('Unpaid', $search, $period, $refDateInput, $dateFromInput, $dateToInput); ?>" class="kpi-tile kpi-slate <?php echo ($filter === 'Unpaid') ? 'active' : ''; ?>">
+                <i class="bi bi-x-circle"></i>
+                <div>
+                    <small>Unpaid</small>
+                    <strong><?php echo (int)($summary['unpaid_count'] ?? 0); ?></strong>
+                </div>
+            </a>
+            <a href="<?php echo salesFilterHref('Partially Paid', $search, $period, $refDateInput, $dateFromInput, $dateToInput); ?>" class="kpi-tile kpi-gold <?php echo ($filter === 'Partially Paid') ? 'active' : ''; ?>">
+                <i class="bi bi-hourglass-split"></i>
+                <div>
+                    <small>Partially Paid</small>
+                    <strong><?php echo (int)($summary['partial_count'] ?? 0); ?></strong>
+                </div>
+            </a>
+            <a href="<?php echo salesFilterHref('Fulfilled', $search, $period, $refDateInput, $dateFromInput, $dateToInput); ?>" class="kpi-tile kpi-gold <?php echo ($filter === 'Fulfilled') ? 'active' : ''; ?>">
+                <i class="bi bi-box-seam"></i>
+                <div>
+                    <small>Fulfilled</small>
+                    <strong><?php echo (int)($summary['fulfilled_count'] ?? 0); ?></strong>
+                </div>
+            </a>
+            <a href="<?php echo salesFilterHref('Pending', $search, $period, $refDateInput, $dateFromInput, $dateToInput); ?>" class="kpi-tile kpi-blue <?php echo ($filter === 'Pending') ? 'active' : ''; ?>">
+                <i class="bi bi-clock-history"></i>
+                <div>
+                    <small>Pending</small>
+                    <strong><?php echo (int)($summary['pending_count'] ?? 0); ?></strong>
+                </div>
+            </a>
+            <span class="kpi-tile kpi-green kpi-static">
+                <i class="bi bi-cash-coin"></i>
+                <div>
+                    <small>Cash</small>
+                    <strong><?php echo (int)($summary['cash_count'] ?? 0); ?></strong>
+                </div>
+            </span>
+            <span class="kpi-tile kpi-blue kpi-static">
+                <i class="bi bi-phone"></i>
+                <div>
+                    <small>GCash</small>
+                    <strong><?php echo (int)($summary['gcash_count'] ?? 0); ?></strong>
+                </div>
+            </span>
+        </div>
+
+        <!-- TOOLBAR -->
         <div class="toolbar">
-            <div class="filter-group">
-                <?php
-                $filters = ['All', 'Paid', 'Unpaid', 'Partially Paid', 'Fulfilled', 'Pending'];
-                foreach ($filters as $f):
-                    $query = http_build_query([
-                        'filter' => $f,
-                        'search' => $search
-                    ]);
-                ?>
-                    <a href="?<?php echo $query; ?>" class="filter-pill <?php echo ($filter === $f) ? 'active' : ''; ?>">
-                        <?php echo htmlspecialchars($f); ?>
-                    </a>
-                <?php endforeach; ?>
+            <form class="search-box" method="GET" action="">
+                <input type="hidden" name="filter" value="<?php echo htmlspecialchars($filter); ?>">
+                <input type="hidden" name="period" value="<?php echo htmlspecialchars($period); ?>">
+                <input type="hidden" name="ref_date" value="<?php echo htmlspecialchars($refDateInput); ?>">
+                <input type="hidden" name="date_from" value="<?php echo htmlspecialchars($dateFromInput); ?>">
+                <input type="hidden" name="date_to" value="<?php echo htmlspecialchars($dateToInput); ?>">
+                <i class="bi bi-search"></i>
+                <input type="text" name="search" placeholder="Search sales no. or cashier..." value="<?php echo htmlspecialchars($search); ?>">
+                <button type="submit" class="search-btn"><i class="bi bi-arrow-right-circle"></i></button>
+            </form>
+
+            <div class="toolbar-icon-filters">
+                <div class="icon-filter-wrap">
+                    <button type="button" class="icon-filter-btn <?php echo ($filter !== 'All') ? 'has-active' : ''; ?>" data-dropdown-toggle="statusFilterDropdown" aria-haspopup="true" aria-expanded="false" aria-label="Filter by status">
+                        <i class="bi bi-funnel"></i>
+                    </button>
+                    <div class="icon-filter-dropdown" id="statusFilterDropdown">
+                        <span class="icon-filter-dropdown-title">Filter by Status</span>
+                        <?php foreach ($filters as $f): ?>
+                            <a href="<?php echo salesFilterHref($f, $search, $period, $refDateInput, $dateFromInput, $dateToInput); ?>" class="filter-pill <?php echo ($filter === $f) ? 'active' : ''; ?>">
+                                <?php echo htmlspecialchars($f); ?>
+                            </a>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+
+                <div class="icon-filter-wrap">
+                    <button type="button" class="icon-filter-btn <?php echo ($period !== 'all') ? 'has-active' : ''; ?>" data-dropdown-toggle="dateFilterDropdown" aria-haspopup="true" aria-expanded="false" aria-label="Filter by date">
+                        <i class="bi bi-calendar3"></i>
+                    </button>
+                    <div class="icon-filter-dropdown" id="dateFilterDropdown">
+                        <span class="icon-filter-dropdown-title">Filter by Date</span>
+                        <div class="period-pill-grid">
+                            <?php foreach ($periods as $pKey => $pLabel): ?>
+                                <a href="<?php echo salesPeriodHref($pKey, $filter, $search, $refDateInput); ?>" class="filter-pill <?php echo ($period === $pKey) ? 'active' : ''; ?>">
+                                    <?php echo htmlspecialchars($pLabel); ?>
+                                </a>
+                            <?php endforeach; ?>
+                        </div>
+
+                        <form class="date-jump-form" method="GET" action="">
+                            <input type="hidden" name="filter" value="<?php echo htmlspecialchars($filter); ?>">
+                            <input type="hidden" name="search" value="<?php echo htmlspecialchars($search); ?>">
+                            <input type="hidden" name="period" value="<?php echo htmlspecialchars($period === 'all' ? 'daily' : $period); ?>">
+                            <label for="refDatePicker" class="date-jump-label"><i class="bi bi-calendar-event"></i> Pick any date</label>
+                            <input type="date" name="ref_date" id="refDatePicker" value="<?php echo htmlspecialchars($refDateInput); ?>" onchange="this.form.submit()">
+                        </form>
+
+                        <form class="date-range-form" method="GET" action="">
+                            <input type="hidden" name="filter" value="<?php echo htmlspecialchars($filter); ?>">
+                            <input type="hidden" name="search" value="<?php echo htmlspecialchars($search); ?>">
+                            <input type="hidden" name="ref_date" value="<?php echo htmlspecialchars($refDateInput); ?>">
+                            <input type="hidden" name="period" value="range">
+                            <label class="date-jump-label"><i class="bi bi-calendar-range"></i> Date range</label>
+                            <div class="date-range-inputs">
+                                <input type="date" name="date_from" value="<?php echo htmlspecialchars($dateFromInput); ?>" required>
+                                <span class="date-range-sep">to</span>
+                                <input type="date" name="date_to" value="<?php echo htmlspecialchars($dateToInput); ?>" required>
+                            </div>
+                            <button type="submit" class="date-range-apply">Apply Range</button>
+                        </form>
+                    </div>
+                </div>
             </div>
 
             <div class="toolbar-actions">
@@ -389,209 +634,254 @@ unset($_SESSION['success'], $_SESSION['error']);
             </div>
         </div>
 
-        <div class="card sales-table-card">
-            <div class="table-wrap scrollable-sales-table">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Sales No.</th>
-                            <th>Items Sold</th>
-                            <th>Qty</th>
-                            <th>Cashier</th>
-                            <th>Total Amount</th>
-                            <th>Payment Status</th>
-                            <th>Date</th>
-                            <th>Payment Method</th>
-                            <th>Order Status</th>
-                            <th>Action</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if ($result->num_rows > 0): ?>
-                            <?php while ($row = $result->fetch_assoc()): ?>
-                                <tr>
-                                    <td><strong><?php echo htmlspecialchars($row['sales_no']); ?></strong></td>
-                                    <td class="items-cell">
-                                        <?php
-                                        $items = $row['items_sold'] ?: 'No item details';
-                                        echo htmlspecialchars(strlen($items) > 35 ? substr($items, 0, 35) . '...' : $items);
-                                        ?>
-                                    </td>
-                                    <td><?php echo (int)$row['total_qty']; ?></td>
-                                    <td><?php echo htmlspecialchars($row['salesperson'] ?: 'N/A'); ?></td>
-                                    <td class="amount">₱<?php echo number_format($row['total_amount'], 2); ?></td>
-                                    <td>
-                                        <span class="<?php echo badgeClassPayment($row['payment_status']); ?>">
-                                            <?php echo htmlspecialchars($row['payment_status']); ?>
-                                        </span>
-                                    </td>
-                                    <td class="muted"><?php echo date("m/d/Y", strtotime($row['sale_date'])); ?></td>
-                                    <td><?php echo htmlspecialchars($row['payment_method']); ?></td>
-                                    <td>
-                                        <span class="<?php echo badgeClassOrder($row['order_status']); ?>">
-                                            <?php echo htmlspecialchars($row['order_status']); ?>
-                                        </span>
-                                    </td>
-                                    <td>
-                                        <a href="sale_view.php?id=<?php echo $row['id']; ?>" class="btn-view">View</a>
-                                    </td>
-                                </tr>
-                            <?php endwhile; ?>
-                        <?php else: ?>
-                            <tr>
-                                <td colspan="10" class="empty">No sales records found.</td>
-                            </tr>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
+        <!-- SALES LEDGER GRID -->
+        <div class="card sales-ledger-card">
+            <div class="sales-ledger-header">
+                <div>
+                    <h2>Sales Ledger</h2>
+                    <?php if ($period !== 'all'): ?>
+                        <p class="sales-ledger-subtitle"><?php echo htmlspecialchars($periodLabel); ?></p>
+                    <?php endif; ?>
+                </div>
+                <span class="sales-count-chip"><?php echo (int)$result->num_rows; ?> record<?php echo ($result->num_rows === 1) ? '' : 's'; ?></span>
+            </div>
+
+            <div class="sales-grid" id="salesGrid">
+                <?php if ($result->num_rows > 0): ?>
+                    <?php while ($row = $result->fetch_assoc()):
+                        $items = $row['items_sold'] ?: 'No item details';
+                        $itemsShort = strlen($items) > 58 ? substr($items, 0, 58) . '…' : $items;
+                        $dateFmt = date("M d, Y", strtotime($row['sale_date']));
+                        $cashierName = $row['salesperson'] ?: 'N/A';
+                        $initial = strtoupper(substr($cashierName, 0, 1)) ?: '?';
+                        $methodIcon = (stripos($row['payment_method'], 'cash') === 0) ? 'bi-cash-coin' : 'bi-phone';
+                    ?>
+                    <article class="sale-card"
+                        data-search="<?php echo htmlspecialchars(strtolower($row['sales_no'] . ' ' . $cashierName)); ?>"
+                        data-id="<?php echo (int)$row['id']; ?>"
+                        data-sales-no="<?php echo htmlspecialchars($row['sales_no']); ?>"
+                        data-date="<?php echo htmlspecialchars($dateFmt); ?>"
+                        data-cashier="<?php echo htmlspecialchars($cashierName); ?>"
+                        data-items="<?php echo htmlspecialchars($items); ?>"
+                        data-qty="<?php echo (int)$row['total_qty']; ?>"
+                        data-amount="<?php echo number_format($row['total_amount'], 2); ?>"
+                        data-payment-status="<?php echo htmlspecialchars($row['payment_status']); ?>"
+                        data-payment-method="<?php echo htmlspecialchars($row['payment_method']); ?>"
+                        data-order-status="<?php echo htmlspecialchars($row['order_status']); ?>">
+
+                        <div class="sale-card-top">
+                            <div class="sale-card-id">
+                                <span class="sale-card-no" title="<?php echo htmlspecialchars($row['sales_no']); ?>"><?php echo htmlspecialchars($row['sales_no']); ?></span>
+                                <span class="sale-card-date"><i class="bi bi-calendar3"></i> <?php echo htmlspecialchars($dateFmt); ?></span>
+                            </div>
+                            <span class="<?php echo badgeClassPayment($row['payment_status']); ?>"><?php echo htmlspecialchars($row['payment_status']); ?></span>
+                        </div>
+
+                        <div class="sale-card-items">
+                            <i class="bi bi-bag-check"></i>
+                            <span title="<?php echo htmlspecialchars($items); ?>"><?php echo htmlspecialchars($itemsShort); ?></span>
+                        </div>
+
+                        <div class="sale-card-mid">
+                            <div class="sale-card-person">
+                                <span class="mini-avatar"><?php echo htmlspecialchars($initial); ?></span>
+                                <div>
+                                    <small>Cashier</small>
+                                    <strong><?php echo htmlspecialchars($cashierName); ?></strong>
+                                </div>
+                            </div>
+                            <div class="sale-card-qty">
+                                <small>Qty</small>
+                                <strong><?php echo (int)$row['total_qty']; ?></strong>
+                            </div>
+                        </div>
+
+                        <div class="sale-card-stub">
+                            <span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+                        </div>
+
+                        <div class="sale-card-bottom">
+                            <div class="sale-card-amount">
+                                <small>Total</small>
+                                <strong>₱<?php echo number_format($row['total_amount'], 2); ?></strong>
+                            </div>
+                            <span class="<?php echo badgeClassOrder($row['order_status']); ?>"><?php echo htmlspecialchars($row['order_status']); ?></span>
+                        </div>
+
+                        <div class="sale-card-footer">
+                            <span class="sale-card-method"><i class="bi <?php echo $methodIcon; ?>"></i> <?php echo htmlspecialchars($row['payment_method']); ?></span>
+                            <div class="sale-card-actions">
+                                <button type="button" class="btn-quickview" onclick="openQuickView(this)"><i class="bi bi-eye"></i> Quick View</button>
+                                <a href="sale_view.php?id=<?php echo (int)$row['id']; ?>" class="btn-view">Open</a>
+                            </div>
+                        </div>
+                    </article>
+                    <?php endwhile; ?>
+                <?php else: ?>
+                    <div class="sales-empty">
+                        <i class="bi bi-inboxes"></i>
+                        <h3>No sales records found</h3>
+                        <p>Try a different filter or search term, or record a new sale to get started.</p>
+                    </div>
+                <?php endif; ?>
+            </div>
+
+            <div class="sales-pagination" id="salesPagination"></div>
+        </div>
+
+        <div class="legend">
+            <div class="legend-item">
+                <span class="legend-dot" style="background: rgba(107, 190, 145, 0.65);"></span>
+                Paid / Fulfilled / Cash
+            </div>
+            <div class="legend-item">
+                <span class="legend-dot" style="background: rgba(220, 97, 97, 0.65);"></span>
+                Unpaid
+            </div>
+            <div class="legend-item">
+                <span class="legend-dot" style="background: rgba(229, 165, 83, 0.65);"></span>
+                Partial / Pending
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- QUICK VIEW MODAL -->
+<div class="modal-overlay" id="quickViewModal">
+    <div class="sale-modal quickview-modal">
+        <button type="button" class="modal-close" onclick="closeQuickView()">&times;</button>
+        <div class="modal-title">Sale Details</div>
+
+        <div class="qv-header">
+            <div>
+                <small>Sales No.</small>
+                <strong id="qvSalesNo">—</strong>
+            </div>
+            <div class="qv-badges">
+                <span id="qvPaymentBadge" class="badge">—</span>
+                <span id="qvOrderBadge" class="badge">—</span>
             </div>
         </div>
 
-        <div class="card flow-card">
-            <div class="flow-title">Sales Flow</div>
-
-            <div class="flow-grid">
-                <div class="flow-total">
-                    <small>Total Orders</small>
-                    <strong><?php echo (int)($summary['total_orders'] ?? 0); ?></strong>
-                </div>
-
-                <div class="flow-columns">
-                    <div class="flow-block">
-                        <h3>Payment Status</h3>
-                        <div class="flow-row flow-green">
-                            <span>Paid</span>
-                            <span><?php echo (int)($summary['paid_count'] ?? 0); ?></span>
-                        </div>
-                        <div class="flow-row flow-red">
-                            <span>Unpaid</span>
-                            <span><?php echo (int)($summary['unpaid_count'] ?? 0); ?></span>
-                        </div>
-                        <div class="flow-row flow-orange">
-                            <span>Partially Paid</span>
-                            <span><?php echo (int)($summary['partial_count'] ?? 0); ?></span>
-                        </div>
-                    </div>
-
-                    <div class="flow-block">
-                        <h3>Order Status</h3>
-                        <div class="flow-row flow-green">
-                            <span>Fulfilled</span>
-                            <span><?php echo (int)($summary['fulfilled_count'] ?? 0); ?></span>
-                        </div>
-                        <div class="flow-row flow-orange">
-                            <span>Pending</span>
-                            <span><?php echo (int)($summary['pending_count'] ?? 0); ?></span>
-                        </div>
-                    </div>
-
-                    <div class="flow-block">
-                        <h3>Payment Method</h3>
-                        <div class="flow-row flow-green">
-                            <span>Cash</span>
-                            <span><?php echo (int)($summary['cash_count'] ?? 0); ?></span>
-                        </div>
-                        <div class="flow-row flow-orange">
-                            <span>Gcash</span>
-                            <span><?php echo (int)($summary['gcash_count'] ?? 0); ?></span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="legend">
-                <div class="legend-item">
-                    <span class="legend-dot" style="background: rgba(107, 190, 145, 0.65);"></span>
-                    Paid / Fulfilled / Cash
-                </div>
-                <div class="legend-item">
-                    <span class="legend-dot" style="background: rgba(220, 97, 97, 0.65);"></span>
-                    Unpaid
-                </div>
-                <div class="legend-item">
-                    <span class="legend-dot" style="background: rgba(229, 165, 83, 0.65);"></span>
-                    Partial / Pending
-                </div>
-            </div>
+        <div class="qv-grid">
+            <div class="qv-row"><span>Date</span><strong id="qvDate">—</strong></div>
+            <div class="qv-row"><span>Cashier</span><strong id="qvCashier">—</strong></div>
+            <div class="qv-row"><span>Quantity</span><strong id="qvQty">—</strong></div>
+            <div class="qv-row"><span>Payment Method</span><strong id="qvMethod">—</strong></div>
+            <div class="qv-row full-span"><span>Items</span><strong id="qvItems">—</strong></div>
+            <div class="qv-row full-span qv-total-row"><span>Grand Total</span><strong id="qvAmount">₱0.00</strong></div>
         </div>
+
+        <a href="#" id="qvFullRecordLink" class="btn-primary qv-full-link">Open Full Record</a>
     </div>
 </div>
 
 <div class="modal-overlay" id="saleModal">
-    <div class="sale-modal">
+    <div class="sale-modal wizard-modal">
         <button type="button" class="modal-close" onclick="closeSaleModal()">&times;</button>
-        <div class="modal-title">Add New Sale</div>
+        <div class="modal-title">Record New Sale</div>
+
+        <div class="wizard-steps" id="wizardSteps">
+            <button type="button" class="wizard-step-dot" data-goto="1">
+                <span class="dot-num">1</span><span class="dot-label">Sale Info</span>
+            </button>
+            <span class="wizard-step-line"></span>
+            <button type="button" class="wizard-step-dot" data-goto="2">
+                <span class="dot-num">2</span><span class="dot-label">Items</span>
+            </button>
+            <span class="wizard-step-line"></span>
+            <button type="button" class="wizard-step-dot" data-goto="3">
+                <span class="dot-num">3</span><span class="dot-label">Review</span>
+            </button>
+        </div>
 
         <form id="saleForm" method="POST" action="/NexGen/CODE/PHP/process_sale_ajax.php" novalidate>
-            <div class="modal-grid">
-                <div class="preview-panel">
-                    <div class="preview-box">Preview</div>
-                    <button type="button" class="upload-btn">Upload Receipt Image</button>
+
+            <!-- STEP 1: SALE INFO -->
+            <div class="wizard-step active" data-step="1">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Sales No.</label>
+                        <input type="text" name="sales_no" value="<?php echo generateSalesNo(); ?>" readonly>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Cashier</label>
+                        <input type="text" value="<?php echo isset($_SESSION['full_name']) ? htmlspecialchars($_SESSION['full_name']) : 'Current User'; ?>" readonly>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Payment Status</label>
+                        <select name="payment_status" id="paymentStatus" required>
+                            <option value="Paid">Paid</option>
+                            <option value="Unpaid">Unpaid</option>
+                            <option value="Partially Paid">Partially Paid</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Payment Method</label>
+                        <select name="payment_method" id="paymentMethod" required>
+                            <option value="Cash">Cash</option>
+                            <option value="GCash">GCash</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group full-span">
+                        <label>Order Status</label>
+                        <select name="order_status" id="orderStatus" required>
+                            <option value="Fulfilled">Fulfilled</option>
+                            <option value="Pending">Pending</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group full-span customer-inline-group">
+                        <label>Customer</label>
+
+                        <div class="customer-inline-row">
+                            <select name="customer_id" id="customerSelect">
+                                <option value="">Walk-in / Optional for Paid</option>
+                                <?php foreach ($customerList as $customer): ?>
+                                    <option value="<?php echo (int)$customer['id']; ?>">
+                                        <?php echo htmlspecialchars($customer['customer_name'] . ' (' . $customer['customer_code'] . ')'); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+
+                            <button type="button" class="btn-primary customer-inline-btn" id="openCustomerBtn">＋ New Customer</button>
+                        </div>
+                    </div>
+
+                    <div class="form-group" id="amountPaidGroup">
+                        <label>Amount Paid</label>
+                        <input type="number" step="0.01" min="0" name="amount_paid" id="amountPaidInput" value="0">
+                    </div>
+
+                    <div class="form-group" id="dueDateGroup">
+                        <label>Due Date</label>
+                        <input type="date" name="due_date" id="dueDateInput">
+                    </div>
                 </div>
+            </div>
 
-                <div class="fields-panel">
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label>Sales No.</label>
-                            <input type="text" name="sales_no" value="<?php echo generateSalesNo(); ?>" readonly>
+            <!-- STEP 2: ITEMS + LIVE RECEIPT -->
+            <div class="wizard-step" data-step="2">
+                <div class="items-wizard-grid">
+                    <div class="receipt-panel">
+                        <div class="receipt-box">
+                            <div class="receipt-box-head"><i class="bi bi-receipt"></i> Live Receipt</div>
+                            <div class="receipt-lines" id="receiptLines">
+                                <p class="receipt-empty">No items yet — add a product to see it here.</p>
+                            </div>
+                            <div class="receipt-total">
+                                <span>Total</span>
+                                <strong>₱<span id="receiptTotal">0.00</span></strong>
+                            </div>
                         </div>
-
-                        <div class="form-group">
-                            <label>Cashier</label>
-                            <input type="text" value="<?php echo isset($_SESSION['full_name']) ? htmlspecialchars($_SESSION['full_name']) : 'Current User'; ?>" readonly>
-                        </div>
-
-                        <div class="form-group">
-                            <label>Payment Status</label>
-                            <select name="payment_status" id="paymentStatus" required>
-                                <option value="Paid">Paid</option>
-                                <option value="Unpaid">Unpaid</option>
-                                <option value="Partially Paid">Partially Paid</option>
-                            </select>
-                        </div>
-
-                        <div class="form-group">
-                            <label>Payment Method</label>
-                            <select name="payment_method" required>
-                                <option value="Cash">Cash</option>
-                                <option value="GCash">GCash</option>
-                            </select>
-                        </div>
-
-                        <div class="form-group full-span">
-                            <label>Order Status</label>
-                            <select name="order_status" id="orderStatus" required>
-                                <option value="Fulfilled">Fulfilled</option>
-                                <option value="Pending">Pending</option>
-                            </select>
-                        </div>
-
-   <div class="form-group full-span customer-inline-group">
-    <label>Customer</label>
-
-    <div class="customer-inline-row">
-        <select name="customer_id" id="customerSelect">
-            <option value="">Walk-in / Optional for Paid</option>
-            <?php foreach ($customerList as $customer): ?>
-                <option value="<?php echo (int)$customer['id']; ?>">
-                    <?php echo htmlspecialchars($customer['customer_name'] . ' (' . $customer['customer_code'] . ')'); ?>
-                </option>
-            <?php endforeach; ?>
-        </select>
-
-        <button type="button" class="btn-primary customer-inline-btn" id="openCustomerBtn">＋ New Customer</button>
-    </div>
-</div>
-
-                        <div class="form-group" id="amountPaidGroup">
-                            <label>Amount Paid</label>
-                            <input type="number" step="0.01" min="0" name="amount_paid" id="amountPaidInput" value="0">
-                        </div>
-
-                        <div class="form-group" id="dueDateGroup">
-                            <label>Due Date</label>
-                            <input type="date" name="due_date" id="dueDateInput">
-                        </div>
+                        <label class="attach-receipt-btn" for="receiptImageInput">
+                            <i class="bi bi-paperclip"></i> <span id="attachReceiptText">Attach Receipt Photo (optional)</span>
+                        </label>
+                        <input type="file" name="receipt_image" id="receiptImageInput" accept="image/*" hidden>
                     </div>
 
                     <div class="items-section">
@@ -608,18 +898,34 @@ unset($_SESSION['success'], $_SESSION['error']);
 
                         <button type="button" class="item-add-btn" onclick="addItemRow()">＋ Add Item</button>
 
-                        <div class="sale-footer">
-                            <div class="sale-total-card">
-                                <small>Grand Total</small>
-                                <strong>₱<span id="grandTotal">0.00</span></strong>
-                            </div>
-
-                            <div class="sale-actions sale-actions-full">
-                                <button type="submit" class="save-btn" id="saveSaleBtn">Save Sale</button>
-                            </div>
+                        <div class="sale-total-card sale-total-inline">
+                            <small>Grand Total</small>
+                            <strong>₱<span id="grandTotal">0.00</span></strong>
                         </div>
                     </div>
                 </div>
+            </div>
+
+            <!-- STEP 3: REVIEW & CONFIRM -->
+            <div class="wizard-step" data-step="3">
+                <div class="review-intro">Double-check the details below, then save the sale.</div>
+                <div class="review-grid" id="reviewGrid"></div>
+
+                <div class="sale-footer">
+                    <div class="sale-total-card">
+                        <small>Grand Total</small>
+                        <strong>₱<span id="reviewTotal">0.00</span></strong>
+                    </div>
+
+                    <div class="sale-actions sale-actions-full">
+                        <button type="submit" class="save-btn" id="saveSaleBtn">Save Sale</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="wizard-nav">
+                <button type="button" class="wizard-back-btn" id="wizardBackBtn"><i class="bi bi-arrow-left"></i> Back</button>
+                <button type="button" class="wizard-next-btn" id="wizardNextBtn">Next <i class="bi bi-arrow-right"></i></button>
             </div>
         </form>
     </div>
@@ -685,7 +991,7 @@ unset($_SESSION['success'], $_SESSION['error']);
 window.products = <?php echo json_encode($productList, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 </script>
 <script src="/NexGen/CODE/JS/header.js?v=5"></script>
-<script src="/NexGen/CODE/JS/sales_recording.js?v=5"></script>
+<script src="/NexGen/CODE/JS/sales_recording.js?v=6"></script>
 <script>
 const popupOverlay = document.getElementById("popupOverlay");
 if (popupOverlay) {

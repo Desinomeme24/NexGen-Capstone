@@ -15,7 +15,7 @@ if ((int)($_SESSION['can_inventory'] ?? 0) !== 1) {
 
 $displayName  = $_SESSION['username'] ?? 'Client';
 $fullName     = $_SESSION['full_name'] ?? 'Client';
-$profileImage = !empty($_SESSION['profile_image']) ? $_SESSION['profile_image'] : 'uploads/default.png';
+
 $userId       = $_SESSION['user_id'];
 $role         = $_SESSION['role'] ?? 'employee';
 $isOwner      = $role === 'owner';
@@ -80,6 +80,27 @@ if ($stmt) {
 } else {
     die("Query error: " . $conn->error);
 }
+
+$allProducts = [];
+if ($result) {
+    while ($row = $result->fetch_assoc()) {
+        $allProducts[] = $row;
+    }
+}
+$totalFetchedProducts = count($allProducts);
+
+$productDisplayLimit = 10;
+$showAllProducts = isset($_GET['show_all']) && $_GET['show_all'] === '1';
+$productsToDisplay = $showAllProducts ? $allProducts : array_slice($allProducts, 0, $productDisplayLimit);
+
+$viewAllParams = $_GET;
+$viewAllParams['show_all'] = 1;
+$viewAllUrl = '/NexGen/CODE/PHP/inventory_management.php?' . http_build_query($viewAllParams);
+
+$showTop10Params = $_GET;
+unset($showTop10Params['show_all']);
+$showTop10Url = '/NexGen/CODE/PHP/inventory_management.php'
+    . (!empty($showTop10Params) ? '?' . http_build_query($showTop10Params) : '');
 
 /* COUNTS */
 $totalProducts = 0;
@@ -249,7 +270,7 @@ if ($currentStatusForTab === '') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Inventory Management - NexGen</title>
-    <link rel="stylesheet" href="/NexGen/CODE/STYLE/inventory_management.css?v=2026glass2">
+    <link rel="stylesheet" href="/NexGen/CODE/STYLE/inventory_management.css?v=<?php echo time(); ?>">
     <link rel="stylesheet" href="/NexGen/CODE/STYLE/header.css?v=2">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 </head>
@@ -272,34 +293,104 @@ if ($currentStatusForTab === '') {
     <main class="inventory-wrapper">
 
         <section class="inventory-header">
-            <div class="inventory-header-left">
-                <div class="inventory-breadcrumb">
-                    <a href="/NexGen/CODE/PHP/dashboard.php">Dashboard</a>
-                    <span>/</span>
-                    <strong>Inventory Management</strong>
+            <div class="inventory-header-card">
+                <div class="inventory-header-row">
+                    <div class="inventory-header-left">
+                        <div class="inventory-breadcrumb">
+                            <a href="/NexGen/CODE/PHP/dashboard.php">Dashboard</a>
+                            <span>/</span>
+                            <strong>Inventory Management</strong>
+                        </div>
+
+                        <h1>Inventory Management</h1>
+                    </div>
+
+                    <div class="inventory-header-tools">
+                        <div class="inventory-search-box">
+                            <i class="bi bi-search"></i>
+                            <input
+                                type="text"
+                                name="search"
+                                id="inventorySearchInput"
+                                form="inventoryFilterForm"
+                                placeholder="Search products..."
+                                value="<?php echo htmlspecialchars($search); ?>"
+                                autocomplete="off"
+                            >
+                        </div>
+
+                        <div class="inventory-filter-wrap">
+                            <button type="button" class="inventory-filter-btn" id="toggleFilterTool" aria-haspopup="true" aria-expanded="false" aria-label="Filter products">
+                                <i class="bi bi-funnel-fill"></i>
+                                <span>Filter</span>
+                            </button>
+
+                            <div class="floating-filter-box" id="floatingFilterBox">
+                                <input type="hidden" name="category" id="inventoryCategoryFilter" form="inventoryFilterForm" value="<?php echo (int)$categoryFilter; ?>">
+                                <input type="hidden" name="status" id="inventoryStatusFilter" form="inventoryFilterForm" value="<?php echo htmlspecialchars($statusFilter); ?>">
+
+                                <div class="filter-group">
+                                    <span class="filter-group-label">Category</span>
+                                    <div class="filter-chip-list">
+                                        <button type="button" class="filter-chip <?php echo $categoryFilter === 0 ? 'active' : ''; ?>" data-filter-kind="category" data-filter-value="0">All Categories</button>
+                                        <?php foreach ($categories as $category): ?>
+                                            <button type="button" class="filter-chip <?php echo ($categoryFilter == $category['id']) ? 'active' : ''; ?>" data-filter-kind="category" data-filter-value="<?php echo (int)$category['id']; ?>">
+                                                <?php echo htmlspecialchars($category['category_name']); ?>
+                                            </button>
+                                        <?php endforeach; ?>
+                                    </div>
+                                </div>
+
+                                <div class="filter-group">
+                                    <span class="filter-group-label">Status</span>
+                                    <div class="filter-chip-list">
+                                        <button type="button" class="filter-chip <?php echo $statusFilter === '' ? 'active' : ''; ?>" data-filter-kind="status" data-filter-value="">All Status</button>
+                                        <button type="button" class="filter-chip <?php echo $statusFilter === 'active' ? 'active' : ''; ?>" data-filter-kind="status" data-filter-value="active">Active</button>
+                                        <button type="button" class="filter-chip <?php echo ($statusFilter === 'archived' || $statusFilter === 'inactive') ? 'active' : ''; ?>" data-filter-kind="status" data-filter-value="archived">Archived</button>
+                                        <button type="button" class="filter-chip <?php echo $statusFilter === 'low' ? 'active' : ''; ?>" data-filter-kind="status" data-filter-value="low">Low Stock</button>
+                                        <button type="button" class="filter-chip <?php echo $statusFilter === 'out' ? 'active' : ''; ?>" data-filter-kind="status" data-filter-value="out">Out of Stock</button>
+                                        <button type="button" class="filter-chip <?php echo $statusFilter === 'expired' ? 'active' : ''; ?>" data-filter-kind="status" data-filter-value="expired">Expired</button>
+                                    </div>
+                                </div>
+
+                                <button type="button" class="clear-filters-link" id="clearFiltersBtn">Clear filters</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                <h1>Inventory Management</h1>
-
                 <div class="inventory-meta">
+                    <i class="bi bi-archive"></i>
                     <span><?php echo $totalProducts; ?> registered products</span>
                     <span class="meta-divider">|</span>
-                    <span>Store, Manage, and Adjust your Inventory Items Easily</span>
+                    <span class="inventory-subtitle">Store, Manage, and Adjust your Inventory Items Easily</span>
                 </div>
             </div>
 
             <div class="header-actions">
                 <?php if ($isOwner): ?>
-                    <a href="/NexGen/CODE/PHP/inventory_export.php" class="ghost-btn">Export Report</a>
+                    <a href="/NexGen/CODE/PHP/inventory_export.php" class="ghost-btn">
+                        <i class="bi bi-box-arrow-up-right"></i>
+                        <span>Export Report</span>
+                    </a>
                 <?php endif; ?>
 
-                <button class="ghost-btn" id="openCategoryModal" type="button">Manage Categories</button>
+                <button class="ghost-btn" id="openCategoryModal" type="button">
+                    <i class="bi bi-folder2"></i>
+                    <span>Manage Categories</span>
+                </button>
                 <button class="primary-btn" id="openProductModal" type="button">
                     <i class="bi bi-plus-lg"></i>
-                    Add Product
+                    <span>Add Product</span>
                 </button>
             </div>
         </section>
+
+        <!-- Hidden form: not visually rendered. The search input and category/status
+             chips above use the form="inventoryFilterForm" attribute so their values
+             are still collected by submitFiltersInstantly() no matter where they sit
+             in the page (HTML5 form association doesn't require DOM nesting). -->
+        <form method="GET" id="inventoryFilterForm" action="/NexGen/CODE/PHP/inventory_management.php" class="hidden-filter-form"></form>
 
         <div id="inventoryDynamicArea">
             <section class="inventory-tabs">
@@ -395,75 +486,32 @@ if ($currentStatusForTab === '') {
                     <div class="history-line">
                         <span></span><span></span><span></span><span></span><span></span>
                     </div>
+                    <div class="history-legend">
+                        <span class="legend-dot recent"></span> Gold = today's activity
+                        <span class="legend-dot earlier"></span> Blue = earlier this week
+                    </div>
                 </div>
 
             </section>
 
-            <section class="inventory-toolbar">
-                <form method="GET" class="toolbar-form" id="inventoryFilterForm" action="/NexGen/CODE/PHP/inventory_management.php">
-                    <div class="toolbar-search">
-                        <i class="bi bi-search"></i>
-                        <input
-                            type="text"
-                            name="search"
-                            id="inventorySearchInput"
-                            placeholder="Search product, code, or brand..."
-                            value="<?php echo htmlspecialchars($search); ?>"
-                            autocomplete="off"
-                        >
-                    </div>
-
-                    <div class="toolbar-filter">
-                        <select name="category" id="inventoryCategoryFilter">
-                            <option value="0">All Categories</option>
-                            <?php foreach ($categories as $category): ?>
-                                <option value="<?php echo $category['id']; ?>" <?php echo ($categoryFilter == $category['id']) ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars($category['category_name']); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-
-                    <div class="toolbar-filter">
-                        <select name="status" id="inventoryStatusFilter">
-                            <option value="">All Status</option>
-                            <option value="active" <?php echo ($statusFilter === 'active') ? 'selected' : ''; ?>>Active</option>
-                            <option value="archived" <?php echo ($statusFilter === 'archived' || $statusFilter === 'inactive') ? 'selected' : ''; ?>>Archived</option>
-                            <option value="low" <?php echo ($statusFilter === 'low') ? 'selected' : ''; ?>>Low Stock</option>
-                            <option value="out" <?php echo ($statusFilter === 'out') ? 'selected' : ''; ?>>Out of Stock</option>
-                            <option value="expired" <?php echo ($statusFilter === 'expired') ? 'selected' : ''; ?>>Expired</option>
-                        </select>
-                    </div>
-
-                    <a href="/NexGen/CODE/PHP/inventory_management.php" class="reset-btn" data-filter-link>Reset</a>
-                </form>
-            </section>
-
             <section class="inventory-table-shell">
+                <div class="product-list-header">
+                    <h3>Products</h3>
+                    <?php if ($showAllProducts && $totalFetchedProducts > $productDisplayLimit): ?>
+                        <a href="<?php echo htmlspecialchars($showTop10Url); ?>" class="view-all-link" data-filter-link>
+                            Show Top <?php echo $productDisplayLimit; ?>
+                        </a>
+                    <?php elseif ($totalFetchedProducts > $productDisplayLimit): ?>
+                        <a href="<?php echo htmlspecialchars($viewAllUrl); ?>" class="view-all-link" data-filter-link>
+                            View All (<?php echo $totalFetchedProducts; ?>) <i class="bi bi-chevron-right"></i>
+                        </a>
+                    <?php endif; ?>
+                </div>
                 <div class="table-scroll product-table-scroll">
                     <table class="inventory-table">
-                        <thead>
-                            <tr>
-                                <th>Image</th>
-                                <th>Code</th>
-                                <th>Product</th>
-                                <th>Category</th>
-                                <th>Unit</th>
-                                <th>Cost</th>
-                                <th>Selling</th>
-                                <th>Stock</th>
-                                <?php if ($isOwner): ?>
-                                    <th>Reorder</th>
-                                    <th>On Order</th>
-                                <?php endif; ?>
-                                <th>Expiry</th>
-                                <th>Status</th>
-                                <th class="actions-col">Actions</th>
-                            </tr>
-                        </thead>
                         <tbody>
-                        <?php if ($result && $result->num_rows > 0): ?>
-                            <?php while ($product = $result->fetch_assoc()): ?>
+                        <?php if (!empty($productsToDisplay)): ?>
+                            <?php foreach ($productsToDisplay as $product): ?>
                                 <?php
                                     $stockClass = 'stock-good';
                                     if ((int)$product['stock_quantity'] <= 0) {
@@ -476,50 +524,32 @@ if ($currentStatusForTab === '') {
                                     $productIsArchived = ((int)$product['is_active'] === 0);
                                 ?>
                                 <tr>
-                                    <td>
+                                    <td class="cell-image">
                                         <div class="product-image-cell">
                                             <img src="<?php echo htmlspecialchars(inventoryImagePath($product['product_image'] ?? '')); ?>" alt="Product" class="product-thumb">
                                         </div>
                                     </td>
 
-                                    <td><?php echo htmlspecialchars($product['product_code']); ?></td>
-
-                                    <td>
+                                    <td class="cell-main">
                                         <div class="product-main-name"><?php echo htmlspecialchars($product['product_name']); ?></div>
-                                        <div class="product-sub-brand"><?php echo htmlspecialchars($product['brand'] ?? ''); ?></div>
-                                    </td>
-
-                                    <td><?php echo htmlspecialchars($product['category_name']); ?></td>
-                                    <td><?php echo htmlspecialchars($product['unit']); ?></td>
-                                    <td>₱<?php echo number_format((float)$product['cost_price'], 2); ?></td>
-                                    <td>₱<?php echo number_format((float)$product['selling_price'], 2); ?></td>
-
-                                    <td>
-                                        <div class="stock-stack">
-                                            <span class="stock-badge <?php echo $stockClass; ?>">
-                                                <?php echo (int)$product['stock_quantity']; ?> in stock
+                                        <div class="product-sub-brand">
+                                            SKU: <?php echo htmlspecialchars($product['product_code']); ?>
+                                            <?php if (!empty($product['brand'])): ?>
+                                                &nbsp;&bull;&nbsp;<?php echo htmlspecialchars($product['brand']); ?>
+                                            <?php endif; ?>
+                                        </div>
+                                        <div class="stock-line-row">
+                                            <span class="stock-line <?php echo $stockClass; ?>">
+                                                <?php echo htmlspecialchars($invState['label']); ?> &bull; <?php echo (int)$product['stock_quantity']; ?> <?php echo (int)$product['stock_quantity'] === 1 ? 'Left' : 'in stock'; ?>
                                             </span>
-                                            <small><?php echo (int)($product['on_order_level'] ?? 0); ?> incoming</small>
                                         </div>
                                     </td>
 
-                                    <?php if ($isOwner): ?>
-                                        <td><?php echo (int)$product['reorder_level']; ?></td>
-                                        <td><?php echo (int)($product['on_order_level'] ?? 0); ?></td>
-                                    <?php endif; ?>
-
-                                    <td><?php echo !empty($product['expiry_date']) ? htmlspecialchars($product['expiry_date']) : 'N/A'; ?></td>
-
-                                    <td>
-                                        <span class="status-badge <?php echo $invState['class']; ?>">
-                                            <?php echo htmlspecialchars($invState['label']); ?>
-                                        </span>
-                                    </td>
-
-                                    <td class="actions-cell">
+                                    <td class="cell-actions actions-cell">
                                         <div class="action-menu-wrap">
-                                            <button type="button" class="action-dots-btn" data-action-menu-toggle>
-                                                <i class="bi bi-three-dots"></i>
+                                            <button type="button" class="action-dots-btn reorder-style-btn" data-action-menu-toggle>
+                                                <i class="bi bi-arrow-repeat"></i>
+                                                <span>Manage</span>
                                             </button>
 
                                             <div class="action-dropdown" data-action-menu>
@@ -580,10 +610,10 @@ if ($currentStatusForTab === '') {
                                         </div>
                                     </td>
                                 </tr>
-                            <?php endwhile; ?>
+                            <?php endforeach; ?>
                         <?php else: ?>
                             <tr>
-                                <td colspan="<?php echo $isOwner ? 13 : 11; ?>" class="empty-state">No products found.</td>
+                                <td colspan="3" class="empty-state">No products found.</td>
                             </tr>
                         <?php endif; ?>
                         </tbody>
@@ -891,6 +921,6 @@ if ($currentStatusForTab === '') {
 </div>
 
 <?php include 'chatbot.php'; ?>
-<script src="/NexGen/CODE/JS/inventory_management.js?v=2026instant1"></script>
+<script src="/NexGen/CODE/JS/inventory_management.js?v=<?php echo time(); ?>"></script>
 </body>
 </html>

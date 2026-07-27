@@ -31,6 +31,10 @@ const stockMovementType = document.getElementById("stock_movement_type");
 const onOrderOwnerFields = document.getElementById("onOrderOwnerFields");
 const deductOnOrderWrap = document.getElementById("deductOnOrderWrap");
 
+const filterToggleBtn = document.getElementById("toggleFilterTool");
+const floatingFilterBox = document.getElementById("floatingFilterBox");
+const clearFiltersBtn = document.getElementById("clearFiltersBtn");
+
 let activeRequestController = null;
 
 function getDynamicArea() {
@@ -86,6 +90,13 @@ function closeAllMenus(exceptMenu = null) {
       menu.classList.remove("show");
     }
   });
+}
+
+function closeFloatingTools(except = null) {
+  if (floatingFilterBox && floatingFilterBox !== except) {
+    floatingFilterBox.classList.remove("show");
+    if (filterToggleBtn) filterToggleBtn.setAttribute("aria-expanded", "false");
+  }
 }
 
 function setValue(id, value) {
@@ -306,6 +317,39 @@ if (closeStockModal && stockModal) {
   });
 });
 
+/* FLOATING FILTER PANEL */
+if (filterToggleBtn && floatingFilterBox) {
+  filterToggleBtn.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const isOpen = floatingFilterBox.classList.contains("show");
+    closeFloatingTools();
+    if (!isOpen) {
+      floatingFilterBox.classList.add("show");
+      filterToggleBtn.setAttribute("aria-expanded", "true");
+    }
+  });
+}
+
+if (clearFiltersBtn) {
+  clearFiltersBtn.addEventListener("click", () => {
+    setValue("inventorySearchInput", "");
+    setValue("inventoryCategoryFilter", "0");
+    setValue("inventoryStatusFilter", "");
+
+    document.querySelectorAll(".filter-chip").forEach((chip) => {
+      const isAllCategory =
+        chip.dataset.filterKind === "category" &&
+        chip.dataset.filterValue === "0";
+      const isAllStatus =
+        chip.dataset.filterKind === "status" && chip.dataset.filterValue === "";
+      chip.classList.toggle("active", isAllCategory || isAllStatus);
+    });
+
+    closeFloatingTools();
+    submitFiltersInstantly();
+  });
+}
+
 /* IMAGE PREVIEW */
 if (productImageInput && previewImage) {
   productImageInput.addEventListener("change", function () {
@@ -331,6 +375,29 @@ document.addEventListener("click", (event) => {
   if (filterLink) {
     event.preventDefault();
     refreshInventoryContent(filterLink.href);
+    return;
+  }
+
+  const filterChip = event.target.closest(".filter-chip");
+  if (filterChip) {
+    const kind = filterChip.dataset.filterKind;
+    const value = filterChip.dataset.filterValue;
+
+    if (kind === "category") {
+      setValue("inventoryCategoryFilter", value);
+    } else if (kind === "status") {
+      setValue("inventoryStatusFilter", value);
+    }
+
+    const chipList = filterChip.closest(".filter-chip-list");
+    if (chipList) {
+      chipList.querySelectorAll(".filter-chip").forEach((chip) => {
+        chip.classList.toggle("active", chip === filterChip);
+      });
+    }
+
+    closeFloatingTools();
+    submitFiltersInstantly();
     return;
   }
 
@@ -404,6 +471,10 @@ document.addEventListener("click", (event) => {
 
   if (!event.target.closest(".action-menu-wrap")) {
     closeAllMenus();
+  }
+
+  if (!event.target.closest(".inventory-filter-wrap")) {
+    closeFloatingTools();
   }
 });
 

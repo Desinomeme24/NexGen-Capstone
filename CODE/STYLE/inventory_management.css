@@ -28,23 +28,183 @@ body {
 
 .inventory-header {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 20px;
+  flex-direction: column;
+  gap: 18px;
   margin-bottom: 18px;
+}
+
+.inventory-header-card {
+  background: none;
+  padding: 0;
+}
+
+.inventory-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
 }
 
 .inventory-header-left {
   flex: 1;
+  min-width: 240px;
+}
+
+.inventory-header-tools {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.inventory-search-box {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 14px;
+  padding: 0 18px;
+  height: 52px;
+  width: 260px;
+}
+
+.inventory-search-box i {
+  color: #8896be;
+  font-size: 15px;
+}
+
+.inventory-search-box input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: #24396f;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.inventory-search-box input::placeholder {
+  color: #8c9abd;
+  font-weight: 500;
+}
+
+.inventory-filter-wrap {
+  position: relative;
+}
+
+.inventory-filter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 52px;
+  padding: 0 20px;
+  border: none;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.85);
+  color: #23376d;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: 0.2s ease;
+}
+
+.inventory-filter-btn:hover {
+  background: #ffffff;
+  transform: translateY(-1px);
+}
+
+.inventory-filter-btn i {
+  font-size: 15px;
+}
+
+.floating-filter-box {
+  display: none;
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  background: #ffffff;
+  border-radius: 18px;
+  box-shadow: 0 20px 40px rgba(34, 48, 93, 0.18);
+  border: 1px solid #edf1fb;
+  z-index: 60;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  width: 260px;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.floating-filter-box.show {
+  display: flex;
+}
+
+.filter-group-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 900;
+  color: #7b89b6;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 8px;
+}
+
+.filter-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.filter-chip {
+  border: 1px solid #e2e9fb;
+  background: #f8faff;
+  color: #4a5a8a;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 7px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: 0.15s ease;
+}
+
+.filter-chip:hover {
+  background: #eef3ff;
+}
+
+.filter-chip.active {
+  background: #3d71ec;
+  border-color: #3d71ec;
+  color: #ffffff;
+}
+
+.clear-filters-link {
+  align-self: flex-start;
+  border: none;
+  background: none;
+  color: #dd6b7c;
+  font-weight: 800;
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px 0 0;
+}
+
+.clear-filters-link:hover {
+  text-decoration: underline;
+}
+
+.hidden-filter-form {
+  display: none;
 }
 
 .inventory-breadcrumb {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   color: #5b6998;
-  margin-bottom: 18px;
-  font-size: 15px;
+  margin-bottom: 10px;
+  font-size: 14px;
   font-weight: 700;
   flex-wrap: wrap;
 }
@@ -59,25 +219,36 @@ body {
 }
 
 .inventory-header h1 {
-  font-size: 62px;
-  line-height: 1;
-  color: #21376b;
+  font-size: 42px;
+  line-height: 1.1;
+  color: #1c2b57;
   font-weight: 900;
-  margin-bottom: 14px;
+  margin-bottom: 0;
 }
 
 .inventory-meta {
   display: flex;
   align-items: center;
-  gap: 10px;
-  color: #6676a9;
-  font-size: 17px;
-  font-weight: 700;
+  gap: 8px;
+  color: #3d5fd9;
+  font-size: 15px;
+  font-weight: 800;
   flex-wrap: wrap;
+  margin-top: 22px;
+}
+
+.inventory-meta i {
+  font-size: 15px;
 }
 
 .meta-divider {
   opacity: 0.5;
+}
+
+.inventory-subtitle {
+  color: #5b6998;
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .header-actions {
@@ -115,6 +286,7 @@ body {
   color: #243a72;
   padding: 15px 22px;
   font-size: 16px;
+  gap: 8px;
   box-shadow: 0 8px 18px rgba(36, 58, 114, 0.08);
 }
 
@@ -125,6 +297,12 @@ body {
   font-size: 17px;
   gap: 8px;
   box-shadow: 0 12px 22px rgba(232, 183, 63, 0.25);
+}
+
+.header-actions .ghost-btn i,
+.header-actions .primary-btn i {
+  font-size: 16px;
+  line-height: 1;
 }
 
 .ghost-btn:hover,
@@ -331,17 +509,17 @@ body {
 }
 
 .history-line {
-  margin-top: 10px;
-  height: 36px;
+  margin-top: 6px;
+  height: 16px;
   display: flex;
   align-items: flex-end;
-  gap: 10px;
+  gap: 5px;
 }
 
 .history-line span {
   display: block;
   width: 18%;
-  border-radius: 16px 16px 0 0;
+  border-radius: 6px 6px 0 0;
   background: linear-gradient(
     180deg,
     rgba(95, 133, 255, 0.18),
@@ -350,19 +528,53 @@ body {
 }
 
 .history-line span:nth-child(1) {
-  height: 10px;
+  height: 4px;
 }
 .history-line span:nth-child(2) {
-  height: 16px;
+  height: 7px;
 }
 .history-line span:nth-child(3) {
-  height: 22px;
+  height: 10px;
 }
 .history-line span:nth-child(4) {
-  height: 28px;
+  height: 13px;
 }
 .history-line span:nth-child(5) {
-  height: 32px;
+  height: 16px;
+  background: linear-gradient(180deg, #ffd770, #e8b73f);
+}
+
+.history-legend {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #6676a9;
+  line-height: 1.4;
+}
+
+.legend-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-left: 8px;
+  flex-shrink: 0;
+}
+
+.legend-dot:first-child {
+  margin-left: 0;
+}
+
+.legend-dot.recent {
+  background: #e8b73f;
+}
+
+.legend-dot.earlier {
+  background: rgba(95, 133, 255, 0.6);
 }
 
 .inventory-toolbar {
@@ -955,12 +1167,21 @@ body {
     padding: 86px 18px 18px;
   }
 
-  .inventory-header {
+  .inventory-header-row {
     flex-direction: column;
+    align-items: stretch;
+  }
+
+  .inventory-header-tools {
+    width: 100%;
+  }
+
+  .inventory-search-box {
+    flex: 1;
   }
 
   .inventory-header h1 {
-    font-size: 44px;
+    font-size: 36px;
   }
 
   .product-form {
@@ -1442,5 +1663,527 @@ body {
   }
   to {
     transform: rotate(360deg);
+  }
+}
+
+/* =========================================================
+   PRODUCT MANAGEMENT LIST (always on, every screen size)
+   Reused colors only — header/tabs/summary cards above are
+   untouched. Row = photo | name + SKU + stock line | one
+   action button, exactly like the reference list. Everything
+   else (category, unit, cost, selling, reorder, on order,
+   expiry, status) is kept as a compact strip underneath —
+   nothing removed, just no longer a spreadsheet.
+   ========================================================= */
+.inventory-table-shell {
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 26px;
+  box-shadow: 0 18px 30px rgba(35, 55, 109, 0.08);
+  overflow: hidden;
+  padding: 18px;
+}
+
+.product-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 2px 4px 16px;
+}
+
+.product-list-header h3 {
+  font-size: 19px;
+  font-weight: 900;
+  color: #22396e;
+}
+
+.view-all-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #3b66dd;
+  font-weight: 800;
+  font-size: 14px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.view-all-link:hover {
+  text-decoration: underline;
+}
+
+.table-scroll {
+  overflow: visible;
+  max-height: none;
+}
+
+.inventory-table {
+  min-width: 0;
+  width: 100%;
+  display: block;
+  border-collapse: collapse;
+}
+
+.inventory-table tbody {
+  display: block;
+}
+
+.inventory-table tbody tr {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  background: transparent;
+  padding: 14px 4px;
+  position: relative;
+}
+
+.inventory-table tbody tr::after {
+  content: "";
+  flex: 0 0 100%;
+  height: 1px;
+  background-color: #e4e9f5;
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  bottom: 0;
+}
+
+.inventory-table tbody tr:last-child::after {
+  content: none;
+}
+
+.inventory-table tbody tr:hover td {
+  background: transparent;
+}
+
+.inventory-table tbody td {
+  background: transparent;
+  border-bottom: none;
+  padding: 0;
+}
+
+.cell-image {
+  flex: 0 0 auto;
+  margin-right: 14px;
+}
+
+.cell-image .product-image-cell {
+  width: 60px;
+  height: 60px;
+}
+
+.cell-image .product-thumb {
+  width: 52px;
+  height: 52px;
+}
+
+/* Name + SKU + stock line, fills space between photo and button */
+.cell-main {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.cell-main .product-main-name {
+  font-size: 16px;
+  margin-bottom: 2px;
+  white-space: normal;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.25;
+}
+
+.cell-main .product-sub-brand {
+  font-size: 13px;
+  margin-bottom: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stock-line-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.stock-line {
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.stock-line.stock-good {
+  color: #3e9f8b;
+}
+
+.stock-line.stock-low {
+  color: #efb443;
+}
+
+.stock-line.stock-out {
+  color: #dd6b7c;
+}
+
+/* Single action button, same colors as before, sits on the right */
+.cell-actions {
+  flex: 0 0 auto;
+  margin-left: 14px;
+}
+
+.reorder-style-btn {
+  width: auto;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 10px;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 800;
+  background: rgba(212, 175, 55, 0.14);
+  color: #a97f16;
+  border: 1px solid rgba(212, 175, 55, 0.35);
+}
+
+.reorder-style-btn i {
+  font-size: 11px;
+}
+
+.reorder-style-btn:hover {
+  background: rgba(212, 175, 55, 0.24);
+  color: #8a6110;
+}
+
+/* Dropdown opens downward from the button instead of to the left,
+   so it never gets clipped at the edge of the row/screen. */
+.action-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  left: auto;
+  transform: none;
+  width: 220px;
+}
+
+.actions-col,
+.actions-cell {
+  width: auto;
+}
+
+/* =========================================================
+   MOBILE-ONLY TWEAKS (everything below still only applies
+   under 768px — header, tabs, summary cards, modals)
+   ========================================================= */
+@media (max-width: 768px) {
+  /* ---- Page header gets tighter on phones ---- */
+  .inventory-header h1 {
+    font-size: 26px;
+  }
+
+  .inventory-breadcrumb {
+    font-size: 13px;
+  }
+
+  .inventory-header-tools {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    margin-top: 18px;
+  }
+
+  .inventory-search-box,
+  .inventory-filter-btn {
+    width: 100%;
+    height: 48px;
+  }
+
+  .inventory-filter-wrap {
+    width: 100%;
+  }
+
+  .inventory-meta {
+    font-size: 14px;
+    margin-top: 14px;
+  }
+
+  .inventory-subtitle {
+    font-size: 13px;
+  }
+
+  .header-actions {
+    width: 100%;
+    margin-top: 14px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    align-items: stretch;
+  }
+
+  .header-actions .ghost-btn,
+  .header-actions .primary-btn {
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 4px;
+    padding: 12px 4px 10px;
+    font-size: 11px;
+    line-height: 1.2;
+    text-align: center;
+    border-radius: 14px;
+    white-space: normal;
+  }
+
+  .header-actions .ghost-btn i,
+  .header-actions .primary-btn i {
+    font-size: 16px;
+  }
+
+  .floating-filter-box {
+    width: 100%;
+    right: auto;
+    left: 0;
+  }
+
+  /* ---- Tabs: single scrollable row, same colors as before ---- */
+  .inventory-tabs {
+    display: flex;
+    flex-wrap: nowrap;
+    flex-direction: row;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+
+  .inventory-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .inventory-tab {
+    flex: 0 0 auto;
+    flex-direction: column;
+    align-items: flex-start;
+    justify-content: center;
+    gap: 4px;
+    padding: 10px 14px;
+    min-height: 60px;
+    font-size: 14px;
+    white-space: nowrap;
+  }
+
+  .inventory-tab span {
+    align-self: flex-start;
+    min-width: 22px;
+    height: 22px;
+    font-size: 12px;
+  }
+
+  /* ---- Summary cards: compact horizontal scroll row, same gradients/colors ---- */
+  .inventory-summary-grid {
+    display: flex;
+    flex-wrap: nowrap;
+    grid-template-columns: none;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    gap: 12px;
+    padding: 2px 2px 8px;
+    scroll-snap-type: x proximity;
+  }
+
+  .inventory-summary-grid::-webkit-scrollbar {
+    display: none;
+  }
+
+  .summary-card {
+    flex: 0 0 78%;
+    min-height: 130px;
+    scroll-snap-align: start;
+  }
+
+  .gradient-card,
+  .history-card {
+    padding: 14px 16px;
+  }
+
+  .summary-card-top h3 {
+    font-size: 16px;
+  }
+
+  .summary-text h4 {
+    font-size: 15px;
+  }
+
+  .summary-badge {
+    width: 40px;
+    min-width: 40px;
+    height: 40px;
+    font-size: 14px;
+  }
+
+  /* ---- Modals: full-bleed sheets on phones (same colors kept) ---- */
+  .product-modal,
+  .stock-modal,
+  .category-modal {
+    padding: 20px;
+    border-radius: 22px;
+    max-width: 100%;
+    width: 100%;
+    max-height: 88vh;
+  }
+
+  .modal-header {
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .modal-header h2 {
+    font-size: 22px;
+  }
+
+  .close-modal-btn {
+    width: 38px;
+    height: 38px;
+    min-width: 38px;
+    border-radius: 12px;
+    font-size: 22px;
+  }
+
+  .product-form {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .form-image-preview {
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .form-image-preview img {
+    width: 76px;
+    height: 76px;
+    border-radius: 16px;
+    flex-shrink: 0;
+  }
+
+  .image-upload-label {
+    width: auto;
+    flex: 1;
+    padding: 12px 14px;
+    font-size: 14px;
+    border-radius: 14px;
+  }
+
+  .form-fields,
+  .stock-form,
+  .category-form {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .form-group label {
+    font-size: 13.5px;
+  }
+
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    padding: 12px 14px;
+    font-size: 14px;
+    border-radius: 14px;
+  }
+
+  .form-group textarea {
+    min-height: 90px;
+  }
+
+  .checkbox-row {
+    gap: 8px;
+  }
+
+  .category-list-wrap {
+    margin-top: 14px;
+  }
+
+  .category-list-wrap h3 {
+    font-size: 16px;
+    margin-bottom: 10px;
+  }
+
+  .category-list {
+    grid-template-columns: 1fr;
+    gap: 10px;
+    max-height: 260px;
+  }
+
+  .category-list li {
+    padding: 13px 16px;
+    min-height: 52px;
+    font-size: 14px;
+  }
+
+  .save-btn {
+    padding: 13px 18px;
+    font-size: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .modal-overlay {
+    padding: 12px;
+  }
+
+  .product-modal,
+  .stock-modal,
+  .category-modal {
+    padding: 16px;
+    border-radius: 18px;
+    max-height: 92vh;
+  }
+
+  .modal-header h2 {
+    font-size: 19px;
+  }
+
+  .close-modal-btn {
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
+    font-size: 20px;
+  }
+
+  .form-image-preview img {
+    width: 62px;
+    height: 62px;
+    border-radius: 14px;
+  }
+
+  .image-upload-label {
+    padding: 11px 12px;
+    font-size: 13px;
+  }
+
+  .form-group label {
+    font-size: 13px;
+  }
+
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    padding: 11px 13px;
+    font-size: 13.5px;
+  }
+
+  .category-list {
+    max-height: 220px;
+  }
+
+  .category-list li {
+    padding: 12px 14px;
+    min-height: 46px;
+    font-size: 13.5px;
   }
 }

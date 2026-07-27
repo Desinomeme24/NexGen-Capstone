@@ -2,7 +2,7 @@
 session_start();
 require_once("config.php");
 
-/* SESSION SECURITY: enforce 5-minute timeout on admin dashboard */
+/* SESSION SECURITY: enforce 10-minute timeout on admin dashboard */
 enforceSessionTimeout();
 
 if (!isset($_SESSION['user_id'])) {
@@ -217,7 +217,7 @@ if ($result) {
 
 <script src="/NexGen/CODE/JS/admin_module.js"></script>
 <script>
-    /* SESSION SECURITY: client-side 5-minute inactivity auto logout */
+    /* SESSION SECURITY: client-side inactivity auto logout */
     (function () {
         const timeoutMs = <?php echo (int)SESSION_TIMEOUT_SECONDS * 1000; ?>;
         let inactivityTimer = null;

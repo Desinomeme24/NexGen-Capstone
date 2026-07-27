@@ -46,7 +46,7 @@ $showCategoryOpen = in_array(
 
         <h2><?php echo htmlspecialchars($displayName); ?></h2>
         <p class="profile-fullname"><?php echo htmlspecialchars($fullName); ?></p>
-        <p class="profile-fullname"><?php echo htmlspecialchars($roleLabel); ?></p>
+        <span class="role-badge"><?php echo htmlspecialchars($roleLabel); ?></span>
     </div>
 
     <nav class="sidebar-menu">
@@ -159,7 +159,7 @@ $showCategoryOpen = in_array(
     .logout-modal-overlay {
         position: fixed;
         inset: 0;
-        background: rgba(15, 23, 42, 0.55);
+        background: rgba(6, 15, 31, 0.6);
         backdrop-filter: blur(10px);
         -webkit-backdrop-filter: blur(10px);
         display: flex;
@@ -182,10 +182,10 @@ $showCategoryOpen = in_array(
     .logout-modal-card {
         width: 100%;
         max-width: 380px;
-        background: rgba(255, 255, 255, 0.12);
-        border: 1px solid rgba(255, 255, 255, 0.18);
-        border-radius: 24px;
-        box-shadow: 0 20px 45px rgba(0, 0, 0, 0.28);
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(227, 178, 126, 0.22);
+        border-radius: 20px;
+        box-shadow: 0 20px 45px rgba(0, 0, 0, 0.32);
         backdrop-filter: blur(18px);
         -webkit-backdrop-filter: blur(18px);
         padding: 28px 24px 22px;
@@ -199,30 +199,31 @@ $showCategoryOpen = in_array(
     }
 
     .logout-modal-icon {
-        width: 68px;
-        height: 68px;
+        width: 64px;
+        height: 64px;
         margin: 0 auto 14px;
         border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
-        background: linear-gradient(135deg, rgba(59, 130, 246, 0.95), rgba(37, 99, 235, 0.95));
+        background: linear-gradient(135deg, var(--copper-500, #c6864c), var(--ink-900, #0a1a33));
         color: #fff;
-        font-size: 28px;
-        box-shadow: 0 10px 25px rgba(37, 99, 235, 0.35);
+        font-size: 26px;
+        box-shadow: 0 10px 25px rgba(198, 134, 76, 0.35);
     }
 
     .logout-modal-card h3 {
         margin: 0 0 8px;
         color: #ffffff;
-        font-size: 1.45rem;
+        font-family: var(--font-display, inherit);
+        font-size: 1.4rem;
         font-weight: 700;
     }
 
     .logout-modal-card p {
         margin: 0 0 22px;
-        color: rgba(255, 255, 255, 0.82);
-        font-size: 0.98rem;
+        color: rgba(255, 255, 255, 0.8);
+        font-size: 0.97rem;
         line-height: 1.5;
     }
 
@@ -235,7 +236,7 @@ $showCategoryOpen = in_array(
     .logout-cancel-btn,
     .logout-confirm-btn {
         border: none;
-        border-radius: 14px;
+        border-radius: 12px;
         padding: 12px 18px;
         font-size: 0.95rem;
         font-weight: 600;
@@ -245,25 +246,25 @@ $showCategoryOpen = in_array(
     }
 
     .logout-cancel-btn {
-        background: rgba(255, 255, 255, 0.14);
+        background: rgba(255, 255, 255, 0.12);
         color: #ffffff;
         border: 1px solid rgba(255, 255, 255, 0.16);
     }
 
     .logout-cancel-btn:hover {
-        background: rgba(255, 255, 255, 0.22);
+        background: rgba(255, 255, 255, 0.2);
         transform: translateY(-1px);
     }
 
     .logout-confirm-btn {
-        background: linear-gradient(135deg, #1877f2, #0f5fd6);
+        background: linear-gradient(135deg, var(--copper-500, #c6864c), #a8703c);
         color: #ffffff;
-        box-shadow: 0 8px 18px rgba(24, 119, 242, 0.32);
+        box-shadow: 0 8px 18px rgba(198, 134, 76, 0.35);
     }
 
     .logout-confirm-btn:hover {
         transform: translateY(-1px);
-        box-shadow: 0 12px 22px rgba(24, 119, 242, 0.4);
+        box-shadow: 0 12px 22px rgba(198, 134, 76, 0.42);
     }
 
     @media (max-width: 480px) {

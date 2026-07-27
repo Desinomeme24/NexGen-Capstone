@@ -1,522 +1,705 @@
-/* layout.css / header.css */
+/* ============================================================
+   NexGen — Header / Sidebar system
+   Design language: "the ledger" — a business-records aesthetic
+   for an app that lives and dies by inventory, sales & accounts.
+   Ink-navy surface, a stamped copper accent, a mono "eyebrow"
+   voice for labels, and a dashed ledger-margin + growing tick
+   mark as the one signature motif (see .sidebar-menu / ticks).
+   ============================================================ */
+
+@import url("https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap");
+
+:root {
+  --ink-950: #060f1f;
+  --ink-900: #0a1a33;
+  --navy-800: #12295a;
+  --navy-700: #1c3872;
+
+  --copper-500: #c6864c;
+  --copper-300: #e3b27e;
+  --gold-100: #f1ddab;
+
+  --paper-50: #f7f4ec;
+  --paper-100: #efe9db;
+
+  --slate-300: #aeb8cb;
+  --slate-500: #7d879c;
+  --white: #ffffff;
+
+  --font-display: "Sora", system-ui, -apple-system, sans-serif;
+  --font-body: "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+}
 
 .topbar {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    z-index: 80;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: 80;
 }
 
 .sidebar {
-    position: fixed;
-    z-index: 100;
+  position: fixed;
+  z-index: 100;
 }
 
 .overlay {
-    position: fixed;
-    z-index: 90;
+  position: fixed;
+  z-index: 90;
 }
 
 /* TOP BAR */
 .topbar {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    z-index: 2000;
-    height: 82px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0 18px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: 2000;
+  height: 82px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 18px;
+  font-family: var(--font-body);
 }
 
 .topbar-right {
-    display: flex;
-    align-items: center;
-    gap: 14px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
 }
 
 .top-user-info {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 8px 14px 8px 10px;
-    background: rgba(255, 255, 255, 0.90);
-    border-radius: 999px;
-    text-decoration: none;
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.14);
-    transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px 8px 10px;
+  background: var(--paper-50);
+  border: 1px solid rgba(10, 26, 51, 0.06);
+  border-radius: 999px;
+  text-decoration: none;
+  box-shadow: 0 6px 16px rgba(10, 26, 51, 0.14);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
 }
 
 .top-user-info:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.18);
-    background: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(10, 26, 51, 0.18);
+  background: var(--white);
 }
 
 .top-user-img {
-    width: 42px;
-    height: 42px;
-    border-radius: 50%;
-    object-fit: cover;
-    background: #ffffff;
-    border: 2px solid rgba(0, 0, 0, 0.08);
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #ffffff;
+  border: 2px solid rgba(10, 26, 51, 0.1);
 }
 
 .top-user-name {
-    font-size: 17px;
-    font-weight: 800;
-    color: #333;
-    line-height: 1;
-    white-space: nowrap;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink-900);
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .top-logo img {
-    width: 80px;
-    height: auto;
-    display: block;
+  width: 80px;
+  height: auto;
+  display: block;
 }
 
 .menu-btn {
-    width: 58px;
-    height: 58px;
-    cursor: pointer;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 6px;
-    padding: 10px 12px;
-    border-radius: 18px;
-    background: linear-gradient(to bottom, rgba(18, 101, 214, 0.78), rgba(1, 20, 70, 0.92));
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    transition: all 0.25s ease;
+  width: 58px;
+  height: 58px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  background: linear-gradient(155deg, var(--navy-700) 0%, var(--ink-950) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  transition: all 0.25s ease;
 }
 
 .menu-btn:hover {
-    background: rgba(255, 255, 255, 0.14);
-    transform: translateY(-1px);
-    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.16);
+  background: linear-gradient(
+    155deg,
+    var(--copper-500) 0%,
+    var(--ink-950) 120%
+  );
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(6, 15, 31, 0.28);
 }
 
 .menu-btn span {
-    display: block;
-    width: 100%;
-    height: 5px;
-    border-radius: 20px;
-    background: white;
-    transition: all 0.25s ease;
+  display: block;
+  width: 100%;
+  height: 3px;
+  border-radius: 20px;
+  background: white;
+  transition: all 0.25s ease;
+}
+
+.menu-btn span:nth-child(2) {
+  width: 70%;
+}
+
+.menu-btn:hover span:nth-child(2) {
+  width: 100%;
 }
 
 /* SIDEBAR */
 .sidebar {
-    top: 0;
-    left: -390px;
-    width: 390px;
-    height: 100vh;
-    padding: 20px 20px 28px;
-    overflow-y: auto;
-    transition: left 0.35s ease, box-shadow 0.35s ease;
-    background: linear-gradient(
-        180deg,
-        rgba(5, 24, 78, 0.98) 0%,
-        rgba(8, 42, 120, 0.96) 45%,
-        rgba(4, 22, 76, 0.98) 100%
-    );
-    border-right: 1px solid rgba(255, 255, 255, 0.14);
-    box-shadow: 18px 0 40px rgba(0, 0, 0, 0.28);
-    backdrop-filter: blur(10px);
+  top: 0;
+  left: -390px;
+  width: 390px;
+  height: 100vh;
+  padding: 22px 22px 28px;
+  overflow-y: auto;
+  transition:
+    left 0.35s cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 0.35s ease;
+  background: linear-gradient(
+    180deg,
+    rgba(6, 15, 31, 0.985) 0%,
+    rgba(18, 41, 90, 0.96) 48%,
+    rgba(6, 15, 31, 0.985) 100%
+  );
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 18px 0 40px rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(10px);
+  font-family: var(--font-body);
 }
 
 .sidebar.active {
-    left: 0;
+  left: 0;
 }
 
 .sidebar::-webkit-scrollbar {
-    width: 8px;
+  width: 8px;
 }
 
 .sidebar::-webkit-scrollbar-track {
-    background: transparent;
+  background: transparent;
 }
 
 .sidebar::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.18);
-    border-radius: 20px;
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 20px;
 }
 
 .sidebar-top {
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-    margin-bottom: 10px;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin-bottom: 6px;
 }
 
 .close-sidebar {
-    width: 46px;
-    height: 46px;
-    border: none;
-    border-radius: 14px;
-    background: rgba(255, 255, 255, 0.08);
-    color: white;
-    font-size: 34px;
-    cursor: pointer;
-    line-height: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background 0.25s ease, transform 0.25s ease;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.07);
+  color: white;
+  font-size: 30px;
+  cursor: pointer;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition:
+    background 0.25s ease,
+    transform 0.25s ease;
 }
 
 .close-sidebar:hover {
-    background: rgba(255, 255, 255, 0.16);
-    transform: rotate(90deg);
+  background: rgba(198, 134, 76, 0.28);
+  transform: rotate(90deg);
 }
 
-/* PROFILE CARD */
+/* PROFILE CARD — styled as a stamped ID / ledger heading */
 .profile-section {
-    text-align: center;
-    margin: 8px 0 26px;
-    padding: 26px 18px 22px;
-    border-radius: 26px;
-    background: linear-gradient(
-        180deg,
-        rgba(255, 255, 255, 0.10),
-        rgba(255, 255, 255, 0.05)
-    );
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+  position: relative;
+  text-align: center;
+  margin: 4px 0 28px;
+  padding: 28px 18px 20px;
+  border-radius: 20px;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.08),
+    rgba(255, 255, 255, 0.03)
+  );
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+/* corner "stamp" ticks — a card, not a template box */
+.profile-section::before,
+.profile-section::after {
+  content: "";
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border-color: var(--copper-300);
+  opacity: 0.65;
+}
+
+.profile-section::before {
+  top: 10px;
+  left: 10px;
+  border-top: 2px solid var(--copper-300);
+  border-left: 2px solid var(--copper-300);
+}
+
+.profile-section::after {
+  bottom: 10px;
+  right: 10px;
+  border-bottom: 2px solid var(--copper-300);
+  border-right: 2px solid var(--copper-300);
 }
 
 .profile-section h2 {
-    font-size: 28px;
-    font-weight: 800;
-    line-height: 1.2;
-    margin-bottom: 6px;
-    word-break: break-word;
+  font-family: var(--font-display);
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1.2;
+  margin-bottom: 4px;
+  word-break: break-word;
+  letter-spacing: -0.01em;
 }
 
 .profile-fullname {
-    font-size: 14px;
-    opacity: 0.85;
-    line-height: 1.4;
+  font-size: 13.5px;
+  opacity: 0.8;
+  line-height: 1.4;
+}
+
+/* the role, presented as a stamped credential rather than plain text */
+.role-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 12px;
+  padding: 5px 14px;
+  border: 1px solid rgba(227, 178, 126, 0.45);
+  border-radius: 999px;
+  background: rgba(227, 178, 126, 0.08);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--gold-100) !important;
+}
+
+.role-badge::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--copper-300);
+  box-shadow: 0 0 0 3px rgba(227, 178, 126, 0.18);
 }
 
 .profile-edit-form {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .profile-image-wrapper {
-    position: relative;
-    display: inline-block;
-    margin-bottom: 14px;
+  position: relative;
+  display: inline-block;
+  margin-bottom: 14px;
 }
 
 .profile-img {
-    width: 122px;
-    height: 122px;
-    border-radius: 50%;
-    object-fit: cover;
-    background: white;
-    margin-left: 0 !important;
-    margin-bottom: 0 !important;
-    border: 4px solid rgba(255,255,255,0.28);
-    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+  width: 116px;
+  height: 116px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: white;
+  margin-left: 0 !important;
+  margin-bottom: 0 !important;
+  border: 3px solid rgba(227, 178, 126, 0.4);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.28);
 }
 
 .edit-profile-btn {
-    position: absolute;
-    right: -8px;
-    bottom: 10px;
-    background: #c9c9c9;
-    color: #111;
-    font-size: 16px;
-    font-weight: 800;
-    padding: 8px 14px;
-    border-radius: 20px;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    box-shadow: 0 6px 14px rgba(0,0,0,0.25);
-    transition: transform 0.2s ease, background 0.2s ease;
-    text-transform: lowercase;
+  position: absolute;
+  right: -6px;
+  bottom: 8px;
+  background: var(--copper-300);
+  color: var(--ink-950);
+  font-size: 15px;
+  font-weight: 800;
+  padding: 7px 13px;
+  border-radius: 20px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.3);
+  transition:
+    transform 0.2s ease,
+    background 0.2s ease;
 }
 
 .edit-profile-btn:hover {
-    transform: translateY(-2px);
-    background: #f2d58a;
+  transform: translateY(-2px);
+  background: var(--gold-100);
 }
 
 .hidden-upload-btn {
-    display: none;
+  display: none;
 }
 
-/* MENU AREA */
+/* MENU AREA — a dashed ledger-margin runs the length of the nav;
+   each row carries a tick that grows into a dash on hover/active,
+   like an item being checked off a manifest. */
 .sidebar-menu {
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-left: 14px;
+}
+
+.sidebar-menu::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 6px;
+  bottom: 6px;
+  width: 0;
+  border-left: 1.5px dashed rgba(174, 184, 203, 0.28);
 }
 
 .menu-item,
 .dropdown-btn,
 .dropdown-content a {
-    color: white;
-    text-decoration: none;
+  color: white;
+  text-decoration: none;
 }
 
 .menu-item,
 .dropdown-btn {
-    width: 100%;
-    min-height: 60px;
-    padding: 16px 18px;
-    font-size: 21px;
-    font-weight: 800;
-    border-radius: 18px;
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid transparent;
-    display: flex;
-    align-items: center;
-    transition: background 0.25s ease, transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+  position: relative;
+  width: 100%;
+  min-height: 56px;
+  padding: 14px 16px;
+  font-family: var(--font-body);
+  font-size: 15.5px;
+  font-weight: 600;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.045);
+  border: 1px solid transparent;
+  display: flex;
+  align-items: center;
+  transition:
+    background 0.25s ease,
+    transform 0.2s ease,
+    border-color 0.25s ease;
+}
+
+.menu-item::before,
+.dropdown-btn::before {
+  content: "";
+  position: absolute;
+  left: -14px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 1px;
+  background: var(--slate-300);
+  transition:
+    width 0.25s ease,
+    background 0.25s ease;
 }
 
 .menu-item:hover,
 .dropdown-btn:hover {
-    background: rgba(255, 255, 255, 0.12);
-    border-color: rgba(255, 255, 255, 0.14);
-    transform: translateX(5px);
-    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.14);
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(255, 255, 255, 0.12);
+  transform: translateX(3px);
+}
+
+.menu-item:hover::before,
+.dropdown-btn:hover::before {
+  width: 12px;
+  background: var(--copper-300);
 }
 
 .menu-item.active {
-    background: linear-gradient(
-        90deg,
-        rgba(242, 213, 138, 0.22),
-        rgba(255, 255, 255, 0.10)
-    );
-    border-color: rgba(242, 213, 138, 0.38);
-    color: #ffe29f;
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.16);
+  background: linear-gradient(
+    90deg,
+    rgba(198, 134, 76, 0.22),
+    rgba(255, 255, 255, 0.05)
+  );
+  border-color: rgba(227, 178, 126, 0.35);
+  color: var(--gold-100);
+}
+
+.menu-item.active::before {
+  width: 14px;
+  background: var(--copper-300);
 }
 
 .active-sub {
-    background: rgba(255, 255, 255, 0.16) !important;
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    color: #ffe29f !important;
-    font-weight: 800 !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  border: 1px solid rgba(227, 178, 126, 0.3);
+  color: var(--gold-100) !important;
+  font-weight: 700 !important;
 }
 
 .dropdown-btn {
-    border: none;
-    text-align: left;
-    justify-content: space-between;
-    cursor: pointer;
+  border: none;
+  text-align: left;
+  justify-content: space-between;
+  cursor: pointer;
+}
+
+.active-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(227, 178, 126, 0.28);
 }
 
 #dropdownArrow {
-    font-size: 18px;
-    margin-left: 14px;
-    transition: transform 0.25s ease;
+  font-size: 13px;
+  margin-left: 14px;
+  color: var(--slate-300);
+  transition: transform 0.25s ease;
 }
 
 .dropdown-section {
-    border-radius: 20px;
-    overflow: hidden;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+/* eyebrow-style label for the section — a mono, letter-spaced
+   utility voice reserved for structural/system labels only */
+.dropdown-btn span span {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .dropdown-content {
-    display: none;
-    margin-top: 8px;
-    margin-left: 10px;
-    padding: 8px 0 4px 14px;
-    border-left: 2px solid rgba(255, 255, 255, 0.18);
+  display: none;
+  margin-top: 6px;
+  margin-left: 8px;
+  padding: 6px 0 2px 16px;
+  border-left: 1.5px dashed rgba(227, 178, 126, 0.3);
 }
 
 .dropdown-content.show {
-    display: block;
+  display: block;
 }
 
 .dropdown-content a {
-    display: block;
-    margin: 8px 0;
-    padding: 12px 14px;
-    font-size: 17px;
-    font-weight: 600;
-    border-radius: 14px;
-    background: rgba(255, 255, 255, 0.05);
-    transition: background 0.25s ease, transform 0.25s ease;
+  position: relative;
+  display: block;
+  margin: 6px 0;
+  padding: 11px 14px;
+  font-size: 14.5px;
+  font-weight: 500;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  transition:
+    background 0.25s ease,
+    transform 0.25s ease;
 }
 
 .dropdown-content a:hover {
-    background: rgba(255, 255, 255, 0.11);
-    transform: translateX(4px);
+  background: rgba(255, 255, 255, 0.09);
+  transform: translateX(4px);
 }
 
 /* OVERLAY */
 .overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.38);
-    backdrop-filter: blur(2px);
-    z-index: 2500;
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(6, 15, 31, 0.5);
+  backdrop-filter: blur(2px);
+  z-index: 2500;
 }
 
 .overlay.show {
-    display: block;
+  display: block;
 }
 
 .sidebar {
-    position: fixed;
-    top: 0;
-    left: -390px;
-    width: 390px;
-    height: 100vh;
-    z-index: 3000;
+  position: fixed;
+  top: 0;
+  left: -390px;
+  width: 390px;
+  height: 100vh;
+  z-index: 3000;
 }
 
 /* RESPONSIVE */
 @media (max-width: 600px) {
-    .topbar {
-        height: 72px;
-        padding: 0 14px;
-    }
+  .topbar {
+    height: 72px;
+    padding: 0 14px;
+  }
 
-    .topbar-right {
-        gap: 8px;
-    }
+  .topbar-right {
+    gap: 8px;
+  }
 
-    .top-user-info {
-        padding: 6px 10px 6px 8px;
-        gap: 8px;
-    }
+  .top-user-info {
+    padding: 6px 10px 6px 8px;
+    gap: 8px;
+  }
 
-    .top-user-img {
-        width: 34px;
-        height: 34px;
-    }
+  .top-user-img {
+    width: 34px;
+    height: 34px;
+  }
 
-    .top-user-name {
-        font-size: 14px;
-        max-width: 95px;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
+  .top-user-name {
+    font-size: 13.5px;
+    max-width: 95px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 
-    .top-logo img {
-        width: 62px;
-    }
+  .top-logo img {
+    width: 62px;
+  }
 
-    .menu-btn {
-        width: 48px;
-        height: 48px;
-        padding: 8px 9px;
-        gap: 5px;
-        border-radius: 14px;
-    }
+  .menu-btn {
+    width: 48px;
+    height: 48px;
+    padding: 8px 9px;
+    gap: 5px;
+    border-radius: 13px;
+  }
 
-    .menu-btn span {
-        height: 4px;
-    }
+  .menu-btn span {
+    height: 3px;
+  }
 
-    .sidebar {
-        width: 300px;
-        left: -300px;
-        padding: 16px 14px 24px;
-    }
+  .sidebar {
+    width: 300px;
+    left: -300px;
+    padding: 18px 16px 24px;
+  }
 
-    .profile-img {
-        width: 135px;
-        height: 135px;
-        border: 3px solid rgba(255,255,255,0.45);
-    }
+  .profile-img {
+    width: 128px;
+    height: 128px;
+  }
 
-    .edit-profile-btn {
-        right: -8px;
-        bottom: 18px;
-        font-size: 16px;
-        padding: 8px 14px;
-    }
+  .edit-profile-btn {
+    right: -6px;
+    bottom: 16px;
+    font-size: 15px;
+    padding: 7px 13px;
+  }
 
-    .menu-item,
-    .dropdown-btn {
-        min-height: 52px;
-        font-size: 18px;
-        padding: 14px 14px;
-        border-radius: 14px;
-    }
+  .menu-item,
+  .dropdown-btn {
+    min-height: 50px;
+    font-size: 14.5px;
+    padding: 12px 14px;
+    border-radius: 11px;
+  }
 
-    .dropdown-content {
-        margin-left: 8px;
-        padding-left: 10px;
-    }
+  .dropdown-content {
+    margin-left: 6px;
+    padding-left: 12px;
+  }
 
-    .dropdown-content a {
-        font-size: 15px;
-        padding: 10px 12px;
-        border-radius: 12px;
-    }
+  .dropdown-content a {
+    font-size: 13.5px;
+    padding: 9px 12px;
+    border-radius: 10px;
+  }
 
-    .close-sidebar {
-        width: 40px;
-        height: 40px;
-        font-size: 28px;
-        border-radius: 12px;
-    }
+  .close-sidebar {
+    width: 38px;
+    height: 38px;
+    font-size: 26px;
+    border-radius: 11px;
+  }
 }
 
 .sidebar-menu .menu-item,
 .sidebar-menu .dropdown-btn,
 .dropdown-content a {
-    display: flex;
-    align-items: center;
-    gap: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .sidebar-menu .menu-item i,
 .sidebar-menu .dropdown-btn i,
 .dropdown-content a i {
-    font-size: 18px;
-    min-width: 20px;
-    text-align: center;
+  font-size: 17px;
+  min-width: 20px;
+  text-align: center;
+  color: var(--slate-300);
+  transition: color 0.25s ease;
+}
+
+.menu-item:hover i,
+.dropdown-btn:hover i,
+.menu-item.active i {
+  color: var(--copper-300);
 }
 
 .dropdown-btn {
-    width: 100%;
-    justify-content: space-between;
+  width: 100%;
+  justify-content: space-between;
 }
 
 .dropdown-btn .d-flex {
-    display: flex;
-    align-items: center;
-    gap: 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .dropdown-content a {
-    text-decoration: none;
+  text-decoration: none;
 }
 
-/* force sidebar profile text to stay readable on every page */
+/* keep sidebar text readable/on-brand across every page it's included on */
 .sidebar .profile-section,
 .sidebar .profile-section h2,
 .sidebar .profile-fullname,
 .sidebar .profile-section p,
 .sidebar .profile-section span,
 .sidebar .profile-section small {
-    color: #ffffff !important;
+  color: #ffffff !important;
 }
 
-/* keep all sidebar text/icons white across modules */
 .sidebar,
 .sidebar * {
-    color: #ffffff;
+  color: #ffffff;
 }
 
 .sidebar .menu-item.active,
 .sidebar .active-sub {
-    color: #ffe29f !important;
+  color: var(--gold-100) !important;
+}
+
+.sidebar .role-badge {
+  color: var(--gold-100) !important;
 }

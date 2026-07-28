@@ -631,92 +631,147 @@ if ($currentStatusForTab === '') {
                 <button type="button" class="close-modal-btn" id="closeProductModal" onclick="document.getElementById('productModal').classList.remove('show'); document.body.style.overflow='';">&times;</button>
             </div>
 
-            <form action="/NexGen/CODE/PHP/inventory_save.php" method="POST" enctype="multipart/form-data" class="product-form">
-                <div class="form-image-preview">
-                    <img src="/NexGen/IMAGES/default-product.png" alt="Preview" id="previewImage">
-                    <label for="product_image" class="image-upload-label">Upload Product Image</label>
-                    <input type="file" name="product_image" id="product_image" accept="image/*">
+            <div class="wizard-stepper" id="productWizardStepper">
+                <div class="step-node is-active" data-step="1">
+                    <span class="step-circle">1</span>
+                    <span class="step-label">Basic Info</span>
+                </div>
+                <div class="step-line"></div>
+                <div class="step-node" data-step="2">
+                    <span class="step-circle">2</span>
+                    <span class="step-label">Pricing</span>
+                </div>
+                <div class="step-line"></div>
+                <div class="step-node" data-step="3">
+                    <span class="step-circle">3</span>
+                    <span class="step-label">Stock</span>
+                </div>
+                <div class="step-line"></div>
+                <div class="step-node" data-step="4">
+                    <span class="step-circle">4</span>
+                    <span class="step-label">Details</span>
+                </div>
+            </div>
+
+            <form action="/NexGen/CODE/PHP/inventory_save.php" method="POST" enctype="multipart/form-data" class="product-form wizard-form" id="addProductWizardForm" novalidate>
+
+                <!-- STEP 1: BASIC INFO -->
+                <div class="wizard-step is-active" data-step="1">
+                    <div class="wizard-step-basic">
+                        <div class="form-image-preview">
+                            <img src="/NexGen/IMAGES/default-product.png" alt="Preview" id="previewImage">
+                            <label for="product_image" class="image-upload-label">Upload Product Image</label>
+                            <input type="file" name="product_image" id="product_image" accept="image/*">
+                        </div>
+
+                        <div class="form-fields">
+                            <div class="form-group">
+                                <label>Product Code</label>
+                                <input type="text" name="product_code" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Product Name</label>
+                                <input type="text" name="product_name" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Category</label>
+                                <select name="category_id" required>
+                                    <option value="">Select Category</option>
+                                    <?php foreach ($categories as $category): ?>
+                                        <option value="<?php echo $category['id']; ?>"><?php echo htmlspecialchars($category['category_name']); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Brand</label>
+                                <input type="text" name="brand">
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="form-fields">
-                    <div class="form-group">
-                        <label>Product Code</label>
-                        <input type="text" name="product_code" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Product Name</label>
-                        <input type="text" name="product_name" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Category</label>
-                        <select name="category_id" required>
-                            <option value="">Select Category</option>
-                            <?php foreach ($categories as $category): ?>
-                                <option value="<?php echo $category['id']; ?>"><?php echo htmlspecialchars($category['category_name']); ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Brand</label>
-                        <input type="text" name="brand">
-                    </div>
-
-                    <div class="form-group">
-                        <label>Unit</label>
-                        <input type="text" name="unit" placeholder="e.g. pcs, bottle, pack, kilo" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Cost Price</label>
-                        <input type="number" step="0.01" min="0" name="cost_price" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Selling Price</label>
-                        <input type="number" step="0.01" min="0" name="selling_price" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Stock Quantity</label>
-                        <input type="number" min="0" name="stock_quantity" required>
-                    </div>
-
-                    <?php if ($isOwner): ?>
-                        <div class="form-group">
-                            <label>Reorder Level</label>
-                            <input type="number" min="0" name="reorder_level" value="5" required>
+                <!-- STEP 2: PRICING -->
+                <div class="wizard-step" data-step="2">
+                    <div class="form-fields">
+                        <div class="form-group full-width">
+                            <label>Unit</label>
+                            <input type="text" name="unit" placeholder="e.g. pcs, bottle, pack, kilo" required>
                         </div>
 
                         <div class="form-group">
-                            <label>On Order Level</label>
-                            <input type="number" min="0" name="on_order_level" value="0" required>
+                            <label>Cost Price</label>
+                            <input type="number" step="0.01" min="0" name="cost_price" required>
                         </div>
-                    <?php endif; ?>
 
-                    <div class="form-group">
-                        <label>Expiry Date</label>
-                        <input type="date" name="expiry_date">
+                        <div class="form-group">
+                            <label>Selling Price</label>
+                            <input type="number" step="0.01" min="0" name="selling_price" required>
+                        </div>
                     </div>
+                </div>
 
-                    <div class="form-group">
-                        <label>Status</label>
-                        <select name="is_active" required>
-                            <option value="1">Active</option>
-                            <option value="0">Archived</option>
-                        </select>
-                    </div>
+                <!-- STEP 3: STOCK -->
+                <div class="wizard-step" data-step="3">
+                    <div class="form-fields">
+                        <div class="form-group">
+                            <label>Stock Quantity</label>
+                            <input type="number" min="0" name="stock_quantity" required>
+                        </div>
 
-                    <div class="form-group full-width">
-                        <label>Description</label>
-                        <textarea name="description" rows="4"></textarea>
-                    </div>
+                        <div class="form-group">
+                            <label>Expiry Date</label>
+                            <input type="date" name="expiry_date">
+                        </div>
 
-                    <div class="form-group form-actions full-width">
-                        <button type="submit" class="save-btn">Save Product</button>
+                        <?php if ($isOwner): ?>
+                            <div class="form-group">
+                                <label>Reorder Level</label>
+                                <input type="number" min="0" name="reorder_level" value="5" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label>On Order Level</label>
+                                <input type="number" min="0" name="on_order_level" value="0" required>
+                            </div>
+                        <?php endif; ?>
                     </div>
+                </div>
+
+                <!-- STEP 4: DETAILS -->
+                <div class="wizard-step" data-step="4">
+                    <div class="form-fields">
+                        <div class="form-group">
+                            <label>Status</label>
+                            <select name="is_active" required>
+                                <option value="1">Active</option>
+                                <option value="0">Archived</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group full-width">
+                            <label>Description</label>
+                            <textarea name="description" rows="4"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="wizard-footer">
+                    <div class="step-progress-text">Step <span id="wizardCurrentStepNum">1</span> of 4</div>
+                    <div class="step-dots" id="wizardStepDots">
+                        <span class="step-dot is-active" data-dot="1"></span>
+                        <span class="step-dot" data-dot="2"></span>
+                        <span class="step-dot" data-dot="3"></span>
+                        <span class="step-dot" data-dot="4"></span>
+                    </div>
+                </div>
+
+                <div class="wizard-nav">
+                    <button type="button" class="wizard-back-btn" id="wizardBackBtn">Back</button>
+                    <button type="button" class="save-btn wizard-next-btn is-visible" id="wizardNextBtn">Next Step &rarr;</button>
+                    <button type="submit" class="save-btn wizard-submit-btn" id="wizardSubmitBtn">Save Product</button>
                 </div>
             </form>
         </div>
@@ -730,95 +785,149 @@ if ($currentStatusForTab === '') {
                 <button type="button" class="close-modal-btn" id="closeEditProductModal" onclick="document.getElementById('editProductModal').classList.remove('show'); document.body.style.overflow='';">&times;</button>
             </div>
 
-            <form action="/NexGen/CODE/PHP/inventory_update.php" method="POST" enctype="multipart/form-data" class="product-form">
+            <div class="wizard-stepper" id="editProductWizardStepper">
+                <div class="step-node is-active" data-step="1">
+                    <span class="step-circle">1</span>
+                    <span class="step-label">Basic Info</span>
+                </div>
+                <div class="step-line"></div>
+                <div class="step-node" data-step="2">
+                    <span class="step-circle">2</span>
+                    <span class="step-label">Pricing</span>
+                </div>
+                <div class="step-line"></div>
+                <div class="step-node" data-step="3">
+                    <span class="step-circle">3</span>
+                    <span class="step-label">Stock</span>
+                </div>
+                <div class="step-line"></div>
+                <div class="step-node" data-step="4">
+                    <span class="step-circle">4</span>
+                    <span class="step-label">Details</span>
+                </div>
+            </div>
+
+            <form action="/NexGen/CODE/PHP/inventory_update.php" method="POST" enctype="multipart/form-data" class="product-form wizard-form" id="editProductWizardForm" novalidate>
                 <input type="hidden" name="id" id="edit_id">
                 <input type="hidden" name="old_image" id="edit_old_image">
 
-                <div class="form-image-preview">
-                    <img src="/NexGen/IMAGES/default-product.png" alt="Preview" id="editPreviewImage">
-                    <label for="edit_product_image" class="image-upload-label">Change Product Image</label>
-                    <input type="file" name="product_image" id="edit_product_image" accept="image/*">
+                <!-- STEP 1: BASIC INFO -->
+                <div class="wizard-step is-active" data-step="1">
+                    <div class="wizard-step-basic">
+                        <div class="form-image-preview">
+                            <img src="/NexGen/IMAGES/default-product.png" alt="Preview" id="editPreviewImage">
+                            <label for="edit_product_image" class="image-upload-label">Change Product Image</label>
+                            <input type="file" name="product_image" id="edit_product_image" accept="image/*">
+                        </div>
+
+                        <div class="form-fields">
+                            <div class="form-group">
+                                <label>Product Code</label>
+                                <input type="text" name="product_code" id="edit_product_code" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Product Name</label>
+                                <input type="text" name="product_name" id="edit_product_name" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Category</label>
+                                <select name="category_id" id="edit_category_id" required>
+                                    <option value="">Select Category</option>
+                                    <?php foreach ($categories as $category): ?>
+                                        <option value="<?php echo $category['id']; ?>"><?php echo htmlspecialchars($category['category_name']); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label>Brand</label>
+                                <input type="text" name="brand" id="edit_brand">
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="form-fields">
-                    <div class="form-group">
-                        <label>Product Code</label>
-                        <input type="text" name="product_code" id="edit_product_code" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Product Name</label>
-                        <input type="text" name="product_name" id="edit_product_name" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Category</label>
-                        <select name="category_id" id="edit_category_id" required>
-                            <option value="">Select Category</option>
-                            <?php foreach ($categories as $category): ?>
-                                <option value="<?php echo $category['id']; ?>"><?php echo htmlspecialchars($category['category_name']); ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Brand</label>
-                        <input type="text" name="brand" id="edit_brand">
-                    </div>
-
-                    <div class="form-group">
-                        <label>Unit</label>
-                        <input type="text" name="unit" id="edit_unit" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Cost Price</label>
-                        <input type="number" step="0.01" min="0" name="cost_price" id="edit_cost_price" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Selling Price</label>
-                        <input type="number" step="0.01" min="0" name="selling_price" id="edit_selling_price" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Stock Quantity</label>
-                        <input type="number" min="0" name="stock_quantity" id="edit_stock_quantity" required>
-                    </div>
-
-                    <?php if ($isOwner): ?>
-                        <div class="form-group">
-                            <label>Reorder Level</label>
-                            <input type="number" min="0" name="reorder_level" id="edit_reorder_level" required>
+                <!-- STEP 2: PRICING -->
+                <div class="wizard-step" data-step="2">
+                    <div class="form-fields">
+                        <div class="form-group full-width">
+                            <label>Unit</label>
+                            <input type="text" name="unit" id="edit_unit" required>
                         </div>
 
                         <div class="form-group">
-                            <label>On Order Level</label>
-                            <input type="number" min="0" name="on_order_level" id="edit_on_order_level" required>
+                            <label>Cost Price</label>
+                            <input type="number" step="0.01" min="0" name="cost_price" id="edit_cost_price" required>
                         </div>
-                    <?php endif; ?>
 
-                    <div class="form-group">
-                        <label>Expiry Date</label>
-                        <input type="date" name="expiry_date" id="edit_expiry_date">
+                        <div class="form-group">
+                            <label>Selling Price</label>
+                            <input type="number" step="0.01" min="0" name="selling_price" id="edit_selling_price" required>
+                        </div>
                     </div>
+                </div>
 
-                    <div class="form-group">
-                        <label>Status</label>
-                        <select name="is_active" id="edit_is_active" required>
-                            <option value="1">Active</option>
-                            <option value="0">Archived</option>
-                        </select>
-                    </div>
+                <!-- STEP 3: STOCK -->
+                <div class="wizard-step" data-step="3">
+                    <div class="form-fields">
+                        <div class="form-group">
+                            <label>Stock Quantity</label>
+                            <input type="number" min="0" name="stock_quantity" id="edit_stock_quantity" required>
+                        </div>
 
-                    <div class="form-group full-width">
-                        <label>Description</label>
-                        <textarea name="description" rows="4" id="edit_description"></textarea>
-                    </div>
+                        <div class="form-group">
+                            <label>Expiry Date</label>
+                            <input type="date" name="expiry_date" id="edit_expiry_date">
+                        </div>
 
-                    <div class="form-group form-actions full-width">
-                        <button type="submit" class="save-btn">Update Product</button>
+                        <?php if ($isOwner): ?>
+                            <div class="form-group">
+                                <label>Reorder Level</label>
+                                <input type="number" min="0" name="reorder_level" id="edit_reorder_level" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label>On Order Level</label>
+                                <input type="number" min="0" name="on_order_level" id="edit_on_order_level" required>
+                            </div>
+                        <?php endif; ?>
                     </div>
+                </div>
+
+                <!-- STEP 4: DETAILS -->
+                <div class="wizard-step" data-step="4">
+                    <div class="form-fields">
+                        <div class="form-group">
+                            <label>Status</label>
+                            <select name="is_active" id="edit_is_active" required>
+                                <option value="1">Active</option>
+                                <option value="0">Archived</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group full-width">
+                            <label>Description</label>
+                            <textarea name="description" rows="4" id="edit_description"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="wizard-footer">
+                    <div class="step-progress-text">Step <span id="editWizardCurrentStepNum">1</span> of 4</div>
+                    <div class="step-dots" id="editWizardStepDots">
+                        <span class="step-dot is-active" data-dot="1"></span>
+                        <span class="step-dot" data-dot="2"></span>
+                        <span class="step-dot" data-dot="3"></span>
+                        <span class="step-dot" data-dot="4"></span>
+                    </div>
+                </div>
+
+                <div class="wizard-nav">
+                    <button type="button" class="wizard-back-btn" id="editWizardBackBtn">Back</button>
+                    <button type="button" class="save-btn wizard-next-btn is-visible" id="editWizardNextBtn">Next Step &rarr;</button>
+                    <button type="submit" class="save-btn wizard-submit-btn" id="editWizardSubmitBtn">Update Product</button>
                 </div>
             </form>
         </div>

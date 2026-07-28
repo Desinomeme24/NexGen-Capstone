@@ -24,6 +24,8 @@ const closeCategoryModal = document.getElementById("closeCategoryModal");
 const productImageInput = document.getElementById("product_image");
 const previewImage = document.getElementById("previewImage");
 
+const WIZARD_TOTAL_STEPS = 4;
+
 const editProductImageInput = document.getElementById("edit_product_image");
 const editPreviewImage = document.getElementById("editPreviewImage");
 
@@ -84,12 +86,188 @@ function closeModal(modal) {
   document.body.style.overflow = "";
 }
 
+/* PRODUCT WIZARDS (Add + Edit share the same step markup/classes) */
+function setupProductWizard(config) {
+  const form = document.getElementById(config.formId);
+  if (!form) return null;
+
+  const stepper = document.getElementById(config.stepperId);
+  const backBtn = document.getElementById(config.backBtnId);
+  const nextBtn = document.getElementById(config.nextBtnId);
+  const submitBtn = document.getElementById(config.submitBtnId);
+  const stepNumEl = document.getElementById(config.stepNumId);
+  const dotsEl = document.getElementById(config.dotsId);
+  const totalSteps = config.totalSteps || WIZARD_TOTAL_STEPS;
+
+  let currentStep = 1;
+
+  function getStepPanel(step) {
+    return form.querySelector('.wizard-step[data-step="' + step + '"]');
+  }
+
+  function updateUI() {
+    form.querySelectorAll(".wizard-step").forEach((panel) => {
+      const step = parseInt(panel.dataset.step, 10);
+      panel.classList.toggle("is-active", step === currentStep);
+    });
+
+    if (stepper) {
+      stepper.querySelectorAll(".step-node").forEach((node) => {
+        const step = parseInt(node.dataset.step, 10);
+        node.classList.toggle("is-active", step === currentStep);
+        node.classList.toggle("is-complete", step < currentStep);
+      });
+
+      stepper.querySelectorAll(".step-line").forEach((line, index) => {
+        line.classList.toggle("is-complete", index + 1 < currentStep);
+      });
+    }
+
+    if (dotsEl) {
+      dotsEl.querySelectorAll(".step-dot").forEach((dot) => {
+        const step = parseInt(dot.dataset.dot, 10);
+        dot.classList.toggle("is-active", step === currentStep);
+        dot.classList.toggle("is-complete", step < currentStep);
+      });
+    }
+
+    if (stepNumEl) stepNumEl.textContent = currentStep;
+    if (backBtn) backBtn.classList.toggle("is-visible", currentStep > 1);
+    if (nextBtn) {
+      nextBtn.classList.toggle("is-visible", currentStep < totalSteps);
+    }
+    if (submitBtn) {
+      submitBtn.classList.toggle("is-visible", currentStep === totalSteps);
+    }
+  }
+
+  function validateStep(step) {
+    const panel = getStepPanel(step);
+    if (!panel) return true;
+
+    const fields = panel.querySelectorAll("input, select, textarea");
+    for (const field of fields) {
+      if (!field.checkValidity()) {
+        field.reportValidity();
+        return false;
+      }
+    }
+    return true;
+  }
+
+  function goToStep(step) {
+    currentStep = Math.min(Math.max(step, 1), totalSteps);
+    updateUI();
+  }
+
+  function reset() {
+    currentStep = 1;
+    updateUI();
+  }
+
+  if (nextBtn) {
+    nextBtn.addEventListener("click", () => {
+      if (!validateStep(currentStep)) return;
+      goToStep(currentStep + 1);
+    });
+  }
+
+  if (backBtn) {
+    backBtn.addEventListener("click", () => goToStep(currentStep - 1));
+  }
+
+  if (stepper) {
+    stepper.querySelectorAll(".step-node").forEach((node) => {
+      node.addEventListener("click", () => {
+        const targetStep = parseInt(node.dataset.step, 10);
+
+        if (targetStep <= currentStep) {
+          goToStep(targetStep);
+          return;
+        }
+
+        for (let step = currentStep; step < targetStep; step++) {
+          if (!validateStep(step)) return;
+        }
+
+        goToStep(targetStep);
+      });
+    });
+  }
+
+  form.addEventListener("submit", (event) => {
+    if (!validateStep(totalSteps)) {
+      event.preventDefault();
+    }
+  });
+
+  updateUI();
+
+  return { reset };
+}
+
+const addProductWizard = setupProductWizard({
+  formId: "addProductWizardForm",
+  stepperId: "productWizardStepper",
+  backBtnId: "wizardBackBtn",
+  nextBtnId: "wizardNextBtn",
+  submitBtnId: "wizardSubmitBtn",
+  stepNumId: "wizardCurrentStepNum",
+  dotsId: "wizardStepDots",
+});
+
+const editProductWizard = setupProductWizard({
+  formId: "editProductWizardForm",
+  stepperId: "editProductWizardStepper",
+  backBtnId: "editWizardBackBtn",
+  nextBtnId: "editWizardNextBtn",
+  submitBtnId: "editWizardSubmitBtn",
+  stepNumId: "editWizardCurrentStepNum",
+  dotsId: "editWizardStepDots",
+});
+
 function closeAllMenus(exceptMenu = null) {
   document.querySelectorAll("[data-action-menu].show").forEach((menu) => {
     if (menu !== exceptMenu) {
       menu.classList.remove("show");
     }
   });
+}
+
+function positionActionMenu(button, menu) {
+  const gap = 10;
+  const edgePadding = 8;
+
+  const btnRect = button.getBoundingClientRect();
+
+  // Measure the menu off-screen first so width/height are accurate
+  // before we calculate where it should sit.
+  menu.style.visibility = "hidden";
+  menu.style.display = "block";
+  const menuRect = menu.getBoundingClientRect();
+  menu.style.display = "";
+  menu.style.visibility = "";
+
+  // Preferred: centered beside the button, to its left.
+  let left = btnRect.left - menuRect.width - gap;
+  let top = btnRect.top + btnRect.height / 2 - menuRect.height / 2;
+
+  // Not enough room on the left? Open to the right instead.
+  if (left < edgePadding) {
+    left = btnRect.right + gap;
+  }
+
+  // Clamp so it never runs off either edge of the viewport.
+  const maxLeft = window.innerWidth - menuRect.width - edgePadding;
+  if (left > maxLeft) left = maxLeft;
+  if (left < edgePadding) left = edgePadding;
+
+  const maxTop = window.innerHeight - menuRect.height - edgePadding;
+  if (top > maxTop) top = maxTop;
+  if (top < edgePadding) top = edgePadding;
+
+  menu.style.top = `${top}px`;
+  menu.style.left = `${left}px`;
 }
 
 function closeFloatingTools(except = null) {
@@ -278,11 +456,24 @@ if (categoryToggle && categoryMenu) {
 
 /* OPEN / CLOSE MODALS */
 if (openProductModal) {
-  openProductModal.addEventListener("click", () => openModal(productModal));
+  openProductModal.addEventListener("click", () => {
+    if (addProductWizard) addProductWizard.reset();
+    openModal(productModal);
+  });
 }
 
 if (closeProductModal) {
-  closeProductModal.addEventListener("click", () => closeModal(productModal));
+  closeProductModal.addEventListener("click", () => {
+    closeModal(productModal);
+    if (addProductWizard) addProductWizard.reset();
+  });
+}
+
+if (closeEditProductModal) {
+  closeEditProductModal.addEventListener("click", () => {
+    closeModal(editProductModal);
+    if (editProductWizard) editProductWizard.reset();
+  });
 }
 
 if (openCategoryModal) {
@@ -291,12 +482,6 @@ if (openCategoryModal) {
 
 if (closeCategoryModal) {
   closeCategoryModal.addEventListener("click", () => closeModal(categoryModal));
-}
-
-if (closeEditProductModal) {
-  closeEditProductModal.addEventListener("click", () =>
-    closeModal(editProductModal),
-  );
 }
 
 if (closeStockModal && stockModal) {
@@ -313,6 +498,11 @@ if (closeStockModal && stockModal) {
   modal.addEventListener("click", (event) => {
     if (event.target === modal) {
       closeModal(modal);
+      if (modal === productModal && addProductWizard) {
+        addProductWizard.reset();
+      } else if (modal === editProductModal && editProductWizard) {
+        editProductWizard.reset();
+      }
     }
   });
 });
@@ -426,6 +616,7 @@ document.addEventListener("click", (event) => {
     }
 
     closeAllMenus();
+    if (editProductWizard) editProductWizard.reset();
     openModal(editProductModal);
     return;
   }
@@ -464,6 +655,7 @@ document.addEventListener("click", (event) => {
     closeAllMenus();
 
     if (!isOpen) {
+      positionActionMenu(toggleButton, menu);
       menu.classList.add("show");
     }
     return;
@@ -492,6 +684,11 @@ if (stockMovementType) {
   stockMovementType.addEventListener("change", toggleStockOrderFields);
   toggleStockOrderFields();
 }
+
+/* Close action menus on scroll/resize so a fixed-position menu
+   never ends up detached from the button that opened it. */
+window.addEventListener("scroll", () => closeAllMenus(), true);
+window.addEventListener("resize", () => closeAllMenus());
 
 initDynamicFilterControls();
 

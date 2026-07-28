@@ -645,6 +645,7 @@ if (isset($_SESSION['success'])) {
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="/NexGen/CODE/STYLE/header.css">
     <link rel="stylesheet" href="/NexGen/CODE/STYLE/sales_analytics.css">
 </head>
 <body>
@@ -659,83 +660,59 @@ if (isset($_SESSION['success'])) {
     </div>
 <?php endif; ?>
 
+<?php include 'header.php'; ?>
+
 <div class="sales-analytics-page">
-    <div class="container-fluid px-0">
-        <div class="row g-0 min-vh-100">
-
-            <aside class="col-12 col-lg-3 col-xl-2 sidebar-panel">
-                <div class="sidebar-content h-100 d-flex flex-column">
-
-                    <div class="sidebar-profile-card">
-                        <form action="/NexGen/CODE/PHP/update_profile_image.php" method="POST" enctype="multipart/form-data" class="profile-edit-form">
-                            <div class="profile-image-wrapper">
-                                <img src="/NexGen/CODE/PHP/<?php echo htmlspecialchars($profileImage); ?>" alt="Profile" class="sidebar-profile-img">
-
-                                <label for="new_profile_image" class="profile-edit-btn">
-                                    <i class="bi bi-pencil-fill"></i>
-                                </label>
-
-                                <input type="file" name="new_profile_image" id="new_profile_image" accept="image/*" hidden>
-                            </div>
-
-                            <button type="submit" class="hidden-upload-btn" id="submitProfileBtn">Upload</button>
-                        </form>
-
-                        <h2 class="sidebar-username"><?php echo htmlspecialchars($displayName); ?></h2>
-                        <p class="sidebar-fullname"><?php echo htmlspecialchars($fullName); ?></p>
-                    </div>
-
-                    <nav class="sidebar-menu">
-                        <a href="/NexGen/CODE/PHP/dashboard.php" class="menu-item">
-                            <i class="bi bi-house-door-fill"></i>
-                            <span>Home</span>
-                        </a>
-
-                        <button class="dropdown-btn notification-btn" type="button" data-bs-toggle="modal" data-bs-target="#notificationsModal">
-                            <span class="d-flex align-items-center gap-3">
-                                <i class="bi bi-bell-fill"></i>
-                                <span>Notification</span>
-                            </span>
-                            <span class="notif-badge"><?php echo $notificationCount; ?></span>
-                        </button>
-
-                        <button class="dropdown-btn appendices-btn" type="button" id="appendicesToggleBtn">
-                            <span class="d-flex align-items-center gap-3">
-                                <i class="bi bi-journal-text"></i>
-                                <span>Appendices</span>
-                            </span>
-                        </button>
-
-                        <a href="/NexGen/CODE/PHP/settings.php" class="menu-item">
-                            <i class="bi bi-gear-wide-connected"></i>
-                            <span>Settings</span>
-                        </a>
-                    </nav>
-
-                    <div class="sidebar-bottom mt-auto">
-                        <a href="/NexGen/CODE/PHP/logout.php" class="menu-item logout-item">
-                            <i class="bi bi-box-arrow-right"></i>
-                            <span>Log Out</span>
-                        </a>
-                    </div>
-                </div>
-            </aside>
-
-            <main class="col-12 col-lg-9 col-xl-10 main-panel">
-                <div class="main-content" id="analyticsCaptureArea">
+    <main class="main-panel">
+        <div class="main-content" id="analyticsCaptureArea">
 
                     <section id="dashboardSection">
                         <section class="analytics-topbar">
-                            <div class="analytics-title-wrap">
-                                <div class="analytics-title-icon">
-                                    <i class="bi bi-graph-up-arrow"></i>
-                                </div>
-                                <div>
-                                    <h1>Sales & Analytics Dashboard</h1>
+                            <div class="dashboard-toolbar">
+                                <div class="toolbar-heading">
+                                    <h1>Sales Analytics Dashboard</h1>
                                     <p>Showing data for: <strong><?php echo htmlspecialchars($rangeLabel); ?></strong></p>
                                 </div>
+
+                                <div class="toolbar-controls">
+                                    <button type="button" class="range-pill-btn" data-bs-toggle="modal" data-bs-target="#customRangeModal">
+                                        <i class="bi bi-calendar3"></i>
+                                        <span><?php echo htmlspecialchars($rangeLabel); ?></span>
+                                        <i class="bi bi-chevron-down"></i>
+                                    </button>
+
+                                    <div class="filter-segmented" role="group" aria-label="Date range filter">
+                                        <a href="?filter=today" class="segment-btn <?php echo $filter === 'today' ? 'active' : ''; ?>">Today</a>
+                                        <a href="?filter=week" class="segment-btn <?php echo $filter === 'week' ? 'active' : ''; ?>">Week</a>
+                                        <a href="?filter=month" class="segment-btn <?php echo $filter === 'month' ? 'active' : ''; ?>">Month</a>
+                                        <button type="button" class="segment-btn <?php echo $filter === 'custom' ? 'active' : ''; ?>" data-bs-toggle="modal" data-bs-target="#customRangeModal">
+                                            Custom <i class="bi bi-chevron-down"></i>
+                                        </button>
+                                    </div>
+
+                                    <div class="topbar-exports">
+                                        <button type="button" class="export-pill pdf-pill" id="exportPdfBtn">
+                                            <i class="bi bi-file-earmark-pdf-fill"></i> PDF
+                                        </button>
+                                        <button type="button" class="export-pill excel-pill" id="exportExcelBtn">
+                                            <i class="bi bi-file-earmark-excel-fill"></i> Excel
+                                        </button>
+                                    </div>
+
+                                    <div class="analytics-title-actions">
+                                        <button type="button" class="topbar-icon-btn" data-bs-toggle="modal" data-bs-target="#notificationsModal" aria-label="Notifications">
+                                            <i class="bi bi-bell-fill"></i>
+                                            <?php if ($notificationCount > 0): ?>
+                                                <span class="icon-badge"><?php echo $notificationCount; ?></span>
+                                            <?php endif; ?>
+                                        </button>
+
+                                        <button type="button" class="topbar-icon-btn" id="appendicesToggleBtn" aria-label="Key Components">
+                                            <i class="bi bi-journal-text"></i>
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
-                            <div class="analytics-divider"></div>
                         </section>
 
                         <section class="summary-section">
@@ -837,43 +814,45 @@ if (isset($_SESSION['success'])) {
                         <section class="category-products-section mt-3">
                             <div class="row g-3">
                                 <div class="col-xl-6">
-                                    <div class="analytics-card h-100">
-                                        <div class="analytics-card-title">Sales by Category</div>
+                                    <div class="analytics-card analytics-card-light h-100">
+                                        <div class="analytics-card-title light-title">Sales by Category</div>
 
                                         <div class="row g-3 align-items-center">
-                                            <div class="col-lg-6">
-                                                <div class="chart-wrap">
+                                            <div class="col-lg-5">
+                                                <div class="chart-wrap donut-wrap">
                                                     <canvas id="categoryChart"></canvas>
                                                 </div>
                                             </div>
 
-                                            <div class="col-lg-6">
+                                            <div class="col-lg-7">
                                                 <div class="mini-table-wrap">
-                                                    <div class="mini-table-title">Top 3 Categories / Units Sold</div>
-
                                                     <div class="table-responsive">
                                                         <table class="table mini-sales-table mb-0">
                                                             <thead>
                                                                 <tr>
                                                                     <th>Category</th>
-                                                                    <th class="text-center">Units</th>
-                                                                    <th class="text-end">%</th>
+                                                                    <th class="text-center">Units Sold</th>
+                                                                    <th class="text-end">Percentage</th>
                                                                 </tr>
                                                             </thead>
                                                             <tbody>
                                                             <?php
                                                             $topCategoryRows = array_slice($categoryBreakdown, 0, 3);
-                                                            foreach ($topCategoryRows as $item):
+                                                            $catDotColors = ['dot-blue', 'dot-teal', 'dot-purple'];
+                                                            foreach ($topCategoryRows as $catIndex => $item):
+                                                                $dotClass = $catDotColors[$catIndex % count($catDotColors)];
                                                             ?>
                                                                 <tr>
-                                                                    <td><?php echo htmlspecialchars($item['name']); ?></td>
+                                                                    <td><span class="cat-dot <?php echo $dotClass; ?>"></span><?php echo htmlspecialchars($item['name']); ?></td>
                                                                     <td class="text-center"><?php echo (int)$item['units_sold']; ?></td>
-                                                                    <td class="text-end"><?php echo number_format($item['percentage'], 2); ?>%</td>
+                                                                    <td class="text-end"><?php echo number_format($item['percentage'], 1); ?>%</td>
                                                                 </tr>
                                                             <?php endforeach; ?>
                                                             </tbody>
                                                         </table>
                                                     </div>
+
+                                                    <div class="table-footnote">Showing top <?php echo count($topCategoryRows); ?> categories</div>
                                                 </div>
                                             </div>
                                         </div>
@@ -881,21 +860,23 @@ if (isset($_SESSION['success'])) {
                                 </div>
 
                                 <div class="col-xl-6">
-                                    <div class="analytics-card h-100">
-                                        <div class="analytics-card-title">Top Products</div>
+                                    <div class="analytics-card analytics-card-light h-100">
+                                        <div class="analytics-card-title light-title">Top Products</div>
 
                                         <?php if (!empty($topProductsBySales)): ?>
                                             <div class="table-responsive">
                                                 <table class="table top-product-table align-middle mb-0" id="topProductsTable">
                                                     <thead>
                                                         <tr>
-                                                            <th>Name</th>
+                                                            <th class="col-rank">#</th>
+                                                            <th>Product</th>
                                                             <th class="text-end">Total Sales</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
-                                                    <?php foreach ($topProductsBySales as $product): ?>
+                                                    <?php foreach ($topProductsBySales as $rankIndex => $product): ?>
                                                         <tr>
+                                                            <td class="col-rank"><?php echo $rankIndex + 1; ?></td>
                                                             <td><?php echo htmlspecialchars($product['name']); ?></td>
                                                             <td class="text-end">₱<?php echo number_format($product['sales'], 2); ?></td>
                                                         </tr>
@@ -904,35 +885,13 @@ if (isset($_SESSION['success'])) {
                                                 </table>
                                             </div>
                                         <?php else: ?>
-                                            <div class="empty-box large-empty">
+                                            <div class="empty-box large-empty light-empty">
                                                 <div class="empty-icon"><i class="bi bi-box-seam"></i></div>
                                                 <h5>No Top Products Yet</h5>
                                                 <p>Top products will appear here after you start adding real sales in Sales Recording.</p>
                                             </div>
                                         <?php endif; ?>
                                     </div>
-                                </div>
-                            </div>
-                        </section>
-
-                        <section class="bottom-toolbar mt-4">
-                            <div class="toolbar-box">
-                                <div class="toolbar-left">
-                                    <a href="?filter=today" class="filter-btn <?php echo $filter === 'today' ? 'active' : ''; ?>">Today</a>
-                                    <a href="?filter=week" class="filter-btn <?php echo $filter === 'week' ? 'active' : ''; ?>">This Week</a>
-                                    <a href="?filter=month" class="filter-btn <?php echo $filter === 'month' ? 'active' : ''; ?>">This Month</a>
-                                    <button type="button" class="filter-btn <?php echo $filter === 'custom' ? 'active' : ''; ?>" data-bs-toggle="modal" data-bs-target="#customRangeModal">
-                                        Custom Range
-                                    </button>
-                                </div>
-
-                                <div class="toolbar-right">
-                                    <button type="button" class="export-btn pdf-btn" id="exportPdfBtn">
-                                        <i class="bi bi-file-earmark-pdf-fill"></i> Export PDF
-                                    </button>
-                                    <button type="button" class="export-btn excel-btn" id="exportExcelBtn">
-                                        <i class="bi bi-file-earmark-excel-fill"></i> Export Excel
-                                    </button>
                                 </div>
                             </div>
                         </section>
@@ -944,7 +903,7 @@ if (isset($_SESSION['success'])) {
                                 <div class="analytics-title-icon">
                                     <i class="bi bi-journal-text"></i>
                                 </div>
-                                <div>
+                                <div class="analytics-title-text">
                                     <h1>Key Components</h1>
                                     <p>Sales analytics feature guide</p>
                                 </div>
@@ -952,106 +911,129 @@ if (isset($_SESSION['success'])) {
                             <div class="analytics-divider"></div>
                         </section>
 
-                        <div class="appendices-card">
-                            <div class="appendices-header">
+                        <div class="appendices-card appendices-card-light">
+                            <div class="appendices-search">
                                 <i class="bi bi-search"></i>
-                                <span>Key Components</span>
+                                <input type="text" id="appendicesSearchInput" placeholder="Search components, e.g. &quot;Top Products&quot;">
                             </div>
 
-                            <div class="row g-4 appendices-grid">
-                                <div class="col-md-6">
-                                    <div class="appendix-item">
-                                        <h3><i class="bi bi-box-seam"></i> Sales Summary</h3>
+                            <div class="row g-3 appendices-grid" id="appendicesGrid">
+                                <div class="col-md-6 appendix-col">
+                                    <div class="appendix-item appendix-item-light accent-blue">
+                                        <div class="appendix-icon-badge"><i class="bi bi-box-seam"></i></div>
+                                        <h3>Sales Summary</h3>
+                                        <p class="appendix-desc">Your top-line numbers at a glance.</p>
                                         <ul>
-                                            <li>Net Profit</li>
-                                            <li>Gross Revenue</li>
-                                            <li>COGS</li>
-                                            <li>Total Transactions</li>
+                                            <li><i class="bi bi-check-circle-fill"></i> Net Profit</li>
+                                            <li><i class="bi bi-check-circle-fill"></i> Gross Revenue</li>
+                                            <li><i class="bi bi-check-circle-fill"></i> COGS</li>
+                                            <li><i class="bi bi-check-circle-fill"></i> Total Transactions</li>
                                         </ul>
                                     </div>
                                 </div>
 
-                                <div class="col-md-6">
-                                    <div class="appendix-item">
-                                        <h3><i class="bi bi-calendar3"></i> Time Filters</h3>
+                                <div class="col-md-6 appendix-col">
+                                    <div class="appendix-item appendix-item-light accent-teal">
+                                        <div class="appendix-icon-badge"><i class="bi bi-calendar3"></i></div>
+                                        <h3>Time Filters</h3>
+                                        <p class="appendix-desc">Narrow the dashboard to the period you need.</p>
                                         <ul>
-                                            <li>Today / This Week</li>
-                                            <li>This Month</li>
-                                            <li>Custom Date Range</li>
+                                            <li><i class="bi bi-check-circle-fill"></i> Today / This Week</li>
+                                            <li><i class="bi bi-check-circle-fill"></i> This Month</li>
+                                            <li><i class="bi bi-check-circle-fill"></i> Custom Date Range</li>
                                         </ul>
                                     </div>
                                 </div>
 
-                                <div class="col-md-6">
-                                    <div class="appendix-item">
-                                        <h3><i class="bi bi-bar-chart-line"></i> Sales Trends</h3>
+                                <div class="col-md-6 appendix-col">
+                                    <div class="appendix-item appendix-item-light accent-purple">
+                                        <div class="appendix-icon-badge"><i class="bi bi-bar-chart-line"></i></div>
+                                        <h3>Sales Trends</h3>
+                                        <p class="appendix-desc">Track performance over time and by category.</p>
                                         <ul>
-                                            <li>Daily Net Profit Chart</li>
-                                            <li>Monthly Net Profit Graph</li>
-                                            <li>Sales by Category</li>
+                                            <li><i class="bi bi-check-circle-fill"></i> Daily Net Profit Chart</li>
+                                            <li><i class="bi bi-check-circle-fill"></i> Monthly Net Profit Graph</li>
+                                            <li><i class="bi bi-check-circle-fill"></i> Sales by Category</li>
                                         </ul>
                                     </div>
                                 </div>
 
-                                <div class="col-md-6">
-                                    <div class="appendix-item">
-                                        <h3><i class="bi bi-trophy-fill"></i> Performance Analysis</h3>
+                                <div class="col-md-6 appendix-col">
+                                    <div class="appendix-item appendix-item-light accent-gold">
+                                        <div class="appendix-icon-badge"><i class="bi bi-trophy-fill"></i></div>
+                                        <h3>Performance Analysis</h3>
+                                        <p class="appendix-desc">See what's driving your results.</p>
                                         <ul>
-                                            <li>Top Selling Products</li>
-                                            <li>Category Comparison</li>
-                                            <li>Sales Distribution</li>
+                                            <li><i class="bi bi-check-circle-fill"></i> Top Selling Products</li>
+                                            <li><i class="bi bi-check-circle-fill"></i> Category Comparison</li>
+                                            <li><i class="bi bi-check-circle-fill"></i> Sales Distribution</li>
                                         </ul>
                                     </div>
                                 </div>
+                            </div>
+
+                            <div class="appendices-empty d-none" id="appendicesEmptyState">
+                                <div class="empty-icon"><i class="bi bi-search"></i></div>
+                                <h5>No matching components</h5>
+                                <p>Try a different search term.</p>
                             </div>
 
                             <div class="appendices-actions">
-                                <button type="button" class="btn btn-primary" id="backToDashboardBtn">Back to Dashboard</button>
+                                <button type="button" class="btn btn-back-dashboard" id="backToDashboardBtn">
+                                    <i class="bi bi-arrow-left"></i> Back to Dashboard
+                                </button>
                             </div>
                         </div>
                     </section>
 
-            
-                </div>
-            </main>
         </div>
-    </div>
+    </main>
 </div>
 
 <div class="modal fade" id="notificationsModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content notifications-modal-content">
             <div class="notifications-modal-header">
-                <div class="d-flex align-items-center gap-2">
-                    <i class="bi bi-bell-fill"></i>
-                    <span>Notifications</span>
+                <div class="notif-header-left">
+                    <div class="notif-header-icon"><i class="bi bi-bell-fill"></i></div>
+                    <div>
+                        <h4>Notifications</h4>
+                        <p><?php echo $notificationCount; ?> unread update<?php echo $notificationCount === 1 ? '' : 's'; ?></p>
+                    </div>
                 </div>
-                <div class="d-flex align-items-center gap-2">
-                    <span class="view-all-label">View All</span>
-                    <span class="notif-badge-modal"><?php echo $notificationCount; ?></span>
-                </div>
+                <button type="button" class="notif-mark-read" id="markAllReadBtn">
+                    <i class="bi bi-check2-all"></i> Mark all read
+                </button>
             </div>
 
             <div class="notifications-modal-body">
-                <?php foreach ($displayNotifications as $item): ?>
-                    <div class="notification-card">
-                        <div class="notification-card-icon <?php echo htmlspecialchars($item['type']); ?>">
-                            <i class="<?php echo htmlspecialchars($item['icon']); ?>"></i>
-                        </div>
-
-                        <div class="notification-card-content">
-                            <div class="notification-card-top">
-                                <h5><?php echo htmlspecialchars($item['title']); ?></h5>
-                                <span><?php echo htmlspecialchars($item['time']); ?></span>
+                <?php if (!empty($displayNotifications)): ?>
+                    <?php foreach ($displayNotifications as $item): ?>
+                        <div class="notification-card notif-<?php echo htmlspecialchars($item['type']); ?>">
+                            <div class="notification-card-icon <?php echo htmlspecialchars($item['type']); ?>">
+                                <i class="<?php echo htmlspecialchars($item['icon']); ?>"></i>
                             </div>
-                            <p><?php echo htmlspecialchars($item['message']); ?></p>
+
+                            <div class="notification-card-content">
+                                <div class="notification-card-top">
+                                    <h5><?php echo htmlspecialchars($item['title']); ?></h5>
+                                    <span class="notif-time"><?php echo htmlspecialchars($item['time']); ?></span>
+                                </div>
+                                <p><?php echo htmlspecialchars($item['message']); ?></p>
+                            </div>
                         </div>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <div class="notif-empty-state">
+                        <div class="notif-empty-icon"><i class="bi bi-bell-slash"></i></div>
+                        <h5>You're all caught up</h5>
+                        <p>New alerts about your sales activity will show up here.</p>
                     </div>
-                <?php endforeach; ?>
+                <?php endif; ?>
             </div>
 
             <div class="notifications-modal-footer">
-                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-close-notif" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
     </div>
@@ -1110,6 +1092,42 @@ window.salesAnalyticsData = {
     netSales: <?php echo json_encode($netProfit); ?>,
     totalProfit: <?php echo json_encode($netProfit); ?>
 };
+
+document.addEventListener('DOMContentLoaded', function () {
+    // Key Components live search
+    var searchInput = document.getElementById('appendicesSearchInput');
+    if (searchInput) {
+        searchInput.addEventListener('input', function () {
+            var term = this.value.trim().toLowerCase();
+            var cols = document.querySelectorAll('#appendicesGrid .appendix-col');
+            var visibleCount = 0;
+
+            cols.forEach(function (col) {
+                var text = col.textContent.toLowerCase();
+                var matches = text.indexOf(term) !== -1;
+                col.classList.toggle('d-none', !matches);
+                if (matches) visibleCount++;
+            });
+
+            var emptyState = document.getElementById('appendicesEmptyState');
+            if (emptyState) {
+                emptyState.classList.toggle('d-none', visibleCount !== 0);
+            }
+        });
+    }
+
+    // Mark all notifications as read (visual only)
+    var markAllBtn = document.getElementById('markAllReadBtn');
+    if (markAllBtn) {
+        markAllBtn.addEventListener('click', function () {
+            document.querySelectorAll('.notification-card').forEach(function (card) {
+                card.classList.add('notif-read');
+            });
+            var badge = document.querySelector('.icon-badge');
+            if (badge) badge.style.display = 'none';
+        });
+    }
+});
 </script>
 
 
@@ -1119,7 +1137,7 @@ window.salesAnalyticsData = {
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
+<script src="/NexGen/CODE/JS/header.js"></script>
 <script src="/NexGen/CODE/JS/sales_analytics.js?v=wave2026eval"></script>
-<?php include 'footer.php'; ?>
 </body>
 </html>

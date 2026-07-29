@@ -41,4 +41,5 @@ document.addEventListener("DOMContentLoaded", function () {
       popupOverlay.remove();
     }, 7000);
   }
-});
+
+  });

@@ -273,7 +273,41 @@ try {
             throw new Exception("Failed to save accounts receivable record.");
         }
 
+        $receivable_id = $conn->insert_id;
         $stmtAr->close();
+
+        // If the customer already paid something at the time of sale
+        // (Partially Paid), log that as the first payment_history entry —
+        // otherwise the receivable's payment history starts out empty
+        // even though money was actually received.
+        if ($amount_paid > 0) {
+            $initialRemarks = 'Initial payment recorded at time of sale.';
+
+            $stmtHistory = $conn->prepare("
+                INSERT INTO payment_history (
+                    receivable_id, payment_date, amount, payment_method, reference_number, remarks, received_by
+                ) VALUES (?, CURDATE(), ?, ?, NULL, ?, ?)
+            ");
+
+            if (!$stmtHistory) {
+                throw new Exception("Failed to prepare initial payment history query.");
+            }
+
+            $stmtHistory->bind_param(
+                "idssi",
+                $receivable_id,
+                $amount_paid,
+                $payment_method,
+                $initialRemarks,
+                $user_id
+            );
+
+            if (!$stmtHistory->execute()) {
+                throw new Exception("Failed to save initial payment history.");
+            }
+
+            $stmtHistory->close();
+        }
     }
 
     $conn->commit();
@@ -297,4 +331,4 @@ try {
     }
 
 } // end retry loop
-?>
+?>s

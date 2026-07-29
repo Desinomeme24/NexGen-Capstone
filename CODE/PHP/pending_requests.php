@@ -16,6 +16,21 @@ function e($str) {
     return htmlspecialchars((string)$str, ENT_QUOTES, 'UTF-8');
 }
 
+function statusIcon(string $status): string {
+    switch ($status) {
+        case 'approved':
+        case 'active':
+            return 'bi-check-circle-fill';
+        case 'rejected':
+            return 'bi-x-circle-fill';
+        case 'resubmit':
+            return 'bi-clock-fill';
+        case 'pending':
+        default:
+            return 'bi-hourglass-split';
+    }
+}
+
 $profileImage = !empty($_SESSION['profile_image']) ? $_SESSION['profile_image'] : 'uploads/default.png';
 $fullName     = $_SESSION['full_name'] ?? 'System Administrator';
 
@@ -73,10 +88,10 @@ function renderPendingRequestsTable(array $requests): void
         <table>
             <thead>
                 <tr>
-                    <th>ID</th>
+                    <th>NO.</th>
                     <th>Employee No</th>
                     <th>Full Name</th>
-                    <th>Username</th>
+                    <th>Username</th>   
                     <th>Email</th>
                     <th>Requested Role</th>
                     <th>Status</th>
@@ -100,12 +115,15 @@ function renderPendingRequestsTable(array $requests): void
                         <td data-label="Requested Role"><?php echo e(ucwords(str_replace('_', ' ', $row['requested_role']))); ?></td>
                         <td data-label="Status">
                             <span class="badge badge-<?php echo e($row['request_status']); ?>">
+                                <i class="bi <?php echo e(statusIcon($row['request_status'])); ?>"></i>
                                 <?php echo e(ucfirst($row['request_status'])); ?>
                             </span>
                         </td>
                         <td data-label="Submitted"><?php echo e(date('M d, Y h:i A', strtotime($row['created_at']))); ?></td>
                         <td data-label="Action">
-                            <a class="btn btn-silver" href="view_request.php?id=<?php echo (int)$row['id']; ?>">View</a>
+                            <a class="btn btn-silver" href="view_request.php?id=<?php echo (int)$row['id']; ?>">
+                                <i class="bi bi-eye-fill"></i> View
+                            </a>
                         </td>
                     </tr>
                 <?php endforeach; ?>
@@ -299,24 +317,40 @@ if (
         @media (max-width: 768px) {
             .filters {
                 display: flex !important;
-                flex-direction: column !important;
-                align-items: stretch !important;
+                flex-direction: row !important;
+                flex-wrap: wrap !important;
+                align-items: center !important;
                 gap: 12px;
             }
 
-            .filters .input.flex-1,
-            .filters .select.w-240,
-            .filters .btn {
-                flex: 0 0 auto !important;
+            /* Search bar always gets its own full-width row */
+            .filters .input.flex-1 {
+                flex: 1 1 100% !important;
                 width: 100% !important;
                 max-width: 100% !important;
-            }
-
-            .filters .input.flex-1,
-            .filters .select.w-240 {
                 height: 46px !important;
                 min-height: 46px !important;
                 max-height: 46px !important;
+            }
+
+            /* Status select and Reset button share the next row:
+               select flexes to fill the leftover space, Reset stays
+               only as wide as its label needs. */
+            .filters .select.w-240 {
+                flex: 1 1 auto !important;
+                width: auto !important;
+                max-width: 100% !important;
+                min-width: 0 !important;
+                height: 46px !important;
+                min-height: 46px !important;
+                max-height: 46px !important;
+            }
+
+            .filters .btn {
+                flex: 0 0 auto !important;
+                width: auto !important;
+                max-width: 100% !important;
+                white-space: nowrap;
             }
 
             .pending-requests-table-wrap {
@@ -335,7 +369,8 @@ if (
 
     <main class="admin-content">
         <div class="topbar">
-            <div class="page-title">
+            <div class="page-title" style="display: flex; align-items: center; gap: 10px;">
+                <i class="bi bi-person-workspace" style="font-size: 2rem; color: #A9A9A9; border: none;"></i>
                 <h1>Registration Requests</h1>
             </div>
         </div>

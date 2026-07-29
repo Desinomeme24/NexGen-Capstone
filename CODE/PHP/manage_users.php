@@ -18,6 +18,35 @@ if (!function_exists('e')) {
     }
 }
 
+/*
+|--------------------------------------------------------------------------
+| AVATAR INITIALS
+|--------------------------------------------------------------------------
+| Two-letter initials (first name + last name) used for the round avatar
+| badge shown next to each user's name, on both the desktop table and the
+| mobile card layout.
+*/
+if (!function_exists('getInitials')) {
+    function getInitials(string $fullName): string
+    {
+        $fullName = trim($fullName);
+        if ($fullName === '') {
+            return '?';
+        }
+
+        $parts = array_values(array_filter(preg_split('/\s+/', $fullName)));
+
+        if (count($parts) === 1) {
+            return mb_strtoupper(mb_substr($parts[0], 0, 2));
+        }
+
+        $first = mb_substr($parts[0], 0, 1);
+        $last  = mb_substr($parts[count($parts) - 1], 0, 1);
+
+        return mb_strtoupper($first . $last);
+    }
+}
+
 function moduleAccessSummary(array $user): string
 {
     $modules = [];
@@ -535,15 +564,10 @@ function renderManageUsersTable(array $users, string $search, string $roleFilter
 {
     ?>
     <div id="manageUsersContainer">
-        <form method="POST" id="bulkActionForm">
-            <input type="hidden" name="action" value="bulk_module_action">
-
-            <div class="table-wrap manage-users-table-wrap" id="manageUsersTableWrap" data-mobile-cards>
+        <div class="table-wrap manage-users-table-wrap" id="manageUsersTableWrap" data-mobile-cards>
                 <table>
                     <colgroup>
-                        <col style="width: 56px;">
-                        <col style="width: 72px;">
-                        <col style="width: 150px;">
+                        <col style="width: 190px;">
                         <col style="width: 200px;">
                         <col style="width: 160px;">
                         <col style="width: 220px;">
@@ -558,10 +582,6 @@ function renderManageUsersTable(array $users, string $search, string $roleFilter
                     </colgroup>
                     <thead>
                         <tr>
-                            <th class="select-col">
-                                <input type="checkbox" class="select-all-check" id="selectAllRows">
-                            </th>
-                            <th>ID</th>
                             <th>EMPLOYEE NO</th>
                             <th>FULL NAME</th>
                             <th>USERNAME</th>
@@ -579,7 +599,7 @@ function renderManageUsersTable(array $users, string $search, string $roleFilter
                     <tbody>
                     <?php if (empty($users)): ?>
                         <tr>
-                            <td colspan="14">No user accounts found.</td>
+                            <td colspan="12">No user accounts found.</td>
                         </tr>
                     <?php else: ?>
                         <?php foreach ($users as $user): ?>
@@ -587,16 +607,15 @@ function renderManageUsersTable(array $users, string $search, string $roleFilter
                             $isLocked = !empty($user['locked_until']) && strtotime((string)$user['locked_until']) > time();
                             ?>
                             <tr>
-                                <td class="select-col" data-label="Select">
-                                    <input
-                                        type="checkbox"
-                                        class="row-check"
-                                        name="selected_user_ids[]"
-                                        value="<?php echo (int)$user['id']; ?>"
-                                    >
+                                <td class="table-employee" data-label="Employee No">
+                                    <div class="user-name-cell">
+                                        <span class="user-avatar"><?php echo e(getInitials($user['full_name'])); ?></span>
+                                        <span class="user-identity-text">
+                                            <span class="identity-username"><?php echo e($user['username']); ?></span>
+                                            <span class="user-name-text"><?php echo e($user['employee_no']); ?></span>
+                                        </span>
+                                    </div>
                                 </td>
-                                <td class="table-id" data-label="ID"><?php echo (int)$user['id']; ?></td>
-                                <td class="table-employee" data-label="Employee No"><?php echo e($user['employee_no']); ?></td>
                                 <td data-label="Full Name"><?php echo e($user['full_name']); ?></td>
                                 <td data-label="Username"><?php echo e($user['username']); ?></td>
                                 <td class="table-email" data-label="Email"><?php echo e($user['email']); ?></td>
@@ -637,7 +656,6 @@ function renderManageUsersTable(array $users, string $search, string $roleFilter
                     </tbody>
                 </table>
             </div>
-        </form>
     </div>
     <?php
 }
@@ -659,6 +677,71 @@ if (
     <link rel="stylesheet" href="/NexGen/CODE/STYLE/admin_module.css?v=20260723">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <style>
+        /* =========================
+           PAGE TITLE ICON
+        ========================= */
+        .page-title h1 {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .page-title-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            color: #A9A9A9;
+            font-size: 30px;
+        }
+
+        @media (max-width: 700px) {
+            .page-title-icon {
+                font-size: 24px;
+            }
+        }
+
+        /* =========================
+           USER AVATAR (INITIALS)
+        ========================= */
+        .user-name-cell {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+        }
+
+        .user-avatar {
+            flex-shrink: 0;
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12.5px;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            color: #fff3c4;
+            background: #14224a;
+            border: 1.5px solid rgba(255, 255, 255, 0.22);
+        }
+
+        .user-name-text {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .user-identity-text {
+            display: contents;
+        }
+
+        .identity-username {
+            display: none;
+        }
+
         .manage-users-table-wrap {
             max-height: 470px;
             overflow-y: auto;
@@ -685,7 +768,7 @@ if (
             position: sticky;
             top: 0;
             z-index: 5;
-            background: #0f245c;
+            background: #14224a;
         }
 
         .manage-users-table-wrap::-webkit-scrollbar {
@@ -769,19 +852,6 @@ if (
             }
         }
 
-        .select-col {
-            width: 56px;
-            text-align: center;
-        }
-
-        .row-check,
-        .select-all-check {
-            width: 18px;
-            height: 18px;
-            accent-color: #f7d98b;
-            cursor: pointer;
-        }
-
         .mini-badge {
             display: inline-flex;
             align-items: center;
@@ -820,7 +890,6 @@ if (
             min-width: 90px;
         }
 
-        .table-id,
         .table-employee,
         .table-role,
         .table-status,
@@ -1289,82 +1358,144 @@ if (
                 display: none;
             }
 
-            .manage-users-table-wrap[data-mobile-cards] tbody,
-            .manage-users-table-wrap[data-mobile-cards] tr,
-            .manage-users-table-wrap[data-mobile-cards] td {
+            .manage-users-table-wrap[data-mobile-cards] tbody {
                 display: block;
                 width: 100%;
             }
 
+            /* -----------------------------------------------------------
+               Name-first user card:
+                 Row 1-2: avatar + Employee No, then Full Name (left) —
+                          Status badge / Verified badge (right)
+                 Row 3:   Role (full width)
+                 Row 4:   Edit button (full width)
+               Username, Email, Phone, Failed, Lock and Module Access are
+               hidden here — they still show normally in the desktop table.
+            ----------------------------------------------------------- */
             .manage-users-table-wrap[data-mobile-cards] tr {
+                display: grid;
+                grid-template-columns: auto 1fr;
+                grid-template-areas:
+                    "identity status"
+                    "identity verified"
+                    "role     role"
+                    "edit     edit";
+                column-gap: 12px;
+                row-gap: 6px;
+                align-items: center;
                 background: rgba(255, 255, 255, 0.06);
                 border: 1px solid rgba(255, 255, 255, 0.14);
                 border-radius: 14px;
                 margin-bottom: 12px;
-                overflow: hidden;
+                padding: 16px 16px 14px;
             }
 
             .manage-users-table-wrap[data-mobile-cards] td {
-                display: flex;
-                justify-content: space-between;
-                align-items: center;
-                gap: 14px;
-                padding: 10px 14px;
-                border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-                text-align: right;
-                font-size: 13.5px;
-            }
-
-            .manage-users-table-wrap[data-mobile-cards] td:last-child {
+                display: block;
+                padding: 0;
                 border-bottom: none;
+                background: transparent !important;
+                font-size: 13.5px;
+                text-align: left;
+                white-space: normal;
             }
 
             .manage-users-table-wrap[data-mobile-cards] td::before {
-                content: attr(data-label);
-                flex-shrink: 0;
-                margin-right: 12px;
-                font-size: 10.5px;
+                content: none;
+            }
+
+            /* Hide every column not shown on the mobile card */
+            .manage-users-table-wrap[data-mobile-cards] td[data-label="Full Name"],
+            .manage-users-table-wrap[data-mobile-cards] td[data-label="Username"],
+            .manage-users-table-wrap[data-mobile-cards] td[data-label="Email"],
+            .manage-users-table-wrap[data-mobile-cards] td[data-label="Phone"],
+            .manage-users-table-wrap[data-mobile-cards] td[data-label="Failed"],
+            .manage-users-table-wrap[data-mobile-cards] td[data-label="Lock"],
+            .manage-users-table-wrap[data-mobile-cards] td[data-label="Module Access"] {
+                display: none;
+            }
+
+            .manage-users-table-wrap[data-mobile-cards] td[data-label="Employee No"] {
+                grid-area: identity;
+            }
+
+            .manage-users-table-wrap[data-mobile-cards] td[data-label="Employee No"] .user-name-cell {
+                align-items: center;
+            }
+
+            .manage-users-table-wrap[data-mobile-cards] td[data-label="Employee No"] .user-avatar {
+                width: 40px;
+                height: 40px;
+                font-size: 14px;
+            }
+
+            /* Username becomes the bold headline, Employee No sits under it */
+            .manage-users-table-wrap[data-mobile-cards] td[data-label="Employee No"] .user-identity-text {
+                display: flex;
+                flex-direction: column;
+                gap: 2px;
+                min-width: 0;
+            }
+
+            .manage-users-table-wrap[data-mobile-cards] td[data-label="Employee No"] .identity-username {
+                display: block;
+                font-size: 17px;
                 font-weight: 700;
-                text-transform: uppercase;
-                letter-spacing: 0.3px;
-                color: #ffe6a1;
-                text-align: left;
+                color: #fff;
+                white-space: normal;
+                overflow: visible;
+                text-overflow: unset;
+            }
+
+            .manage-users-table-wrap[data-mobile-cards] td[data-label="Employee No"] .user-name-text {
+                font-size: 12.5px;
+                font-weight: 600;
+                letter-spacing: 0.2px;
+                color: #cddaf7;
+                white-space: normal;
+                overflow: visible;
+                text-overflow: unset;
+            }
+
+            .manage-users-table-wrap[data-mobile-cards] td[data-label="Status"] {
+                grid-area: status;
+                justify-self: end;
+            }
+
+            .manage-users-table-wrap[data-mobile-cards] td[data-label="Status"] .badge {
+                font-size: 11.5px;
+                padding: 5px 12px;
+            }
+
+            .manage-users-table-wrap[data-mobile-cards] td[data-label="Role"] {
+                grid-area: role;
+                margin-top: 8px;
+                padding-top: 12px;
+                border-top: 1px solid rgba(255, 255, 255, 0.1);
+                font-size: 13.5px;
+                color: #eef3ff;
+            }
+
+            .manage-users-table-wrap[data-mobile-cards] td[data-label="Verified"] {
+                grid-area: verified;
+                justify-self: end;
+            }
+
+            .manage-users-table-wrap[data-mobile-cards] td[data-label="Verified"] .mini-badge {
+                min-width: 0;
+                padding: 5px 10px;
+                font-size: 10.5px;
             }
 
             .manage-users-table-wrap[data-mobile-cards] td[data-label="Action"] {
-                justify-content: center;
-                padding: 12px 14px;
-                background: rgba(255, 255, 255, 0.04);
-            }
-
-            .manage-users-table-wrap[data-mobile-cards] td[data-label="Action"]::before {
-                display: none;
+                grid-area: edit;
+                margin-top: 8px;
+                padding-top: 12px;
+                border-top: 1px solid rgba(255, 255, 255, 0.1);
             }
 
             .manage-users-table-wrap[data-mobile-cards] td[data-label="Action"] .btn {
                 width: 100%;
-            }
-
-            .manage-users-table-wrap[data-mobile-cards] td[data-label="Select"] {
-                justify-content: center;
-                padding: 10px 14px;
-                background: rgba(255, 255, 255, 0.04);
-            }
-
-            .manage-users-table-wrap[data-mobile-cards] td[data-label="Select"]::before {
-                display: none;
-            }
-
-            .manage-users-table-wrap[data-mobile-cards] td[data-label="Select"] input {
-                width: 20px;
-                height: 20px;
-            }
-
-            .manage-users-table-wrap[data-mobile-cards] td[data-label="Full Name"] {
-                font-size: 15px;
-                font-weight: 700;
-                color: #ffe6a1;
-                background: rgba(255, 255, 255, 0.05);
             }
         }
     </style>
@@ -1387,7 +1518,7 @@ if (
     <main class="admin-content">
         <div class="topbar">
             <div class="page-title">
-                <h1>Manage Users</h1>
+                <h1><span class="page-title-icon"><i class="bi bi-people-fill"></i></span>Manage Users</h1>
             </div>
         </div>
 
@@ -1425,17 +1556,6 @@ if (
                             </option>
                         <?php endforeach; ?>
                     </select>
-
-                    <select class="select" id="bulkActionSelect" form="bulkActionForm" name="bulk_action">
-                        <option value="">Actions</option>
-                        <option value="grant_access">Grant Access</option>
-                        <option value="revoke_access">Revoke Access</option>
-                    </select>
-
-                    <div class="toolbar-buttons">
-                        <button class="btn btn-gold" type="button" id="applyFiltersBtn">Apply</button>
-                        <a class="btn btn-silver" href="manage_users.php">Reset</a>
-                    </div>
                 </form>
 
                 <?php renderManageUsersTable($users, $search, $roleFilter, $statusFilter); ?>
@@ -1757,53 +1877,6 @@ function closeCustomAlert() {
 }
 
 function rebindTableArea() {
-    const selectAll = document.getElementById('selectAllRows');
-    const bulkActionForm = document.getElementById('bulkActionForm');
-    const bulkActionSelect = document.getElementById('bulkActionSelect');
-
-    if (selectAll) {
-        selectAll.addEventListener('change', function() {
-            document.querySelectorAll('.row-check').forEach(function(cb) {
-                cb.checked = selectAll.checked;
-            });
-        });
-    }
-
-    if (bulkActionForm) {
-        bulkActionForm.addEventListener('submit', function(e) {
-            const selected = Array.from(document.querySelectorAll('.row-check:checked'));
-            const actionValue = bulkActionSelect ? bulkActionSelect.value : '';
-
-            if (!selected.length) {
-                e.preventDefault();
-                showCustomAlert('Please select at least one user first.');
-                return;
-            }
-
-            if (!actionValue) {
-                e.preventDefault();
-                showCustomAlert('Please choose a bulk action first.');
-                return;
-            }
-
-            if (bulkActionForm.dataset.confirmed === '1') {
-                bulkActionForm.dataset.confirmed = '0';
-                return true;
-            }
-
-            e.preventDefault();
-
-            const label = actionValue === 'grant_access' ? 'grant default access to' : 'revoke module access from';
-            showCustomConfirm(
-                'Are you sure you want to ' + label + ' the selected users?',
-                function() {
-                    bulkActionForm.dataset.confirmed = '1';
-                    bulkActionForm.submit();
-                }
-            );
-        });
-    }
-
     document.querySelectorAll('.unlock-user-form').forEach(function(form) {
         form.addEventListener('submit', function(e) {
             if (form.dataset.confirmed === '1') {
@@ -1890,28 +1963,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 e.preventDefault();
                 updateUsers();
             }
-        });
-    }
-
-    const applyFiltersBtn = document.getElementById('applyFiltersBtn');
-    if (applyFiltersBtn) {
-        applyFiltersBtn.addEventListener('click', function() {
-            const bulkSelect = document.getElementById('bulkActionSelect');
-            const bulkForm = document.getElementById('bulkActionForm');
-
-            // Only route to the bulk-action form when the user has actually
-            // picked a bulk action; otherwise Apply just runs the search/filter,
-            // no row selection required.
-            if (bulkSelect && bulkSelect.value && bulkForm) {
-                if (bulkForm.requestSubmit) {
-                    bulkForm.requestSubmit();
-                } else {
-                    bulkForm.submit();
-                }
-                return;
-            }
-
-            updateUsers();
         });
     }
 

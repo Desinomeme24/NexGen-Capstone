@@ -502,13 +502,20 @@ body {
    BADGES
 ========================= */
 .badge {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   padding: 4px 10px;
   border-radius: 999px;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.2px;
   white-space: nowrap;
+}
+
+.badge i {
+  font-size: 11px;
+  line-height: 1;
 }
 
 .badge-pending {
@@ -1116,60 +1123,109 @@ a.link-white {
     display: none;
   }
 
-  .table-wrap[data-mobile-cards] tbody,
-  .table-wrap[data-mobile-cards] tr,
-  .table-wrap[data-mobile-cards] td {
+  .table-wrap[data-mobile-cards] tbody {
     display: block;
     width: 100%;
   }
 
+  /* -----------------------------------------------------------
+     Name-first request card (matches mobile reference design):
+       Row 1: Full Name (left)         Status badge (right)
+       Row 2: Employee No
+       Row 3: Requested Role (left)    Submitted date (right)
+       Row 4: View button (full width)
+     Internal numeric ID, Username, and Email are hidden here —
+     they still show normally in the desktop table.
+  ----------------------------------------------------------- */
   .table-wrap[data-mobile-cards] tr {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "name   status"
+      "empno  empno"
+      "role   date"
+      "action action";
+    column-gap: 12px;
+    row-gap: 6px;
     background: rgba(255, 255, 255, 0.06);
     border: 1px solid rgba(255, 255, 255, 0.14);
     border-radius: 14px;
     margin-bottom: 12px;
-    overflow: hidden;
+    padding: 16px 16px 14px;
   }
 
-  .table-wrap[data-mobile-cards] tbody tr:nth-child(even) td {
-    background: transparent;
+  .table-wrap[data-mobile-cards] tbody tr:nth-child(even) {
+    background: rgba(255, 255, 255, 0.06);
   }
 
   .table-wrap[data-mobile-cards] td {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 14px;
-    padding: 10px 14px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    text-align: right;
+    display: block;
+    padding: 0;
+    border-bottom: none;
+    background: transparent !important;
     font-size: 13.5px;
   }
 
-  .table-wrap[data-mobile-cards] td:last-child {
-    border-bottom: none;
+  .table-wrap[data-mobile-cards] td::before {
+    content: none;
   }
 
-  .table-wrap[data-mobile-cards] td::before {
-    content: attr(data-label);
-    flex-shrink: 0;
-    margin-right: 12px;
-    font-size: 10.5px;
+  /* Hide columns not shown on the reference mobile card */
+  .table-wrap[data-mobile-cards] td[data-label="ID"],
+  .table-wrap[data-mobile-cards] td[data-label="Username"],
+  .table-wrap[data-mobile-cards] td[data-label="Email"] {
+    display: none;
+  }
+
+  .table-wrap[data-mobile-cards] td[data-label="Full Name"] {
+    grid-area: name;
+    align-self: center;
+    font-size: 17px;
     font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-    color: #ffe6a1;
+    color: #fff;
+  }
+
+  .table-wrap[data-mobile-cards] td[data-label="Status"] {
+    grid-area: status;
+    align-self: center;
+    justify-self: end;
+  }
+
+  .table-wrap[data-mobile-cards] td[data-label="Status"] .badge {
+    font-size: 11.5px;
+    padding: 5px 12px;
+  }
+
+  .table-wrap[data-mobile-cards] td[data-label="Employee No"] {
+    grid-area: empno;
+    font-size: 13px;
+    color: #cddaf7;
+    letter-spacing: 0.2px;
+  }
+
+  .table-wrap[data-mobile-cards] td[data-label="Requested Role"] {
+    grid-area: role;
+    align-self: end;
     text-align: left;
+    font-size: 13.5px;
+    color: #eef3ff;
+  }
+
+  .table-wrap[data-mobile-cards] td[data-label="Submitted"] {
+    grid-area: date;
+    align-self: end;
+    justify-self: end;
+    text-align: right;
+    font-size: 12.5px;
+    color: #cddaf7;
+    white-space: nowrap;
   }
 
   .table-wrap[data-mobile-cards] td[data-label="Action"] {
-    justify-content: center;
-    padding: 12px 14px;
-    background: rgba(255, 255, 255, 0.04);
-  }
-
-  .table-wrap[data-mobile-cards] td[data-label="Action"]::before {
-    display: none;
+    grid-area: action;
+    margin-top: 8px;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
   }
 
   .table-wrap[data-mobile-cards] td[data-label="Action"] .btn {
@@ -1177,25 +1233,14 @@ a.link-white {
   }
 
   .table-wrap[data-mobile-cards] td[data-label="Select"] {
-    justify-content: center;
-    padding: 10px 14px;
-    background: rgba(255, 255, 255, 0.04);
-  }
-
-  .table-wrap[data-mobile-cards] td[data-label="Select"]::before {
-    display: none;
+    grid-area: action;
+    justify-self: center;
+    padding-top: 10px;
   }
 
   .table-wrap[data-mobile-cards] td[data-label="Select"] input {
     width: 20px;
     height: 20px;
-  }
-
-  .table-wrap[data-mobile-cards] td[data-label="Full Name"] {
-    font-size: 15px;
-    font-weight: 700;
-    color: #ffe6a1;
-    background: rgba(255, 255, 255, 0.05);
   }
 }
 

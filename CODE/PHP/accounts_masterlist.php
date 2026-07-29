@@ -43,6 +43,25 @@ function hasColumn(mysqli $conn, string $table, string $column): bool
     return $exists;
 }
 
+function initialsFromName(string $name): string
+{
+    $parts = preg_split('/\s+/', trim($name));
+    $parts = array_filter($parts);
+
+    if (empty($parts)) {
+        return '?';
+    }
+
+    if (count($parts) === 1) {
+        return strtoupper(mb_substr($parts[0], 0, 2));
+    }
+
+    $first = mb_substr(reset($parts), 0, 1);
+    $last  = mb_substr(end($parts), 0, 1);
+
+    return strtoupper($first . $last);
+}
+
 function statusBadgeClass(string $status): string
 {
     return match (strtolower($status)) {
@@ -178,6 +197,36 @@ function renderAccountsTable(array $accounts): void
             </tbody>
         </table>
     </div>
+
+    <div class="accounts-cards-wrap" id="accountsCardsWrap">
+        <?php if (empty($accounts)): ?>
+            <div class="account-card-empty">No account records found.</div>
+        <?php else: ?>
+            <?php foreach ($accounts as $i => $acc): ?>
+                <div class="account-card">
+                    <div class="account-card-index"><?php echo e(str_pad((string)($i + 1), 2, '0', STR_PAD_LEFT)); ?></div>
+                    <div class="account-card-avatar"><?php echo e(initialsFromName((string)$acc['full_name'])); ?></div>
+                    <div class="account-card-body">
+                        <div class="account-card-top">
+                            <span class="account-card-name"><?php echo e($acc['full_name']); ?></span>
+                            <span class="position-pill"><?php echo e($acc['position']); ?></span>
+                        </div>
+                        <div class="account-card-meta-row">
+                            <span class="account-card-phone">
+                                <i class="bi bi-telephone-fill"></i>
+                                <?php echo e($acc['phone']); ?>
+                            </span>
+                        </div>
+                        <div class="account-card-bottom-row">
+                            <span class="<?php echo e(statusBadgeClass((string)$acc['visibility_status'])); ?>">
+                                <?php echo e(ucfirst((string)$acc['visibility_status'])); ?>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        <?php endif; ?>
+    </div>
     <?php
 }
 
@@ -291,11 +340,137 @@ if (
             padding-top: 20px !important;
         }
 
-        @media (max-width: 992px) {
+        @media (max-width: 768px) {
+            #accountsFilterForm {
+                display: flex !important;
+                flex-direction: column !important;
+                align-items: flex-start !important;
+                gap: 12px !important;
+            }
+
             #accountsSearchInput {
-                flex: 1 1 100% !important;
+                flex: 0 0 auto !important;
                 width: 100% !important;
                 max-width: 100% !important;
+            }
+
+            #accountsFilterForm .btn {
+                display: inline-flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                gap: 8px !important;
+                flex: 0 0 auto !important;
+                width: auto !important;
+                min-width: 0 !important;
+                max-width: none !important;
+            }
+        }
+
+        /* Mobile card list */
+        .accounts-cards-wrap {
+            display: none;
+        }
+
+        .account-card-empty {
+            padding: 18px;
+            text-align: center;
+            opacity: 0.7;
+        }
+
+        .account-card {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 16px 18px;
+            margin-bottom: 12px;
+            border-radius: 16px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .account-card-index {
+            flex: 0 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            font-weight: 700;
+            opacity: 0.55;
+            align-self: center;
+        }
+
+        .account-card-avatar {
+            flex: 0 0 auto;
+            width: 46px;
+            height: 46px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #2e4fa3;
+            color: #ffffff;
+            font-weight: 800;
+            font-size: 15px;
+            align-self: center;
+        }
+
+        .account-card-body {
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+
+        .account-card-top {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .account-card-name {
+            font-weight: 800;
+            font-size: 15px;
+            line-height: 1.3;
+        }
+
+        .position-pill {
+            flex: 0 0 auto;
+            padding: 5px 12px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 700;
+            white-space: nowrap;
+            background: rgba(91, 141, 239, 0.14);
+            color: #8fb4ff;
+            border: 1px solid rgba(143, 180, 255, 0.4);
+        }
+
+        .account-card-meta-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 6px;
+            font-size: 13px;
+            opacity: 0.75;
+        }
+
+        .account-card-phone {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+
+        .account-card-bottom-row {
+            margin-top: 10px;
+        }
+
+        @media (max-width: 768px) {
+            .accounts-table-wrap {
+                display: none;
+            }
+
+            .accounts-cards-wrap {
+                display: block;
             }
         }
     </style>
@@ -307,7 +482,7 @@ if (
     <main class="admin-content">
         <div class="topbar">
             <div class="page-title">
-                <h1>Accounts Masterlist</h1>
+                <h1><i class="bi bi-person-lines-fill" style="margin-right: 10px;"></i>Accounts Masterlist</h1>
             </div>
             
         </div>
@@ -333,7 +508,7 @@ if (
                     value="<?php echo e($search); ?>"
                     autocomplete="off"
                 >
-                <a class="btn btn-silver" href="accounts_masterlist.php">Reset</a>
+                <a class="btn btn-silver" href="accounts_masterlist.php"><i class="bi bi-arrow-repeat"></i> Reset</a>
             </form>
 
             <div id="accountsContainer">

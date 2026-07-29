@@ -420,6 +420,49 @@ if (
                 grid-template-columns: 1fr;
             }
         }
+
+        /* Keep search bar + action dropdown on the same row, at all widths.
+           admin_module.css has a @media (max-width: 992px) rule that sets
+           .filters { flex-direction: column }. CSS cascades per-property,
+           so without an explicit flex-direction override here, that rule
+           wins on smaller screens even though width/flex are overridden
+           below. flex-direction is set explicitly (with !important) so it
+           beats that breakpoint regardless of source order. */
+        .filters {
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            align-items: center !important;
+            gap: 8px;
+        }
+
+        .filters .input.flex-1 {
+            flex: 1 1 auto !important;
+            width: auto !important;
+            min-width: 0;
+        }
+
+        .filters .select.w-240 {
+            flex: 0 0 auto !important;
+            width: 120px !important;
+        }
+
+        .filters .btn {
+            flex: 0 0 auto !important;
+            width: auto !important;
+            padding-left: 10px !important;
+            padding-right: 10px !important;
+        }
+
+        @media (min-width: 640px) {
+            .filters {
+                gap: 12px;
+            }
+
+            .filters .select.w-240 {
+                width: 200px;
+            }
+        }
     </style>
 </head>
 <body>

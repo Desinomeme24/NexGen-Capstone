@@ -421,6 +421,16 @@ if (
             }
         }
 
+        .page-title h1 {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .page-title h1 i.bi-pc-display-horizontal {
+            font-size: 0.8em;
+        }
+
         /* Keep search bar + action dropdown on the same row, at all widths.
            admin_module.css has a @media (max-width: 992px) rule that sets
            .filters { flex-direction: column }. CSS cascades per-property,
@@ -483,7 +493,7 @@ if (
     <main class="admin-content">
         <div class="topbar">
             <div class="page-title">
-                <h1>Admin Logs</h1>
+                <h1><i class="bi bi-pc-display-horizontal"></i> Admin Logs</h1>
             </div>
             
         </div>

@@ -370,7 +370,7 @@ if (
     <main class="admin-content">
         <div class="topbar">
             <div class="page-title" style="display: flex; align-items: center; gap: 10px;">
-                <i class="bi bi-person-workspace" style="font-size: 2rem; color: #A9A9A9; border: none;"></i>
+                <i class="bi bi-person-workspace" style="font-size: 2rem; color: #0f4c81; border: none;"></i>
                 <h1>Registration Requests</h1>
             </div>
         </div>

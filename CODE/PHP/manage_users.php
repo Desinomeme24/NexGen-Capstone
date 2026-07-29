@@ -691,7 +691,7 @@ if (
             align-items: center;
             justify-content: center;
             flex-shrink: 0;
-            color: #A9A9A9;
+            color: #0f4c81;
             font-size: 30px;
         }
 

@@ -48,6 +48,9 @@ if (isset($_GET['action']) && $_GET['action'] === 'ask') {
     error_reporting(E_ALL);
     mysqli_report(MYSQLI_REPORT_OFF);
     header('Content-Type: application/json; charset=utf-8');
+    // Allow enough time for an Ollama cold start (model load can take 20-30s)
+    // without PHP's own execution-time limit killing the request first.
+    set_time_limit(65);
 
     register_shutdown_function(function () {
         $error = error_get_last();
@@ -83,6 +86,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'ask') {
     function cb_reply_json($reply, $context = null) {
         if ($context !== null && is_array($context)) {
             $_SESSION['nx_chatbot_context'] = array_merge($context, [
+                'last_question' => $GLOBALS['question'] ?? null,
+                'last_reply' => mb_substr((string)$reply, 0, 800, 'UTF-8'),
                 'saved_at' => time()
             ]);
         }
@@ -621,6 +626,103 @@ if (isset($_GET['action']) && $_GET['action'] === 'ask') {
         return ["{$year}-01-01 00:00:00", "{$year}-12-31 23:59:59", "Year {$year}"];
     }
 
+    /**
+     * Maps a month name/abbreviation (any case) to its numeric value 1-12.
+     * Returns null if it isn't a recognized month token.
+     */
+    function cb_month_name_to_num($name) {
+        static $map = [
+            'jan' => 1, 'january' => 1,
+            'feb' => 2, 'february' => 2,
+            'mar' => 3, 'march' => 3,
+            'apr' => 4, 'april' => 4,
+            'may' => 5,
+            'jun' => 6, 'june' => 6,
+            'jul' => 7, 'july' => 7,
+            'aug' => 8, 'august' => 8,
+            'sep' => 9, 'sept' => 9, 'september' => 9,
+            'oct' => 10, 'october' => 10,
+            'nov' => 11, 'november' => 11,
+            'dec' => 12, 'december' => 12,
+        ];
+        $key = strtolower(trim($name));
+        return $map[$key] ?? null;
+    }
+
+    /**
+     * Builds a date range for a single named month + year, e.g. April 2026.
+     */
+    function cb_date_range_specific_month($year, $month) {
+        $year = (int)$year;
+        $month = (int)$month;
+        if ($year < 2000 || $year > 2100) return null;
+        if ($month < 1 || $month > 12) return null;
+
+        $start = new DateTime();
+        $start->setDate($year, $month, 1)->setTime(0, 0, 0);
+        $end = clone $start;
+        $end->modify('last day of this month')->setTime(23, 59, 59);
+
+        return [$start->format('Y-m-d 00:00:00'), $end->format('Y-m-d 23:59:59'), $start->format('F Y')];
+    }
+
+    /**
+     * Detects a bare or qualified month name in the question, e.g.
+     * "last April", "sales for March 2025", "April sales", "this June".
+     *
+     * Year resolution when no explicit year is given:
+     *   - "next <month>"          -> the upcoming occurrence
+     *   - "this <month>"          -> current calendar year
+     *   - bare month / "last X"   -> the most recently completed occurrence
+     *                                (current year if the month has already
+     *                                started this year, otherwise last year)
+     *
+     * "May" is ambiguous with the modal verb ("I may..."), so it's only
+     * treated as a month when paired with a qualifier word or an explicit
+     * year, to avoid false positives.
+     */
+    function cb_try_month_range($text) {
+        // Use cb_normalize (not cb_prepare_intent_text) so the Tagalog
+        // slang pass doesn't rewrite the month name "May" into "have"
+        // before we get a chance to detect it.
+        $normalized = cb_normalize($text);
+        $monthPattern = 'jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t|tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?';
+
+        if (!preg_match('/\b(?:(last|this|next|in|during|for|of)\s+)?(' . $monthPattern . ')\b(?:\s+(\d{4}))?/i', $normalized, $m)) {
+            return null;
+        }
+
+        $qualifier = strtolower($m[1] ?? '');
+        $monthWord = strtolower($m[2]);
+        $explicitYear = $m[3] ?? null;
+
+        $month = cb_month_name_to_num($monthWord);
+        if (!$month) return null;
+
+        // Avoid false positives on the modal verb "may".
+        if ($monthWord === 'may' && $qualifier === '' && !$explicitYear) {
+            return null;
+        }
+
+        if ($explicitYear) {
+            $year = (int)$explicitYear;
+        } else {
+            $currentYear = (int)date('Y');
+            $currentMonth = (int)date('n');
+
+            if ($qualifier === 'next') {
+                $year = $month < $currentMonth ? $currentYear + 1 : $currentYear;
+            } elseif ($qualifier === 'this') {
+                $year = $currentYear;
+            } else {
+                // bare month name or "last <month>"
+                $year = $month <= $currentMonth ? $currentYear : $currentYear - 1;
+            }
+        }
+
+        return cb_date_range_specific_month($year, $month);
+    }
+
     function cb_try_year_range($text) {
         $normalized = cb_prepare_intent_text($text);
 
@@ -657,6 +759,9 @@ if (isset($_GET['action']) && $_GET['action'] === 'ask') {
 
     function cb_detect_date_range($text) {
         $normalized = cb_prepare_intent_text($text);
+
+        $specificMonth = cb_try_month_range($text);
+        if ($specificMonth) return $specificMonth;
 
         $specificYear = cb_try_year_range($text);
         if ($specificYear) return $specificYear;
@@ -1035,17 +1140,25 @@ if (isset($_GET['action']) && $_GET['action'] === 'ask') {
         return implode("\n", $lines);
     }
 
-    function cb_rag_answer($conn, $question, array $perms) {
+    function cb_rag_answer($conn, $question, array $perms, $lastContext = null) {
         $context = cb_build_rag_context($conn, $question, $perms);
         if (trim($context) === '') return null;
 
         $systemPrompt = "You are the NexGen Assistant, a helpful assistant for a Philippine retail inventory and sales system. "
-            . "Answer the user's question using ONLY the DATA below — never invent numbers. "
+            . "Answer the user's question using ONLY the DATA (and PREVIOUS EXCHANGE, if given) below — never invent numbers. "
             . "Currency is Philippine peso (₱). Keep the answer short: 2-4 sentences or a short bullet list. "
+            . "If the user's question refers back to something ('it', 'that', 'explain it', 'why'), use the PREVIOUS EXCHANGE to figure out what they mean. "
             . "If the DATA does not contain enough information to answer, say so honestly and suggest what to ask instead. "
             . "Do not mention that you are an AI model or mention Ollama/Llama.";
 
-        $prompt = "DATA:\n{$context}\n\nQUESTION: {$question}\n\nANSWER:";
+        $prompt = "DATA:\n{$context}\n";
+
+        if (is_array($lastContext) && !empty($lastContext['last_reply'])) {
+            $prevQuestion = $lastContext['last_question'] ?? '(not recorded)';
+            $prompt .= "\nPREVIOUS EXCHANGE:\nUser previously asked: {$prevQuestion}\nYou previously replied: {$lastContext['last_reply']}\n";
+        }
+
+        $prompt .= "\nQUESTION: {$question}\n\nANSWER:";
 
         return ollama_generate($prompt, [
             'system' => $systemPrompt,
@@ -1958,7 +2071,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'ask') {
         'inventory' => (bool)$GLOBALS['chatbotCanInventory'],
         'sales_analytics' => (bool)$GLOBALS['chatbotCanSalesAnalytics'],
         'accounts_receivable' => (bool)$GLOBALS['chatbotCanAccountsReceivable'],
-    ]);
+    ], $lastContext);
     if ($ragReply !== null && trim($ragReply) !== '') {
         cb_reply_json($ragReply, ['topic' => 'rag_fallback']);
     }

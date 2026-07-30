@@ -19,9 +19,11 @@ if (!defined('OLLAMA_MODEL')) {
     define('OLLAMA_MODEL', 'llama3.2:3b');
 }
 if (!defined('OLLAMA_TIMEOUT')) {
-    // Keep this short-ish so the AJAX chat request doesn't hang the UI if
-    // Ollama is slow or unreachable. 3B is fast, so 25s is generous.
-    define('OLLAMA_TIMEOUT', 25);
+    // 3B generation itself is fast (~1-2s), but the FIRST request after
+    // Ollama has been idle has to load the model into RAM first, which can
+    // take 20-30s depending on the machine. 60s covers a cold start; once
+    // the model is warm, replies come back in a couple of seconds.
+    define('OLLAMA_TIMEOUT', 60);
 }
 
 /**

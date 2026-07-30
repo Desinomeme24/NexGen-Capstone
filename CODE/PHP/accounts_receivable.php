@@ -20,9 +20,11 @@ $role = $_SESSION['role'];
 
 $search = trim($_GET['search'] ?? '');
 $statusFilter = trim($_GET['status'] ?? '');
+$dueDateFilter = trim($_GET['due_date'] ?? '');
 $isAjax = isset($_GET['ajax']) && $_GET['ajax'] === '1';
 
 $allowedStatuses = ['Unpaid', 'Partially Paid', 'Paid', 'Overdue'];
+$allowedDueDateFilters = ['overdue', 'this_week', 'this_month', 'next_30'];
 
 /*
 |--------------------------------------------------------------------------
@@ -99,6 +101,23 @@ if ($statusFilter !== '' && in_array($statusFilter, $allowedStatuses, true)) {
     $types .= "s";
 }
 
+if ($dueDateFilter !== '' && in_array($dueDateFilter, $allowedDueDateFilters, true)) {
+    switch ($dueDateFilter) {
+        case 'overdue':
+            $sql .= " AND x.due_date IS NOT NULL AND x.due_date <> '' AND x.due_date < CURDATE() AND x.balance_due > 0 ";
+            break;
+        case 'this_week':
+            $sql .= " AND x.due_date IS NOT NULL AND x.due_date <> '' AND x.due_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY) ";
+            break;
+        case 'this_month':
+            $sql .= " AND x.due_date IS NOT NULL AND x.due_date <> '' AND x.due_date BETWEEN CURDATE() AND LAST_DAY(CURDATE()) ";
+            break;
+        case 'next_30':
+            $sql .= " AND x.due_date IS NOT NULL AND x.due_date <> '' AND x.due_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 DAY) ";
+            break;
+    }
+}
+
 $sql .= "
     ORDER BY
         CASE x.live_status
@@ -172,6 +191,75 @@ if ($summaryQuery) {
     $summary = $summaryQuery->fetch_assoc();
 }
 
+$recentPayments = [];
+$recentPaymentsQuery = $conn->query("
+    SELECT
+        ar.amount_paid,
+        ar.updated_at,
+        c.customer_name
+    FROM accounts_receivable ar
+    INNER JOIN customers c ON ar.customer_id = c.id
+    WHERE ar.amount_paid > 0
+    ORDER BY ar.updated_at DESC
+    LIMIT 5
+");
+if ($recentPaymentsQuery) {
+    while ($paymentRow = $recentPaymentsQuery->fetch_assoc()) {
+        $recentPayments[] = $paymentRow;
+    }
+}
+
+/*
+|--------------------------------------------------------------------------
+| AGING REPORT
+| Buckets outstanding balance_due by how many days past due_date.
+| "Current" = not yet due (or no due date) but still has a balance.
+|--------------------------------------------------------------------------
+*/
+$aging = [
+    'current_amt' => 0,
+    'd1_30'       => 0,
+    'd31_60'      => 0,
+    'd61_90'      => 0,
+    'd90_plus'    => 0,
+];
+
+$agingQuery = $conn->query("
+    SELECT
+        SUM(CASE
+            WHEN balance_due > 0
+             AND (due_date IS NULL OR due_date = '' OR due_date >= CURDATE())
+            THEN balance_due ELSE 0
+        END) AS current_amt,
+        SUM(CASE
+            WHEN balance_due > 0 AND due_date IS NOT NULL AND due_date <> '' AND due_date < CURDATE()
+             AND DATEDIFF(CURDATE(), due_date) BETWEEN 1 AND 30
+            THEN balance_due ELSE 0
+        END) AS d1_30,
+        SUM(CASE
+            WHEN balance_due > 0 AND due_date IS NOT NULL AND due_date <> '' AND due_date < CURDATE()
+             AND DATEDIFF(CURDATE(), due_date) BETWEEN 31 AND 60
+            THEN balance_due ELSE 0
+        END) AS d31_60,
+        SUM(CASE
+            WHEN balance_due > 0 AND due_date IS NOT NULL AND due_date <> '' AND due_date < CURDATE()
+             AND DATEDIFF(CURDATE(), due_date) BETWEEN 61 AND 90
+            THEN balance_due ELSE 0
+        END) AS d61_90,
+        SUM(CASE
+            WHEN balance_due > 0 AND due_date IS NOT NULL AND due_date <> '' AND due_date < CURDATE()
+             AND DATEDIFF(CURDATE(), due_date) > 90
+            THEN balance_due ELSE 0
+        END) AS d90_plus
+    FROM accounts_receivable
+");
+if ($agingQuery) {
+    $agingRow = $agingQuery->fetch_assoc();
+    foreach ($aging as $key => $val) {
+        $aging[$key] = (float)($agingRow[$key] ?? 0);
+    }
+}
+
 $popupMessage = $_SESSION['success'] ?? $_SESSION['error'] ?? "";
 $popupType = isset($_SESSION['success']) ? "success" : (isset($_SESSION['error']) ? "error" : "");
 unset($_SESSION['success'], $_SESSION['error']);
@@ -186,31 +274,31 @@ function arBadge($status) {
     };
 }
 
-function renderReceivableDynamicArea(array $summary, array $rows): void
+function renderReceivableDynamicArea(array $summary, array $rows, array $recentPayments = [], array $aging = []): void
 {
     ?>
     <section class="receivable-summary">
-        <div class="summary-card">
+        <div class="summary-card grad-1">
             <span class="summary-label">Total Receivables</span>
             <strong class="summary-value"><?php echo (int)($summary['total_receivables'] ?? 0); ?></strong>
         </div>
 
-        <div class="summary-card">
-            <span class="summary-label">Total Balance Due</span>
+        <div class="summary-card grad-2">
+            <span class="summary-label">Outstanding Balance</span>
             <strong class="summary-value">₱<?php echo number_format((float)($summary['total_balance_due'] ?? 0), 2); ?></strong>
         </div>
 
-        <div class="summary-card">
+        <div class="summary-card grad-4">
             <span class="summary-label">Overdue</span>
             <strong class="summary-value"><?php echo (int)($summary['overdue_count'] ?? 0); ?></strong>
         </div>
 
-        <div class="summary-card">
+        <div class="summary-card grad-3">
             <span class="summary-label">Unpaid</span>
             <strong class="summary-value"><?php echo (int)($summary['unpaid_count'] ?? 0); ?></strong>
         </div>
 
-        <div class="summary-card">
+        <div class="summary-card grad-5">
             <span class="summary-label">Partially Paid</span>
             <strong class="summary-value"><?php echo (int)($summary['partial_count'] ?? 0); ?></strong>
         </div>
@@ -226,7 +314,7 @@ function renderReceivableDynamicArea(array $summary, array $rows): void
                         <th>Total Amount</th>
                         <th>Amount Paid</th>
                         <th>Balance Due</th>
-                        <th>Due Date</th>
+                        <th class="due-date-col">Due Date</th>
                         <th>Status</th>
                         <th>Action</th>
                     </tr>
@@ -234,23 +322,52 @@ function renderReceivableDynamicArea(array $summary, array $rows): void
                 <tbody>
                 <?php if (!empty($rows)): ?>
                     <?php foreach ($rows as $row): ?>
-                        <?php $liveStatus = $row['live_status'] ?? $row['status'] ?? 'Unpaid'; ?>
+                        <?php
+                            $liveStatus = $row['live_status'] ?? $row['status'] ?? 'Unpaid';
+                            $rowId = (int)($row['id'] ?? 0);
+                            $totalAmount = number_format((float)($row['total_amount'] ?? 0), 2);
+                            $amountPaid = number_format((float)($row['amount_paid'] ?? 0), 2);
+                            $balanceDue = number_format((float)($row['balance_due'] ?? 0), 2);
+                            $dueDateDisplay = !empty($row['due_date']) ? htmlspecialchars($row['due_date']) : 'N/A';
+                            $invoiceDateDisplay = !empty($row['created_at']) ? htmlspecialchars(date('M d, Y', strtotime($row['created_at']))) : 'N/A';
+                        ?>
                         <tr>
-                            <td><?php echo htmlspecialchars($row['sales_no'] ?? ''); ?></td>
-                            <td><?php echo htmlspecialchars($row['customer_name'] ?? ''); ?></td>
-                            <td>₱<?php echo number_format((float)($row['total_amount'] ?? 0), 2); ?></td>
-                            <td>₱<?php echo number_format((float)($row['amount_paid'] ?? 0), 2); ?></td>
-                            <td>₱<?php echo number_format((float)($row['balance_due'] ?? 0), 2); ?></td>
-                            <td><?php echo !empty($row['due_date']) ? htmlspecialchars($row['due_date']) : 'N/A'; ?></td>
-                            <td>
+                            <td data-label="Sales No."><?php echo htmlspecialchars($row['sales_no'] ?? ''); ?></td>
+                            <td data-label="Customer"><?php echo htmlspecialchars($row['customer_name'] ?? ''); ?></td>
+                            <td data-label="Total Amount">₱<?php echo $totalAmount; ?></td>
+                            <td data-label="Amount Paid">₱<?php echo $amountPaid; ?></td>
+                            <td data-label="Balance Due">₱<?php echo $balanceDue; ?></td>
+                            <td data-label="Due Date" class="due-date-col"><?php echo $dueDateDisplay; ?></td>
+                            <td data-label="Status">
                                 <span class="<?php echo arBadge($liveStatus); ?>">
                                     <?php echo htmlspecialchars($liveStatus); ?>
                                 </span>
                             </td>
-                            <td>
-                                <a href="/NexGen/CODE/PHP/receivable_payment.php?id=<?php echo (int)($row['id'] ?? 0); ?>" class="action-btn">
-                                    Update Payment
-                                </a>
+                            <td data-label="Action" class="action-td">
+                                <div class="action-cell">
+                                    <button
+                                        type="button"
+                                        class="icon-btn view"
+                                        data-id="<?php echo $rowId; ?>"
+                                        data-sales-no="<?php echo htmlspecialchars($row['sales_no'] ?? ''); ?>"
+                                        data-customer="<?php echo htmlspecialchars($row['customer_name'] ?? ''); ?>"
+                                        data-invoice-date="<?php echo $invoiceDateDisplay; ?>"
+                                        data-due-date="<?php echo $dueDateDisplay; ?>"
+                                        data-total="₱<?php echo $totalAmount; ?>"
+                                        data-paid="₱<?php echo $amountPaid; ?>"
+                                        data-balance="₱<?php echo $balanceDue; ?>"
+                                        data-status="<?php echo htmlspecialchars($liveStatus); ?>"
+                                    ><i class="bi bi-eye"></i> View</button>
+                                    <?php if (strcasecmp($liveStatus, 'Paid') === 0): ?>
+                                        <span class="icon-btn pay disabled" aria-disabled="true" title="This receivable is fully paid">
+                                            <i class="bi bi-check2-circle"></i> Paid
+                                        </span>
+                                    <?php else: ?>
+                                        <a href="/NexGen/CODE/PHP/receivable_payment.php?id=<?php echo $rowId; ?>" class="icon-btn pay">
+                                            <i class="bi bi-cash-coin"></i> Update Payment
+                                        </a>
+                                    <?php endif; ?>
+                                </div>
                             </td>
                         </tr>
                     <?php endforeach; ?>
@@ -263,11 +380,130 @@ function renderReceivableDynamicArea(array $summary, array $rows): void
             </table>
         </div>
     </section>
+
+    <section class="receivable-bottom-grid">
+        <div class="aging-card">
+            <?php
+                $agingBuckets = [
+                    ['label' => 'Current',    'key' => 'current_amt', 'color' => '#22c55e'],
+                    ['label' => '1-30 Days',  'key' => 'd1_30',       'color' => '#facc15'],
+                    ['label' => '31-60 Days', 'key' => 'd31_60',      'color' => '#fb923c'],
+                    ['label' => '61-90 Days', 'key' => 'd61_90',      'color' => '#ef4444'],
+                    ['label' => '90+ Days',   'key' => 'd90_plus',    'color' => '#1f2937'],
+                ];
+
+                $agingTotal = 0;
+                foreach ($agingBuckets as $b) {
+                    $agingTotal += (float)($aging[$b['key']] ?? 0);
+                }
+
+                $gradientStops = [];
+                $cursor = 0;
+                foreach ($agingBuckets as $b) {
+                    $amt = (float)($aging[$b['key']] ?? 0);
+                    $pct = $agingTotal > 0 ? ($amt / $agingTotal * 100) : 0;
+                    $start = $cursor;
+                    $end = $cursor + $pct;
+                    $gradientStops[] = "{$b['color']} " . number_format($start, 3) . "% " . number_format($end, 3) . "%";
+                    $cursor = $end;
+                }
+                $donutCss = $agingTotal > 0
+                    ? implode(', ', $gradientStops)
+                    : 'rgba(255,255,255,0.08) 0% 100%';
+            ?>
+
+            <div class="aging-card-header">
+                <h2>Aging Report</h2>
+                <div class="aging-total-pill">
+                    <span class="aging-total-label">Total Outstanding</span>
+                    <span class="aging-total-value">₱<?php echo number_format($agingTotal, 2); ?></span>
+                </div>
+            </div>
+
+            <div class="aging-body">
+                <div class="aging-donut-wrap">
+                    <div class="aging-donut" style="background: conic-gradient(<?php echo $donutCss; ?>);">
+                        <div class="aging-donut-hole"></div>
+                    </div>
+                </div>
+
+                <div class="aging-legend">
+                    <?php foreach ($agingBuckets as $b): ?>
+                        <?php
+                            $amt = (float)($aging[$b['key']] ?? 0);
+                            $pct = $agingTotal > 0 ? ($amt / $agingTotal * 100) : 0;
+                        ?>
+                        <div class="aging-legend-item">
+                            <span class="aging-dot" style="background:<?php echo $b['color']; ?>;"></span>
+                            <span class="aging-legend-label"><?php echo $b['label']; ?></span>
+                            <span class="aging-legend-amount">₱<?php echo number_format($amt, 2); ?></span>
+                            <span class="aging-legend-pct">(<?php echo number_format($pct, 0); ?>%)</span>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+        </div>
+
+        <div class="recent-payments-card">
+            <div class="aging-card-header">
+                <h2>Recent Payments</h2>
+                <?php if (!empty($recentPayments)): ?>
+                    <?php
+                        $recentPaymentsSum = 0;
+                        foreach ($recentPayments as $p) {
+                            $recentPaymentsSum += (float)($p['amount_paid'] ?? 0);
+                        }
+                    ?>
+                    <div class="aging-total-pill">
+                        <span class="aging-total-label">Last <?php echo count($recentPayments); ?> Payments</span>
+                        <span class="aging-total-value">₱<?php echo number_format($recentPaymentsSum, 2); ?></span>
+                    </div>
+                <?php endif; ?>
+            </div>
+            <div class="recent-payments-list">
+                <?php if (!empty($recentPayments)): ?>
+                    <?php
+                        $avatarPalettes = [
+                            ['#3b82f6', '#0033ff'],
+                            ['#ffdd55', '#f6cb08'],
+                            ['#7dd3fc', '#0ea5e9'],
+                            ['#a5b4fc', '#3b82f6'],
+                            ['#fbbf24', '#f59e0b'],
+                        ];
+                    ?>
+                    <?php foreach ($recentPayments as $i => $payment): ?>
+                        <?php
+                            $customerName = trim($payment['customer_name'] ?? '');
+                            $nameParts = preg_split('/\s+/', $customerName);
+                            $initials = '';
+                            if (!empty($nameParts[0])) { $initials .= mb_substr($nameParts[0], 0, 1); }
+                            if (!empty($nameParts[1])) { $initials .= mb_substr($nameParts[1], 0, 1); }
+                            $initials = mb_strtoupper($initials ?: '?');
+                            $palette = $avatarPalettes[$i % count($avatarPalettes)];
+                        ?>
+                        <div class="recent-payment-item">
+                            <div class="recent-payment-avatar" style="background: linear-gradient(135deg, <?php echo $palette[0]; ?> 0%, <?php echo $palette[1]; ?> 100%);">
+                                <?php echo htmlspecialchars($initials); ?>
+                                <span class="recent-payment-check">✔</span>
+                            </div>
+                            <div class="recent-payment-mid">
+                                <span class="recent-payment-customer"><?php echo htmlspecialchars($customerName); ?></span>
+                                <span class="recent-payment-date"><?php echo !empty($payment['updated_at']) ? htmlspecialchars(date('M d, Y', strtotime($payment['updated_at']))) : 'N/A'; ?></span>
+                            </div>
+                            <span class="recent-payment-amount">₱<?php echo number_format((float)($payment['amount_paid'] ?? 0), 2); ?></span>
+                        </div>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <p class="empty-state">No recent payments yet.</p>
+                <?php endif; ?>
+            </div>
+        </div>
+    </section>
     <?php
 }
 
 if ($isAjax) {
-    renderReceivableDynamicArea($summary, $rows);
+    renderReceivableDynamicArea($summary, $rows, $recentPayments, $aging);
     exit;
 }
 
@@ -280,7 +516,7 @@ $overdueCount = (int)($summary['overdue_count'] ?? 0);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Accounts Receivable - NexGen</title>
     <link rel="stylesheet" href="/NexGen/CODE/STYLE/header.css?v=2">
-    <link rel="stylesheet" href="/NexGen/CODE/STYLE/accounts_receivable.css?v=4">
+    <link rel="stylesheet" href="/NexGen/CODE/STYLE/accounts_receivable.css?v=8">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <style>
         .overdue-alert-wrap {
@@ -295,13 +531,15 @@ $overdueCount = (int)($summary['overdue_count'] ?? 0);
             display: flex;
             align-items: flex-start;
             gap: 14px;
-            background: linear-gradient(135deg, #fff4d6, #ffe4a8);
-            color: #6b3f00;
-            border: 1px solid rgba(210, 146, 0, 0.35);
-            border-left: 6px solid #d48b00;
+            background: linear-gradient(135deg, rgba(9, 22, 82, 0.96), rgba(4, 8, 38, 0.96));
+            color: #eef5ff;
+            border: 1px solid rgba(246, 203, 8, 0.4);
+            border-left: 6px solid #f6cb08;
             border-radius: 18px;
             padding: 16px 18px;
-            box-shadow: 0 18px 40px rgba(0, 0, 0, 0.18);
+            box-shadow: 0 18px 40px rgba(0, 0, 0, 0.45);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
             opacity: 0;
             transform: translateY(-12px);
             transition: opacity 0.3s ease, transform 0.3s ease;
@@ -317,7 +555,8 @@ $overdueCount = (int)($summary['overdue_count'] ?? 0);
             width: 42px;
             height: 42px;
             border-radius: 12px;
-            background: rgba(212, 139, 0, 0.12);
+            background: rgba(246, 203, 8, 0.16);
+            color: #ffdd55;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -328,23 +567,33 @@ $overdueCount = (int)($summary['overdue_count'] ?? 0);
             margin: 0 0 4px;
             font-size: 16px;
             font-weight: 800;
+            color: #ffdd55;
         }
 
         .overdue-alert-content p {
             margin: 0;
             font-size: 14px;
             line-height: 1.45;
+            color: #b9d4f5;
+        }
+
+        .overdue-alert-content strong {
+            color: #ffffff;
         }
 
         .overdue-alert-close {
             margin-left: auto;
             border: none;
             background: transparent;
-            color: #6b3f00;
+            color: #b9d4f5;
             font-size: 18px;
             cursor: pointer;
             line-height: 1;
             padding: 2px;
+        }
+
+        .overdue-alert-close:hover {
+            color: #ffdd55;
         }
 
         @media (max-width: 640px) {
@@ -353,6 +602,465 @@ $overdueCount = (int)($summary['overdue_count'] ?? 0);
                 right: 12px;
                 left: 12px;
                 width: auto;
+            }
+        }
+
+        .icon-btn.pay.disabled {
+            background: rgba(255, 255, 255, 0.12) !important;
+            color: rgba(255, 255, 255, 0.5) !important;
+            cursor: not-allowed;
+            pointer-events: none;
+            box-shadow: none !important;
+        }
+
+        /* ---------------- View Modal ---------------- */
+        .ar-modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(8, 21, 47, 0.72);
+            z-index: 999;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .ar-modal-overlay.show {
+            display: flex;
+        }
+
+        .ar-modal {
+            width: 100%;
+            max-width: 640px;
+            max-height: 88vh;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            background: linear-gradient(180deg, #0e1f47, #16305f);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            border-radius: 20px;
+            padding: 28px;
+            position: relative;
+            color: #fff;
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+        }
+
+        .ar-modal-titlebar {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 20px;
+            padding-bottom: 18px;
+            padding-right: 54px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        .ar-modal-eyebrow {
+            display: block;
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: rgba(255, 255, 255, 0.55);
+            margin-bottom: 4px;
+        }
+
+        .ar-modal-titlebar h2 {
+            margin: 0;
+            font-size: 1.3rem;
+            padding-right: 0;
+        }
+
+        .ar-modal-status-badge {
+            flex-shrink: 0;
+            padding: 7px 16px;
+            border-radius: 999px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            white-space: nowrap;
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .ar-modal-status-badge.status-paid {
+            background: rgba(45, 201, 138, 0.2);
+            color: #4ee2a6;
+        }
+
+        .ar-modal-status-badge.status-partially-paid {
+            background: rgba(250, 204, 21, 0.2);
+            color: #facc15;
+        }
+
+        .ar-modal-status-badge.status-unpaid {
+            background: rgba(148, 163, 184, 0.25);
+            color: #cbd5e1;
+        }
+
+        .ar-modal-status-badge.status-overdue {
+            background: rgba(240, 104, 95, 0.22);
+            color: #f5847c;
+        }
+
+        .ar-modal-section-last {
+            margin-bottom: 4px;
+        }
+
+        .ar-modal h3 {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .ar-modal h2 {
+            margin: 0 0 18px;
+            font-size: 1.35rem;
+        }
+
+        .ar-modal h3 {
+            margin: 0 0 12px;
+            font-size: 1.05rem;
+        }
+
+        .ar-modal-close {
+            position: absolute;
+            top: 16px;
+            right: 16px;
+            width: 44px;
+            height: 44px;
+            border: none;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            font-size: 1.3rem;
+            line-height: 1;
+            cursor: pointer;
+        }
+
+        .ar-modal-close:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .ar-modal-section {
+            margin-bottom: 22px;
+        }
+
+        .ar-modal-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 14px;
+        }
+
+        .ar-modal-label {
+            display: block;
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: rgba(255, 255, 255, 0.6);
+            margin-bottom: 4px;
+        }
+
+        .ar-modal-value {
+            display: block;
+            font-size: 1rem;
+            font-weight: 600;
+            word-break: break-word;
+        }
+
+        .ar-modal-summary-cards {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+
+        .ar-modal-summary-card {
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 14px;
+            padding: 14px;
+            border-left: 3px solid transparent;
+        }
+
+        .ar-modal-summary-card.is-total {
+            border-left-color: rgba(255, 255, 255, 0.35);
+        }
+
+        .ar-modal-summary-card.is-paid {
+            border-left-color: #4ee2a6;
+        }
+
+        .ar-modal-summary-card.is-balance {
+            border-left-color: #facc15;
+        }
+
+        .ar-modal-summary-card strong {
+            display: block;
+            font-size: 1.15rem;
+            margin-top: 6px;
+        }
+
+        .ar-modal-table-wrap {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        .ar-modal-table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 480px;
+        }
+
+        .ar-modal-table th,
+        .ar-modal-table td {
+            padding: 10px 14px;
+            text-align: left;
+            font-size: 0.9rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            white-space: nowrap;
+        }
+
+        .ar-modal-table th {
+            background: rgba(255, 255, 255, 0.06);
+            font-size: 0.78rem;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+
+        .ar-modal-loading {
+            text-align: center;
+            color: rgba(255, 255, 255, 0.65);
+            white-space: normal;
+            padding: 22px 14px !important;
+        }
+
+        /* ---------------- Other Transactions (same customer) ---------------- */
+        .ar-modal-customer-tag {
+            font-size: 0.78rem;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .ar-modal-other-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-height: 260px;
+            overflow-y: auto;
+            padding: 2px 4px 2px 2px;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        .ar-modal-other-list::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .ar-modal-other-list::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.18);
+            border-radius: 999px;
+        }
+
+        .ar-modal-other-list::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .ar-modal-other-list p.ar-modal-loading {
+            padding: 16px 4px;
+        }
+
+        .ar-modal-other-row {
+            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            width: 100%;
+            overflow: hidden;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.09) 0%, rgba(255, 255, 255, 0.03) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 14px;
+            padding: 12px 14px 12px 16px;
+            color: #fff;
+            font-family: inherit;
+            text-align: left;
+            cursor: pointer;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+            transition: background 0.22s ease, border-color 0.22s ease, transform 0.22s ease, box-shadow 0.22s ease;
+        }
+
+        .ar-modal-other-row::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 0;
+            bottom: 0;
+            width: 4px;
+            background: rgba(255, 255, 255, 0.3);
+            opacity: 0.9;
+        }
+
+        .ar-modal-other-row.accent-paid::before {
+            background: linear-gradient(180deg, #4ee2a6, #059669);
+        }
+
+        .ar-modal-other-row.accent-partially-paid::before {
+            background: linear-gradient(180deg, #ffe27a, #f6cb08);
+        }
+
+        .ar-modal-other-row.accent-unpaid::before {
+            background: linear-gradient(180deg, #cbd5e1, #7d93ad);
+        }
+
+        .ar-modal-other-row.accent-overdue::before {
+            background: linear-gradient(180deg, #ff9d94, #f5847c);
+        }
+
+        .ar-modal-other-row:hover,
+        .ar-modal-other-row:focus-visible {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.05) 100%);
+            border-color: rgba(255, 255, 255, 0.26);
+            transform: translateY(-2px);
+            box-shadow: 0 10px 22px rgba(0, 0, 0, 0.28);
+        }
+
+        .ar-modal-other-row:hover .ar-modal-other-chevron,
+        .ar-modal-other-row:focus-visible .ar-modal-other-chevron {
+            transform: translateX(2px);
+            opacity: 0.9;
+        }
+
+        .ar-modal-other-icon {
+            flex-shrink: 0;
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            background: rgba(255, 255, 255, 0.08);
+            color: rgba(255, 255, 255, 0.75);
+        }
+
+        .ar-modal-other-row.accent-paid .ar-modal-other-icon {
+            background: rgba(78, 226, 166, 0.16);
+            color: #4ee2a6;
+        }
+
+        .ar-modal-other-row.accent-partially-paid .ar-modal-other-icon {
+            background: rgba(246, 203, 8, 0.16);
+            color: #facc15;
+        }
+
+        .ar-modal-other-row.accent-unpaid .ar-modal-other-icon {
+            background: rgba(203, 213, 225, 0.14);
+            color: #cbd5e1;
+        }
+
+        .ar-modal-other-row.accent-overdue .ar-modal-other-icon {
+            background: rgba(245, 132, 124, 0.16);
+            color: #f5847c;
+        }
+
+        .ar-modal-other-main {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 0;
+            flex: 1;
+        }
+
+        .ar-modal-other-sales {
+            font-size: 0.9rem;
+            font-weight: 700;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .ar-modal-other-date {
+            font-size: 0.74rem;
+            color: rgba(255, 255, 255, 0.55);
+        }
+
+        .ar-modal-other-side {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 5px;
+            flex-shrink: 0;
+        }
+
+        .ar-modal-other-amount {
+            font-size: 0.92rem;
+            font-weight: 800;
+            font-family: 'Poppins', 'Inter', sans-serif;
+        }
+
+        .ar-modal-status-badge-sm {
+            padding: 3px 10px;
+            font-size: 0.64rem;
+        }
+
+        .ar-modal-other-chevron {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: rgba(255, 255, 255, 0.35);
+            font-size: 0.9rem;
+            opacity: 0.6;
+            transition: transform 0.22s ease, opacity 0.22s ease;
+        }
+
+        @media (max-width: 600px) {
+            .ar-modal {
+                padding: 20px 16px;
+                border-radius: 16px;
+                max-height: 92vh;
+            }
+
+            .ar-modal-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .ar-modal-summary-cards {
+                grid-template-columns: 1fr;
+            }
+
+            .ar-modal-titlebar {
+                flex-direction: column;
+                gap: 10px;
+                padding-right: 54px;
+            }
+
+            .ar-modal h2 {
+                font-size: 1.1rem;
+            }
+
+            .ar-modal-other-list {
+                max-height: 200px;
+            }
+
+            .ar-modal-other-row {
+                padding: 10px 10px 10px 14px;
+                gap: 10px;
+            }
+
+            .ar-modal-other-icon {
+                width: 30px;
+                height: 30px;
+                font-size: 0.86rem;
+                border-radius: 9px;
+            }
+
+            .ar-modal-other-sales {
+                font-size: 0.84rem;
+            }
+
+            .ar-modal-other-amount {
+                font-size: 0.82rem;
+            }
+
+            .ar-modal-other-chevron {
+                display: none;
             }
         }
     </style>
@@ -394,17 +1102,9 @@ $overdueCount = (int)($summary['overdue_count'] ?? 0);
 <div class="receivable-page">
     <div class="receivable-shell">
 
-        <div class="receivable-breadcrumb">
-            <a href="/NexGen/CODE/PHP/dashboard.php">
-                <i class="bi bi-arrow-left"></i>
-                <span>Back to Dashboard</span>
-            </a>
-        </div>
-
         <section class="receivable-hero">
             <div class="receivable-hero-text">
                 <h1>Accounts Receivable</h1>
-                <p>Monitor unpaid, partial, and overdue customer balances.</p>
             </div>
         </section>
 
@@ -433,9 +1133,74 @@ $overdueCount = (int)($summary['overdue_count'] ?? 0);
         </section>
 
         <div id="receivableDynamicArea">
-            <?php renderReceivableDynamicArea($summary, $rows); ?>
+            <?php renderReceivableDynamicArea($summary, $rows, $recentPayments, $aging); ?>
         </div>
 
+    </div>
+</div>
+
+<div class="ar-modal-overlay" id="arViewModalOverlay">
+    <div class="ar-modal" role="dialog" aria-modal="true" aria-labelledby="arViewModalTitle">
+        <button type="button" class="ar-modal-close" id="arViewModalClose" aria-label="Close">&times;</button>
+
+        <div class="ar-modal-titlebar">
+            <div>
+                <span class="ar-modal-eyebrow">Sales No.</span>
+                <h2 id="arViewModalTitle"><span id="arModalSalesNo">-</span></h2>
+            </div>
+            <span class="ar-modal-status-badge" id="arModalStatus">-</span>
+        </div>
+
+        <div class="ar-modal-section">
+            <div class="ar-modal-grid">
+                <div><span class="ar-modal-label">Customer</span><span class="ar-modal-value" id="arModalCustomer">-</span></div>
+                <div><span class="ar-modal-label">Invoice Date</span><span class="ar-modal-value" id="arModalInvoiceDate">-</span></div>
+                <div><span class="ar-modal-label">Due Date</span><span class="ar-modal-value" id="arModalDueDate">-</span></div>
+            </div>
+        </div>
+
+        <div class="ar-modal-section">
+            <div class="ar-modal-summary-cards">
+                <div class="ar-modal-summary-card is-total">
+                    <span class="ar-modal-label">Total Amount</span>
+                    <strong id="arModalTotal">-</strong>
+                </div>
+                <div class="ar-modal-summary-card is-paid">
+                    <span class="ar-modal-label">Amount Paid</span>
+                    <strong id="arModalPaid">-</strong>
+                </div>
+                <div class="ar-modal-summary-card is-balance">
+                    <span class="ar-modal-label">Remaining Balance</span>
+                    <strong id="arModalBalance">-</strong>
+                </div>
+            </div>
+        </div>
+
+        <div class="ar-modal-section">
+            <h3><i class="bi bi-clock-history"></i> Payment History</h3>
+            <div class="ar-modal-table-wrap">
+                <table class="ar-modal-table" id="arModalPaymentTable">
+                    <thead>
+                        <tr>
+                            <th>Payment Date</th>
+                            <th>Amount</th>
+                            <th>Method</th>
+                            <th>Reference No.</th>
+                        </tr>
+                    </thead>
+                    <tbody id="arModalPaymentBody">
+                        <tr><td colspan="4" class="ar-modal-loading">Loading payment history...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="ar-modal-section ar-modal-section-last">
+            <h3><i class="bi bi-people"></i> Other Transactions <span class="ar-modal-customer-tag" id="arModalOtherCustomerTag"></span></h3>
+            <div class="ar-modal-other-list" id="arModalOtherList">
+                <p class="ar-modal-loading">Loading...</p>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -596,6 +1361,171 @@ document.addEventListener('DOMContentLoaded', function () {
             loadReceivables(true);
         });
     }
+
+    /* ---------------- View modal ---------------- */
+    const arModalOverlay = document.getElementById('arViewModalOverlay');
+    const arModalClose = document.getElementById('arViewModalClose');
+    const arModalPaymentBody = document.getElementById('arModalPaymentBody');
+    const arModalOtherList = document.getElementById('arModalOtherList');
+    const arModalOtherCustomerTag = document.getElementById('arModalOtherCustomerTag');
+
+    function escapeHtml(str) {
+        return String(str == null ? '' : str).replace(/[&<>"']/g, function (ch) {
+            return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch];
+        });
+    }
+
+    function statusClass(statusText) {
+        return 'status-' + String(statusText || '').toLowerCase().replace(/\s+/g, '-');
+    }
+
+    // payload: { id, salesNo, customer, invoiceDate, dueDate, status, total, paid, balance }
+    function loadArModal(payload) {
+        document.getElementById('arModalSalesNo').textContent = payload.salesNo || '-';
+        document.getElementById('arModalCustomer').textContent = payload.customer || '-';
+        document.getElementById('arModalInvoiceDate').textContent = payload.invoiceDate || '-';
+        document.getElementById('arModalDueDate').textContent = payload.dueDate || '-';
+
+        const statusText = payload.status || '-';
+        const statusEl = document.getElementById('arModalStatus');
+        statusEl.textContent = statusText;
+        statusEl.className = 'ar-modal-status-badge ' + statusClass(statusText);
+
+        document.getElementById('arModalTotal').textContent = payload.total || '-';
+        document.getElementById('arModalPaid').textContent = payload.paid || '-';
+        document.getElementById('arModalBalance').textContent = payload.balance || '-';
+
+        arModalOtherCustomerTag.textContent = payload.customer ? '· ' + payload.customer : '';
+
+        arModalPaymentBody.innerHTML = '<tr><td colspan="4" class="ar-modal-loading">Loading payment history...</td></tr>';
+        arModalOtherList.innerHTML = '<p class="ar-modal-loading">Loading...</p>';
+
+        fetch('/NexGen/CODE/PHP/receivable_view.php?id=' + encodeURIComponent(payload.id), {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+            .then(function (res) { return res.json(); })
+            .then(function (data) {
+                if (data.error) {
+                    arModalPaymentBody.innerHTML = '<tr><td colspan="4" class="ar-modal-loading">' + escapeHtml(data.error) + '</td></tr>';
+                    arModalOtherList.innerHTML = '<p class="ar-modal-loading">' + escapeHtml(data.error) + '</p>';
+                    return;
+                }
+
+                if (!data.payments || data.payments.length === 0) {
+                    arModalPaymentBody.innerHTML = '<tr><td colspan="4" class="ar-modal-loading">No payments recorded yet.</td></tr>';
+                } else {
+                    arModalPaymentBody.innerHTML = data.payments.map(function (p) {
+                        return '<tr>' +
+                            '<td>' + escapeHtml(p.date) + '</td>' +
+                            '<td>₱' + escapeHtml(p.amount) + '</td>' +
+                            '<td>' + escapeHtml(p.method) + '</td>' +
+                            '<td>' + escapeHtml(p.reference) + '</td>' +
+                            '</tr>';
+                    }).join('');
+                }
+
+                if (!data.other_transactions || data.other_transactions.length === 0) {
+                    arModalOtherList.innerHTML = '<p class="ar-modal-loading">No other transactions for this customer yet.</p>';
+                    return;
+                }
+
+                arModalOtherList.innerHTML = data.other_transactions.map(function (t) {
+                    const accent = statusClass(t.status).replace('status-', 'accent-');
+                    return '<button type="button" class="ar-modal-other-row ' + accent + '" ' +
+                        'data-id="' + escapeHtml(t.id) + '" ' +
+                        'data-sales-no="' + escapeHtml(t.sales_no) + '" ' +
+                        'data-invoice-date="' + escapeHtml(t.date) + '" ' +
+                        'data-due-date="' + escapeHtml(t.due_date) + '" ' +
+                        'data-status="' + escapeHtml(t.status) + '" ' +
+                        'data-total="₱' + escapeHtml(t.total) + '" ' +
+                        'data-paid="₱' + escapeHtml(t.paid) + '" ' +
+                        'data-balance="₱' + escapeHtml(t.balance) + '">' +
+                        '<span class="ar-modal-other-icon"><i class="bi bi-receipt"></i></span>' +
+                        '<span class="ar-modal-other-main">' +
+                            '<span class="ar-modal-other-sales">' + escapeHtml(t.sales_no) + '</span>' +
+                            '<span class="ar-modal-other-date">' + escapeHtml(t.date) + '</span>' +
+                        '</span>' +
+                        '<span class="ar-modal-other-side">' +
+                            '<span class="ar-modal-other-amount">₱' + escapeHtml(t.total) + '</span>' +
+                            '<span class="ar-modal-status-badge ar-modal-status-badge-sm ' + statusClass(t.status) + '">' + escapeHtml(t.status) + '</span>' +
+                        '</span>' +
+                        '<span class="ar-modal-other-chevron"><i class="bi bi-chevron-right"></i></span>' +
+                    '</button>';
+                }).join('');
+            })
+            .catch(function () {
+                arModalPaymentBody.innerHTML = '<tr><td colspan="4" class="ar-modal-loading">Failed to load payment history.</td></tr>';
+                arModalOtherList.innerHTML = '<p class="ar-modal-loading">Failed to load other transactions.</p>';
+            });
+    }
+
+    function openArModal(btn) {
+        arModalOverlay.classList.add('show');
+        document.body.style.overflow = 'hidden';
+
+        loadArModal({
+            id: btn.dataset.id,
+            salesNo: btn.dataset.salesNo,
+            customer: btn.dataset.customer,
+            invoiceDate: btn.dataset.invoiceDate,
+            dueDate: btn.dataset.dueDate,
+            status: btn.dataset.status,
+            total: btn.dataset.total,
+            paid: btn.dataset.paid,
+            balance: btn.dataset.balance
+        });
+    }
+
+    function closeArModal() {
+        arModalOverlay.classList.remove('show');
+        document.body.style.overflow = '';
+    }
+
+    // Delegated listener so this keeps working after the table is
+    // replaced by the AJAX filter/search refresh above.
+    document.addEventListener('click', function (event) {
+        const viewBtn = event.target.closest('.icon-btn.view');
+        if (viewBtn) {
+            openArModal(viewBtn);
+            return;
+        }
+
+        // Clicking a customer's other-transaction row swaps the modal
+        // to that record, same customer, no need to close/reopen.
+        const otherRow = event.target.closest('.ar-modal-other-row');
+        if (otherRow) {
+            const currentCustomer = document.getElementById('arModalCustomer').textContent;
+            loadArModal({
+                id: otherRow.dataset.id,
+                salesNo: otherRow.dataset.salesNo,
+                customer: currentCustomer,
+                invoiceDate: otherRow.dataset.invoiceDate,
+                dueDate: otherRow.dataset.dueDate,
+                status: otherRow.dataset.status,
+                total: otherRow.dataset.total,
+                paid: otherRow.dataset.paid,
+                balance: otherRow.dataset.balance
+            });
+        }
+    });
+
+    if (arModalClose) {
+        arModalClose.addEventListener('click', closeArModal);
+    }
+
+    if (arModalOverlay) {
+        arModalOverlay.addEventListener('click', function (event) {
+            if (event.target === arModalOverlay) {
+                closeArModal();
+            }
+        });
+    }
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && arModalOverlay && arModalOverlay.classList.contains('show')) {
+            closeArModal();
+        }
+    });
 });
 </script>
 </body>

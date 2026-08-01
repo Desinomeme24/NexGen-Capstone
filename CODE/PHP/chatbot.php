@@ -1086,7 +1086,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'ask') {
 
     /*
     |--------------------------------------------------------------------------
-    | AI FALLBACK (RAG over live data) — powered by Ollama / Llama 3.2 3B
+    | AI FALLBACK (RAG over live data) — powered by Ollama / Qwen3 8B
     |--------------------------------------------------------------------------
     | Used only when none of the rule-based intents above matched. Builds a
     | small, permission-aware snapshot of live data and asks the local model
@@ -1164,14 +1164,15 @@ if (isset($_GET['action']) && $_GET['action'] === 'ask') {
             'system' => $systemPrompt,
             'temperature' => 0.2,
             'num_predict' => 300,
+            'think' => false, // fast, direct answers for the chat widget
         ]);
     }
 
     /*
     |--------------------------------------------------------------------------
-    | FORECASTING (least-squares trend, computed in PHP — Llama explains it)
+    | FORECASTING (least-squares trend, computed in PHP — Qwen3 explains it)
     |--------------------------------------------------------------------------
-    | Llama 3.2 3B is not reliable at arithmetic, so the actual numbers are
+    | Small local LLMs are not reliable at arithmetic, so the actual numbers are
     | computed here from real sales / sale_items history. The model only
     | turns the computed numbers into a clear, human-readable explanation.
     */
@@ -1264,6 +1265,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'ask') {
                 'system' => 'You are the NexGen Assistant, a retail sales forecasting assistant. Currency is Philippine peso (₱). Be concise and concrete.',
                 'temperature' => 0.4,
                 'num_predict' => 220,
+                'think' => false, // numbers are already computed in PHP; no reasoning needed here
             ]
         );
 
@@ -1301,6 +1303,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'ask') {
                 'system' => 'You are the NexGen Assistant, an inventory demand forecasting assistant. Be concise and concrete.',
                 'temperature' => 0.4,
                 'num_predict' => 220,
+                'think' => false, // numbers are already computed in PHP; no reasoning needed here
             ]
         );
 

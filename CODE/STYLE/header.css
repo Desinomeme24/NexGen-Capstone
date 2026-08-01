@@ -125,9 +125,6 @@
   justify-content: center;
   gap: 6px;
   padding: 10px 12px;
-  border-radius: 16px;
-  background: linear-gradient(155deg, var(--navy-700) 0%, var(--ink-950) 100%);
-  border: 1px solid rgba(255, 255, 255, 0.12);
   transition: all 0.25s ease;
 }
 

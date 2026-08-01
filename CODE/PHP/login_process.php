@@ -281,7 +281,7 @@ if ($user['account_status'] !== 'active') {
 $_SESSION['user_id'] = $user['id'];
 $_SESSION['username'] = $user['username'];
 $_SESSION['full_name'] = $user['full_name'];
-$_SESSION['profile_image'] = !empty($user['profile_image']) ? $user['profile_image'] : 'uploads/default.png';
+$_SESSION['profile_image'] = !empty($user['profile_image']) ? $user['profile_image'] : '/NexGen/uploads/default.png';
 $_SESSION['role'] = $user['role'];
 $_SESSION['account_status'] = $user['account_status'];
 $_SESSION['can_inventory'] = (int)($user['can_inventory'] ?? 0);
@@ -324,7 +324,7 @@ if ($user['role'] === 'system_admin') {
 }
 
 $displayName  = !empty($user['full_name'])     ? $user['full_name']     : $user['username'];
-$profileImage = !empty($user['profile_image']) ? $user['profile_image'] : 'uploads/default.png';
+$profileImage = !empty($user['profile_image']) ? $user['profile_image'] : '/NexGen/uploads/default.png';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -332,7 +332,7 @@ $profileImage = !empty($user['profile_image']) ? $user['profile_image'] : 'uploa
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login Success – NextGen</title>
-    <meta http-equiv="refresh" content="2.5;url=<?php echo htmlspecialchars($redirectUrl, ENT_QUOTES, 'UTF-8'); ?>">
+    <meta http-equiv="refresh" content="6;url=<?php echo htmlspecialchars($redirectUrl, ENT_QUOTES, 'UTF-8'); ?>">
     <link href="https://fonts.googleapis.com/css2?family=Sora:wght@700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -553,7 +553,7 @@ $profileImage = !empty($user['profile_image']) ? $user['profile_image'] : 'uploa
                 <img class="profile-img"
                      src="<?php echo htmlspecialchars($profileImage, ENT_QUOTES, 'UTF-8'); ?>"
                      alt="Profile"
-                     onerror="this.src='uploads/default.png'">
+                     onerror="this.src='/NexGen/uploads/default.png'">
                 <div class="badge-footer">
                     <span class="bar"></span><span class="bar"></span>
                     <span class="bar"></span><span class="bar"></span>
@@ -594,6 +594,12 @@ $profileImage = !empty($user['profile_image']) ? $user['profile_image'] : 'uploa
         videos[i].classList.add('active');
     }, 6000);
 })();
+
+/* Reliable redirect: don't depend solely on <meta refresh>, which some
+   browsers/extensions block silently. */
+setTimeout(function() {
+    window.location.replace("<?php echo htmlspecialchars($redirectUrl, ENT_QUOTES, 'UTF-8'); ?>");
+}, 2500);
 </script>
 </body>
 </html>

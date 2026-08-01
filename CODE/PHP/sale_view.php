@@ -227,11 +227,11 @@ unset($_SESSION['success'], $_SESSION['error']);
 
         body {
             font-family: Arial, sans-serif;
-            color: #f3f6ff;
+            color: #eef5ff;
             background:
-                radial-gradient(circle at top left, rgba(80,120,255,0.14), transparent 25%),
-                radial-gradient(circle at top right, rgba(255,255,255,0.05), transparent 18%),
-                linear-gradient(180deg, #071533 0%, #0b1f4d 45%, #102554 100%);
+                radial-gradient(circle at top left, rgba(59, 130, 246,0.14), transparent 25%),
+                radial-gradient(circle at top right, rgba(255, 255, 255,0.05), transparent 18%),
+                linear-gradient(180deg, #050b24 0%, #0a1550 45%, #02040f 100%);
             min-height: 100vh;
             padding: 34px;
         }
@@ -239,16 +239,16 @@ unset($_SESSION['success'], $_SESSION['error']);
         .page-shell {
             max-width: 1100px;
             margin: 0 auto;
-            background: rgba(22, 36, 76, 0.58);
-            border: 1px solid rgba(255,255,255,0.07);
+            background: rgba(10, 21, 80, 0.58);
+            border: 1px solid rgba(255, 255, 255,0.07);
             border-radius: 26px;
             overflow: hidden;
-            box-shadow: 0 18px 55px rgba(0,0,0,0.35);
+            box-shadow: 0 18px 55px rgba(0, 0, 0,0.35);
         }
 
         .header {
             padding: 20px 24px;
-            border-bottom: 1px solid rgba(255,255,255,0.08);
+            border-bottom: 1px solid rgba(255, 255, 255,0.08);
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -266,7 +266,7 @@ unset($_SESSION['success'], $_SESSION['error']);
             width: 36px;
             height: 36px;
             border-radius: 10px;
-            background: linear-gradient(180deg, #5890ff, #386cd8);
+            background: linear-gradient(180deg, #3b82f6, #0033ff);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -283,8 +283,8 @@ unset($_SESSION['success'], $_SESSION['error']);
         }
 
         .card {
-            background: rgba(255,255,255,0.035);
-            border: 1px solid rgba(255,255,255,0.07);
+            background: rgba(255, 255, 255,0.035);
+            border: 1px solid rgba(255, 255, 255,0.07);
             border-radius: 18px;
             padding: 20px;
             margin-bottom: 18px;
@@ -303,21 +303,21 @@ unset($_SESSION['success'], $_SESSION['error']);
         }
 
         .info-box {
-            background: rgba(255,255,255,0.04);
-            border: 1px solid rgba(255,255,255,0.06);
+            background: rgba(255, 255, 255,0.04);
+            border: 1px solid rgba(255, 255, 255,0.06);
             border-radius: 14px;
             padding: 16px;
         }
 
         .info-box small {
             display: block;
-            color: #c8d5ff;
+            color: #dbeafe;
             margin-bottom: 6px;
         }
 
         .info-box strong {
             font-size: 18px;
-            color: #fff;
+            color: #ffffff;
         }
 
         .receivable-grid {
@@ -328,15 +328,15 @@ unset($_SESSION['success'], $_SESSION['error']);
         }
 
         .receivable-box {
-            background: rgba(95,149,255,0.08);
-            border: 1px solid rgba(95,149,255,0.22);
+            background: rgba(59, 130, 246,0.08);
+            border: 1px solid rgba(59, 130, 246,0.22);
             border-radius: 14px;
             padding: 16px;
         }
 
         .receivable-box small {
             display: block;
-            color: #c8d5ff;
+            color: #dbeafe;
             margin-bottom: 6px;
         }
 
@@ -354,11 +354,11 @@ unset($_SESSION['success'], $_SESSION['error']);
         th, td {
             padding: 14px 12px;
             text-align: left;
-            border-bottom: 1px solid rgba(255,255,255,0.08);
+            border-bottom: 1px solid rgba(255, 255, 255,0.08);
         }
 
         th {
-            background: rgba(255,255,255,0.04);
+            background: rgba(255, 255, 255,0.04);
         }
 
         .badge {
@@ -373,28 +373,28 @@ unset($_SESSION['success'], $_SESSION['error']);
         }
 
         .paid {
-            background: rgba(107, 190, 145, 0.27);
-            color: #b9f0cb;
+            background: rgba(94, 234, 212, 0.27);
+            color: #a7f3d0;
         }
 
         .unpaid {
-            background: rgba(220, 97, 97, 0.25);
-            color: #ffb3b3;
+            background: rgba(255, 85, 119, 0.25);
+            color: #fecdd3;
         }
 
         .partial {
-            background: rgba(229, 165, 83, 0.25);
-            color: #ffd290;
+            background: rgba(255, 221, 85, 0.25);
+            color: #ffdd55;
         }
 
         .fulfilled {
-            background: rgba(107, 190, 145, 0.27);
-            color: #b9f0cb;
+            background: rgba(94, 234, 212, 0.27);
+            color: #a7f3d0;
         }
 
         .pending {
-            background: rgba(229, 165, 83, 0.25);
-            color: #ffd290;
+            background: rgba(255, 221, 85, 0.25);
+            color: #ffdd55;
         }
 
         .btn {
@@ -410,14 +410,14 @@ unset($_SESSION['success'], $_SESSION['error']);
         }
 
         .btn-secondary {
-            background: rgba(255,255,255,0.05);
+            background: rgba(255, 255, 255,0.05);
             color: white;
-            border: 1px solid rgba(255,255,255,0.08);
+            border: 1px solid rgba(255, 255, 255,0.08);
         }
 
         .btn-primary {
-            background: linear-gradient(135deg, #f5d78f, #c99f45);
-            color: #102554;
+            background: linear-gradient(135deg, #ffdd55, #f6cb08);
+            color: #0a1550;
             border: none;
             min-width: 200px;
         }
@@ -430,22 +430,22 @@ unset($_SESSION['success'], $_SESSION['error']);
 
         .total-card {
             min-width: 260px;
-            background: rgba(95,149,255,0.10);
-            border: 1px solid rgba(95,149,255,0.25);
+            background: rgba(59, 130, 246,0.10);
+            border: 1px solid rgba(59, 130, 246,0.25);
             border-radius: 16px;
             padding: 18px 20px;
             text-align: right;
         }
 
         .total-card small {
-            color: #cad8ff;
+            color: #dbeafe;
             display: block;
             margin-bottom: 6px;
         }
 
         .total-card strong {
             font-size: 30px;
-            color: #fff;
+            color: #ffffff;
         }
 
         .payment-form {
@@ -459,7 +459,7 @@ unset($_SESSION['success'], $_SESSION['error']);
         .form-group label {
             display: block;
             margin-bottom: 8px;
-            color: #dbe6ff;
+            color: #dbeafe;
             font-weight: 700;
             font-size: 14px;
         }
@@ -469,20 +469,20 @@ unset($_SESSION['success'], $_SESSION['error']);
             height: 50px;
             padding: 0 16px;
             border-radius: 14px;
-            border: 1px solid rgba(255,255,255,0.10);
-            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255, 255, 255,0.10);
+            background: rgba(255, 255, 255,0.08);
             color: #ffffff;
             outline: none;
         }
 
         .form-note {
             margin-top: 10px;
-            color: #cbd8ff;
+            color: #dbeafe;
             font-size: 13px;
         }
 
         .empty-note {
-            color: #c8d5ff;
+            color: #dbeafe;
             font-size: 14px;
         }
 
@@ -499,9 +499,9 @@ unset($_SESSION['success'], $_SESSION['error']);
             align-items: stretch;
             border-radius: 18px;
             overflow: hidden;
-            background: rgba(12, 22, 52, 0.92);
-            box-shadow: 0 24px 50px rgba(0,0,0,0.35);
-            border: 1px solid rgba(255,255,255,0.10);
+            background: rgba(0, 3, 61, 0.92);
+            box-shadow: 0 24px 50px rgba(0, 0, 0,0.35);
+            border: 1px solid rgba(255, 255, 255,0.10);
             animation: slideIn .25s ease;
         }
 
@@ -511,11 +511,11 @@ unset($_SESSION['success'], $_SESSION['error']);
         }
 
         .nx-toast.success .nx-toast-bar {
-            background: linear-gradient(180deg, #5ee5a1, #2bb673);
+            background: linear-gradient(180deg, #5eead4, #34d399);
         }
 
         .nx-toast.error .nx-toast-bar {
-            background: linear-gradient(180deg, #ff9b9b, #ea4d4d);
+            background: linear-gradient(180deg, #ff8fab, #ff5577);
         }
 
         .nx-toast-body {
@@ -526,13 +526,13 @@ unset($_SESSION['success'], $_SESSION['error']);
         .nx-toast-title {
             font-weight: 800;
             margin-bottom: 5px;
-            color: #fff;
+            color: #ffffff;
         }
 
         .nx-toast-message {
             font-size: 14px;
             line-height: 1.45;
-            color: #dce7ff;
+            color: #dbeafe;
         }
 
         @keyframes slideIn {

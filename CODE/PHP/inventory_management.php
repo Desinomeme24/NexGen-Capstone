@@ -296,12 +296,6 @@ if ($currentStatusForTab === '') {
             <div class="inventory-header-card">
                 <div class="inventory-header-row">
                     <div class="inventory-header-left">
-                        <div class="inventory-breadcrumb">
-                            <a href="/NexGen/CODE/PHP/dashboard.php">Dashboard</a>
-                            <span>/</span>
-                            <strong>Inventory Management</strong>
-                        </div>
-
                         <h1>Inventory Management</h1>
                     </div>
 

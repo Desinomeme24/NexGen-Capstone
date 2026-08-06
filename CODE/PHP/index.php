@@ -1282,40 +1282,40 @@ if (isset($_SESSION['error'])) {
 
 
 
-  /* ========== TESTIMONIALS ========== */
-  .testimonials {
+  /* ========== TRUST & SECURITY ========== */
+  .trust-security {
     padding: 100px 0;
     position: relative;
     overflow: hidden;
   }
-  .testimonials::before {
+  .trust-security::before {
     content: '';
     position: absolute;
     inset: 0;
     background: linear-gradient(180deg, transparent, rgba(22, 36, 71,0.8), transparent);
   }
-  .testimonials-header {
+  .trust-header {
     text-align: center;
     max-width: 600px;
     margin: 0 auto 64px;
     position: relative;
   }
-  .testimonials-header h2 {
+  .trust-header h2 {
     font-size: clamp(28px, 3.5vw, 42px);
     margin: 16px 0 16px;
   }
-  .testimonials-header p {
+  .trust-header p {
     color: var(--text-muted);
     font-size: 16px;
   }
 
-  .testimonials-grid {
+  .trust-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 28px;
     position: relative;
   }
-  .testimonial-card {
+  .trust-card {
     padding: 36px 30px;
     border-radius: var(--radius-md);
     background: rgba(22, 36, 71,0.6);
@@ -1323,46 +1323,40 @@ if (isset($_SESSION['error'])) {
     transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s ease;
     position: relative;
   }
-  .testimonial-card:hover {
+  .trust-card:hover {
     transform: translateY(-6px);
     border-color: rgba(247, 202, 132,0.2);
   }
-  .testimonial-card .stars {
-    display: flex;
-    gap: 4px;
-    margin-bottom: 18px;
-    color: var(--accent);
-    font-size: 14px;
+  .trust-card .trust-icon {
+    width: 52px; height: 52px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, var(--cyan), var(--purple));
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    color: #fff;
+    margin-bottom: 20px;
   }
-  .testimonial-card .quote {
+  .trust-card .trust-title {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 18px;
+    margin-bottom: 12px;
+  }
+  .trust-card .trust-desc {
     font-size: 15px;
     color: var(--text-muted);
     line-height: 1.7;
-    margin-bottom: 24px;
-    font-style: italic;
+    margin-bottom: 20px;
   }
-  .testimonial-card .author {
-    display: flex;
+  .trust-card .trust-tag {
+    display: inline-flex;
     align-items: center;
-    gap: 14px;
-  }
-  .testimonial-card .author-avatar {
-    width: 44px; height: 44px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, var(--cyan), var(--purple));
-    display: flex; align-items: center; justify-content: center;
-    font-family: var(--font-display);
-    font-weight: 700;
-    font-size: 16px;
-    color: #fff;
-  }
-  .testimonial-card .author-name {
-    font-weight: 600;
-    font-size: 14px;
-  }
-  .testimonial-card .author-role {
+    gap: 6px;
     font-size: 12px;
-    color: var(--text-faint);
+    font-weight: 600;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
   }
 
   /* ========== CTA SECTION ========== */
@@ -1494,6 +1488,7 @@ if (isset($_SESSION['error'])) {
     gap: 48px;
     margin-bottom: 60px;
   }
+  .footer-grid > div { min-width: 0; }
   .footer-brand .logo {
     margin-bottom: 16px;
   }
@@ -1593,12 +1588,15 @@ if (isset($_SESSION['error'])) {
 
   .footer-bottom {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     justify-content: center;
+    text-align: center;
     padding-top: 30px;
     border-top: 1px solid var(--line);
     font-size: 13px;
     color: var(--text-faint);
+    width: 100%;
   }
 
   /* ========== SCROLL ANIMATIONS ========== */
@@ -1632,32 +1630,178 @@ if (isset($_SESSION['error'])) {
   }
 
   /* ========== RESPONSIVE ========== */
+  /* ========== TABLET (iPad / large Android tablets) ========== */
+  @media (max-width: 1200px) {
+    .flip-grid { grid-template-columns: repeat(3, 1fr); }
+    .trust-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+
   @media (max-width: 980px) {
     .hero-grid { grid-template-columns: 1fr; }
     .hero-visual { height: 440px; margin-top: 30px; }
     .how-section-inner { padding: 0 10px; }
     .flip-grid { grid-template-columns: repeat(2, 1fr); gap: 16px; }
-    .nav-links { display: none; }
-    .nav-toggle { display: block; }
     .stats-grid { grid-template-columns: 1fr 1fr; }
     .about-grid { grid-template-columns: 1fr; gap: 40px; }
-    .about-visual { height: 380px; }
-    .testimonials-grid { grid-template-columns: 1fr; }
+    .about-visual {
+      height: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .about-visual .about-orb,
+    .about-visual .about-lines-svg { display: none; }
+    .about-card {
+      position: static;
+      width: 100%;
+      min-width: 0;
+      animation: none;
+      transform: none !important;
+    }
+    .trust-grid { grid-template-columns: 1fr; }
     .footer-grid { grid-template-columns: 1fr 1fr; }
+
+    /* Scroll-triggered reveal animations are unreliable on mobile
+       (address-bar resize throws off ScrollTrigger's measurements,
+       which can leave elements stuck mid-transform or stuck at
+       opacity:0). Show everything in its final position immediately. */
+    .reveal,
+    .reveal.from-left,
+    .reveal.from-right,
+    .reveal.from-scale {
+      opacity: 1 !important;
+      transform: none !important;
+      scale: 1 !important;
+    }
+
+    /* ---- Mobile nav toggle + slide-in drawer ---- */
+    .nav-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 44px;
+      height: 44px;
+    }
+
+    .nav-cta { gap: 10px; }
+    .nav-cta .btn {
+      padding: 10px 18px;
+      font-size: 13px;
+    }
+
+    .nav-links {
+      position: fixed;
+      top: 0;
+      right: 0;
+      height: 100%;
+      height: 100dvh;
+      width: min(300px, 82vw);
+      margin: 0;
+      background: rgba(10, 17, 40, 0.98);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-left: 1px solid var(--line-bright);
+      box-shadow: -20px 0 50px rgba(0,0,0,0.35);
+      flex-direction: column;
+      align-items: flex-start;
+      justify-content: flex-start;
+      gap: 2px;
+      padding: 100px 28px 40px;
+      transform: translateX(100%);
+      transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      z-index: 90;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .nav-links.open { transform: translateX(0); }
+
+    .nav-links li { width: 100%; }
+    .nav-links a {
+      display: block;
+      width: 100%;
+      padding: 16px 4px;
+      font-size: 17px;
+      border-bottom: 1px solid var(--line);
+    }
+    .nav-links a::after { display: none; }
+
+    .nav-links .has-dropdown {
+      flex-direction: column;
+      align-items: flex-start;
+      width: 100%;
+    }
+    .nav-links .has-dropdown > a { border-bottom: none; padding-bottom: 6px; }
+    .has-dropdown .dropdown-menu {
+      position: static;
+      transform: none;
+      opacity: 1;
+      visibility: visible;
+      display: none;
+      box-shadow: none;
+      border: none;
+      background: transparent;
+      padding: 4px 0 14px 4px;
+      gap: 22px;
+    }
+    .nav-links .has-dropdown.active .dropdown-menu {
+      display: flex;
+      transform: none;
+      flex-wrap: wrap;
+    }
+
+    .nav-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(5, 8, 20, 0.6);
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+      z-index: 80;
+    }
+    .nav-overlay.show { opacity: 1; visibility: visible; }
+
+    body.nav-open { overflow: hidden; }
   }
 
   @media (max-width: 560px) {
-    .flip-grid { grid-template-columns: 1fr; gap: 16px; }
+    .flip-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
     .wrap { padding: 0 20px; }
     .nav { padding: 16px 20px; }
-    .flip-card { height: 240px; }
+    .flip-card { height: 200px; }
+    .flip-front, .flip-back { padding: 18px 14px; }
+    .flip-front h4, .flip-back h4 { font-size: 14px; }
+    .flip-hint, .flip-hint-back { font-size: 11px; }
     .stat-badge { right: 6px; bottom: 16px; padding: 16px 18px; }
     .analytics-card { top: 16px; left: 16px; padding: 14px 16px; max-width: 180px; }
     .analytics-card .phone-amount { font-size: 20px; }
-    .stats-grid { grid-template-columns: 1fr; }
+    .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 14px; }
+    .stat-card { padding: 24px 16px; }
+    .stat-card .stat-icon { width: 44px; height: 44px; font-size: 18px; margin-bottom: 14px; }
+    .stat-card .stat-number { font-size: 28px; }
+    .stat-card .stat-label { font-size: 13px; }
+    .stat-card .stat-desc { font-size: 11px; }
     .footer-grid { grid-template-columns: 1fr; }
     .cta-box { padding: 50px 28px; }
     .hero { padding: 120px 0 80px; }
+  }
+
+  /* ========== SMALL PHONES (iPhone SE, compact Android) ========== */
+  @media (max-width: 400px) {
+    .wrap { padding: 0 16px; }
+    .nav { padding: 14px 16px; }
+    .hero h1 { font-size: clamp(32px, 9vw, 40px); }
+    .hero-visual { height: 340px; }
+    .modal-box { padding: 24px 18px; border-radius: 24px; }
+    .signup-box { padding: 24px 18px; }
+    .cta-box { padding: 40px 20px; }
+    .nav-links { width: 88vw; padding: 90px 22px 32px; }
+    .nav-cta .btn { padding: 8px 14px; font-size: 12px; }
+  }
+
+  /* ========== TOUCH DEVICES: disable hover-only interactions ========== */
+  @media (hover: none) and (pointer: coarse) {
+    .testimonial-card:hover,
+    .trust-card:hover { transform: none; }
   }
 
   /* ========== LOGIN / SIGNUP MODAL (base, ported from old style.css) ========== */
@@ -2591,7 +2735,7 @@ if (isset($_SESSION['error'])) {
     .signup-grid { grid-template-columns: 1fr; }
     .signup-grid .full-width { grid-column: span 1; }
   }
-\n</style>
+</style>
 </head>
 <body>
 
@@ -2685,7 +2829,7 @@ if (isset($_SESSION['error'])) {
             </div>
         </div>
     </div>
-\n<div class="cookie-banner" id="cookieBanner">
+    <div class="cookie-banner" id="cookieBanner">
     <div class="cookie-banner-text">
         <strong>Cookie Consent</strong><br>
         This system uses essential cookies or browser storage for login session handling, inactivity timeout,
@@ -2832,7 +2976,7 @@ if (isset($_SESSION['error'])) {
       <img src="../../IMAGES/NGlogo.png" alt="NexGen logo" class="logo-img">
       NexGen
     </div>
-    <ul class="nav-links">
+    <ul class="nav-links" id="navLinks">
       <li><a href="#home">Home</a></li>
       <li><a href="#about">About Us</a></li>
       <li><a href="#services">Services</a></li>
@@ -2849,9 +2993,10 @@ if (isset($_SESSION['error'])) {
     </ul>
     <div class="nav-cta">
       <button type="button" id="openLoginBtn" class="btn btn-primary magnetic-btn">Log In</button>
-      <button class="nav-toggle" aria-label="Open menu">☰</button>
+      <button class="nav-toggle" id="navToggle" aria-label="Open menu" aria-controls="navLinks" aria-expanded="false">☰</button>
     </div>
   </nav>
+  <div class="nav-overlay" id="navOverlay"></div>
 </header>
 
 <!-- ========== HERO ========== -->
@@ -3300,56 +3445,35 @@ if (isset($_SESSION['error'])) {
   </div>
 </section>
 
-<!-- ========== TESTIMONIALS ========== -->
-<section class="testimonials" id="contact">
+<!-- ========== TRUST & SECURITY ========== -->
+<section class="trust-security" id="security">
   <div class="wrap">
-    <div class="testimonials-header reveal">
-      <span class="eyebrow">Testimonials</span>
-      <h2>What Our Clients Say</h2>
-      <p>Real stories from real businesses that transformed their operations with NexGen.</p>
+    <div class="trust-header reveal">
+      <span class="eyebrow">Built To Protect</span>
+      <h2>Security You Can Trust</h2>
+      <p>NexGen is built with account protection baked in from day one — not bolted on as an afterthought.</p>
     </div>
 
-    <div class="testimonials-grid">
-      <div class="testimonial-card reveal">
-        <div class="stars">
-          <i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i>
-        </div>
-        <p class="quote">"NexGen completely transformed how we manage our inventory. The real-time analytics saved us hours every week and reduced waste by 40%."</p>
-        <div class="author">
-          <div class="author-avatar">S</div>
-          <div>
-            <div class="author-name">Elon Musk</div>
-            <div class="author-role">CEO, Space X</div>
-          </div>
-        </div>
+    <div class="trust-grid">
+      <div class="trust-card reveal">
+        <div class="trust-icon"><i class="fas fa-shield-halved"></i></div>
+        <div class="trust-title">CSRF Protection</div>
+        <p class="trust-desc">Every login and signup form is validated with a unique, per-session token, blocking cross-site request forgery attempts before they ever reach your account.</p>
+        <span class="trust-tag"><i class="fas fa-check"></i> Active on every form</span>
       </div>
 
-      <div class="testimonial-card reveal">
-        <div class="stars">
-          <i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i>
-        </div>
-        <p class="quote">"The integrated approach means our sales and accounting teams finally speak the same language. It's been a game-changer for our quarterly reporting."</p>
-        <div class="author">
-          <div class="author-avatar" style="background:linear-gradient(135deg, var(--pink), var(--accent));">J</div>
-          <div>
-            <div class="author-name">Bill Gates</div>
-            <div class="author-role">CEO, Microsoft</div>
-          </div>
-        </div>
+      <div class="trust-card reveal">
+        <div class="trust-icon" style="background:linear-gradient(135deg, var(--pink), var(--accent));"><i class="fas fa-robot"></i></div>
+        <div class="trust-title">CAPTCHA Verification</div>
+        <p class="trust-desc">A live image CAPTCHA runs on both login and signup, keeping bots and automated scripts from spamming or brute-forcing your accounts.</p>
+        <span class="trust-tag"><i class="fas fa-check"></i> Bot-resistant by default</span>
       </div>
 
-      <div class="testimonial-card reveal">
-        <div class="stars">
-          <i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i>
-        </div>
-        <p class="quote">"Ayos tol."</p>
-        <div class="author">
-          <div class="author-avatar" style="background:linear-gradient(135deg, var(--purple), var(--cyan));">A</div>
-          <div>
-            <div class="author-name">Diwata Pares</div>
-            <div class="author-role">CEO, Diwata Pares Overcook</div>
-          </div>
-        </div>
+      <div class="trust-card reveal">
+        <div class="trust-icon" style="background:linear-gradient(135deg, var(--purple), var(--cyan));"><i class="fas fa-lock"></i></div>
+        <div class="trust-title">Smart Lockout System</div>
+        <p class="trust-desc">Repeated failed logins trigger a temporary, timed lockout with a real-time countdown, stopping brute-force attempts in their tracks.</p>
+        <span class="trust-tag"><i class="fas fa-check"></i> Real-time protection</span>
       </div>
     </div>
   </div>
@@ -3894,8 +4018,8 @@ gsap.utils.toArray('.feature-card').forEach((card, i) => {
   });
 });
 
-// ========== TESTIMONIALS STAGGER ==========
-gsap.utils.toArray('.testimonial-card').forEach((card, i) => {
+// ========== TRUST & SECURITY STAGGER ==========
+gsap.utils.toArray('.trust-card').forEach((card, i) => {
   gsap.fromTo(card, {
     opacity: 0,
     y: 30,
@@ -3951,7 +4075,7 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
 });
 
 // ========== SECTION HEADERS PARALLAX ==========
-gsap.utils.toArray('.features-header, .testimonials-header').forEach(header => {
+gsap.utils.toArray('.features-header, .trust-header').forEach(header => {
   gsap.fromTo(header, {
     opacity: 0,
     y: 30
@@ -4771,9 +4895,67 @@ document.addEventListener('DOMContentLoaded', function() {
         const activeDropdown = document.querySelector('.has-dropdown.active');
         if (activeDropdown) activeDropdown.classList.remove('active');
     });
+
+    // ========== MOBILE NAV DRAWER ==========
+    const navToggleBtn = document.getElementById('navToggle');
+    const navLinksEl = document.getElementById('navLinks');
+    const navOverlayEl = document.getElementById('navOverlay');
+
+    function openMobileNav() {
+        if (!navLinksEl || !navOverlayEl || !navToggleBtn) return;
+        navLinksEl.classList.add('open');
+        navOverlayEl.classList.add('show');
+        document.body.classList.add('nav-open');
+        navToggleBtn.setAttribute('aria-expanded', 'true');
+        navToggleBtn.textContent = '✕';
+    }
+
+    function closeMobileNav() {
+        if (!navLinksEl || !navOverlayEl || !navToggleBtn) return;
+        navLinksEl.classList.remove('open');
+        navOverlayEl.classList.remove('show');
+        document.body.classList.remove('nav-open');
+        navToggleBtn.setAttribute('aria-expanded', 'false');
+        navToggleBtn.textContent = '☰';
+        const activeDropdown = document.querySelector('.has-dropdown.active');
+        if (activeDropdown) activeDropdown.classList.remove('active');
+    }
+
+    if (navToggleBtn && navLinksEl) {
+        navToggleBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            if (navLinksEl.classList.contains('open')) {
+                closeMobileNav();
+            } else {
+                openMobileNav();
+            }
+        });
+    }
+
+    if (navOverlayEl) {
+        navOverlayEl.addEventListener('click', closeMobileNav);
+    }
+
+    if (navLinksEl) {
+        navLinksEl.querySelectorAll('a').forEach(function(link) {
+            const isDropdownTrigger = link.parentElement && link.parentElement.classList.contains('has-dropdown');
+            if (!isDropdownTrigger) {
+                link.addEventListener('click', closeMobileNav);
+            }
+        });
+    }
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closeMobileNav();
+    });
+
+    window.addEventListener('resize', function() {
+        if (window.innerWidth > 980) closeMobileNav();
+    }, { passive: true });
 });
 </script>
 <script>
+
 // ========== BACK TO TOP ==========
 document.addEventListener('DOMContentLoaded', function () {
     const backToTop = document.getElementById('backToTop');

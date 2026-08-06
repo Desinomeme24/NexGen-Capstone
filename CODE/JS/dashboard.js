@@ -97,21 +97,31 @@ if (profileInput && submitProfileBtn) {
   });
 }
 
-/* VIDEO ROTATION */
-const bgVideos = document.querySelectorAll(".bg-video");
-let currentVideo = 0;
+/* FLOATING PARTICLES */
+(function createFloatingElements() {
+  const container = document.querySelector(".animated-bg");
+  if (!container) return;
 
-if (bgVideos.length > 0) {
-  bgVideos[0].classList.add("active");
-}
-
-if (bgVideos.length > 1) {
-  setInterval(() => {
-    bgVideos[currentVideo].classList.remove("active");
-    currentVideo = (currentVideo + 1) % bgVideos.length;
-    bgVideos[currentVideo].classList.add("active");
-  }, 7000);
-}
+  const particleCount = 25;
+  for (let i = 0; i < particleCount; i++) {
+    const particle = document.createElement("div");
+    particle.classList.add("floating-particle");
+    const size = Math.random() * 6 + 2;
+    const left = Math.random() * 100;
+    const delay = Math.random() * 15;
+    const duration = Math.random() * 10 + 15;
+    const opacity = Math.random() * 0.4 + 0.1;
+    particle.style.cssText = `
+      width: ${size}px;
+      height: ${size}px;
+      left: ${left}%;
+      animation-delay: ${delay}s;
+      animation-duration: ${duration}s;
+      opacity: ${opacity};
+    `;
+    container.appendChild(particle);
+  }
+})();
 
 /* HERO BUTTON SCROLL */
 const openModulesBtn = document.querySelector('a[href="#module-section"]');

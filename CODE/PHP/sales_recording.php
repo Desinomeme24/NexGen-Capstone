@@ -229,7 +229,7 @@ unset($_SESSION['success'], $_SESSION['error']);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sales</title>
-    <link rel="stylesheet" href="/NexGen/CODE/STYLE/sales_recording.css?v=6">
+    <link rel="stylesheet" href="/NexGen/CODE/STYLE/sales_recording.css?v=8">
     <link rel="stylesheet" href="/NexGen/CODE/STYLE/header.css?v=5">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 
@@ -279,7 +279,7 @@ unset($_SESSION['success'], $_SESSION['error']);
     position: sticky;
     top: 0;
     z-index: 15;
-    background: linear-gradient(180deg, rgba(23, 62, 170, 0.98), rgba(23, 62, 170, 0.92));
+    background: linear-gradient(180deg, rgba(0, 51, 255, 0.98), rgba(0, 51, 255, 0.92));
     padding: 0 0 12px 0;
     margin-bottom: 6px;
     display: flex;
@@ -340,13 +340,13 @@ unset($_SESSION['success'], $_SESSION['error']);
 .sale-confirm-box {
     width: 100%;
     max-width: 400px;
-    background: linear-gradient(180deg, #1f3c88 0%, #1a3578 100%);
+    background: linear-gradient(180deg, #0b1f73 0%, #00033d 100%);
     border-radius: 22px;
     padding: 26px 22px;
     box-shadow: 0 22px 50px rgba(0, 0, 0, 0.35);
-    border: 1px solid rgba(255,255,255,0.12);
+    border: 1px solid rgba(255, 255, 255,0.12);
     text-align: center;
-    color: #fff;
+    color: #ffffff;
 }
 
 .sale-confirm-icon {
@@ -354,8 +354,8 @@ unset($_SESSION['success'], $_SESSION['error']);
     height: 64px;
     margin: 0 auto 14px;
     border-radius: 50%;
-    background: rgba(247, 217, 139, 0.16);
-    color: #f7d98b;
+    background: rgba(255, 221, 85, 0.16);
+    color: #ffdd55;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -373,7 +373,7 @@ unset($_SESSION['success'], $_SESSION['error']);
     margin: 0 0 20px;
     font-size: 15px;
     line-height: 1.6;
-    color: rgba(255,255,255,0.88);
+    color: rgba(255, 255, 255,0.88);
 }
 
 .sale-confirm-actions {
@@ -396,22 +396,22 @@ unset($_SESSION['success'], $_SESSION['error']);
 }
 
 .sale-confirm-cancel {
-    background: rgba(255,255,255,0.14);
-    color: #fff;
+    background: rgba(255, 255, 255,0.14);
+    color: #ffffff;
 }
 
 .sale-confirm-cancel:hover {
-    background: rgba(255,255,255,0.22);
+    background: rgba(255, 255, 255,0.22);
 }
 
 .sale-confirm-yes {
-    background: #f7d98b;
-    color: #17306b;
+    background: #ffdd55;
+    color: #0b1f73;
 }
 
 .sale-confirm-yes:hover {
     transform: translateY(-1px);
-    box-shadow: 0 10px 20px rgba(247, 217, 139, 0.25);
+    box-shadow: 0 10px 20px rgba(255, 221, 85, 0.25);
 }
 
 @media (max-width: 768px) {
@@ -428,7 +428,7 @@ unset($_SESSION['success'], $_SESSION['error']);
     margin-top: 4px;
     font-size: 13px;
     font-weight: 600;
-    color: var(--text-dim, #a9c3f7);
+    color: var(--text-dim, #b9d4f5);
 }
 
 .date-jump-form {
@@ -444,7 +444,7 @@ unset($_SESSION['success'], $_SESSION['error']);
 .date-jump-label {
     font-size: 12px;
     font-weight: 700;
-    color: #f7fbff;
+    color: #eef5ff;
     display: flex;
     align-items: center;
     gap: 6px;
@@ -456,7 +456,7 @@ unset($_SESSION['success'], $_SESSION['error']);
     border: none;
     border-radius: 8px;
     padding: 8px 10px;
-    color: #173e98;
+    color: #0b1f73;
     font-size: 13px;
     font-weight: 600;
 }
@@ -731,15 +731,15 @@ unset($_SESSION['success'], $_SESSION['error']);
 
         <div class="legend">
             <div class="legend-item">
-                <span class="legend-dot" style="background: rgba(107, 190, 145, 0.65);"></span>
+                <span class="legend-dot" style="background: rgba(94, 234, 212, 0.65);"></span>
                 Paid / Fulfilled / Cash
             </div>
             <div class="legend-item">
-                <span class="legend-dot" style="background: rgba(220, 97, 97, 0.65);"></span>
+                <span class="legend-dot" style="background: rgba(255, 85, 119, 0.65);"></span>
                 Unpaid
             </div>
             <div class="legend-item">
-                <span class="legend-dot" style="background: rgba(229, 165, 83, 0.65);"></span>
+                <span class="legend-dot" style="background: rgba(255, 221, 85, 0.65);"></span>
                 Partial / Pending
             </div>
         </div>

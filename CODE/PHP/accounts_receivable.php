@@ -513,10 +513,12 @@ $overdueCount = (int)($summary['overdue_count'] ?? 0);
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <?php include __DIR__ . '/theme_init.php'; ?>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Accounts Receivable - NexGen</title>
     <link rel="stylesheet" href="/NexGen/CODE/STYLE/header.css?v=2">
     <link rel="stylesheet" href="/NexGen/CODE/STYLE/accounts_receivable.css?v=8">
+    <link rel="stylesheet" href="/NexGen/CODE/STYLE/module_footer.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <style>
         .overdue-alert-wrap {
@@ -611,6 +613,15 @@ $overdueCount = (int)($summary['overdue_count'] ?? 0);
             cursor: not-allowed;
             pointer-events: none;
             box-shadow: none !important;
+        }
+
+        /* Same "already paid" chip, but tuned for the light theme --
+           the dark-mode version above is translucent white on
+           translucent white, which disappears once the card behind
+           it is light instead of navy. */
+        html[data-theme="light"] .icon-btn.pay.disabled {
+            background: rgba(11, 31, 115, 0.08) !important;
+            color: rgba(11, 31, 115, 0.55) !important;
         }
 
         /* ---------------- View Modal ---------------- */
@@ -1137,6 +1148,11 @@ $overdueCount = (int)($summary['overdue_count'] ?? 0);
         </div>
 
     </div>
+
+    <footer class="nx-footer">
+        <div class="nx-footer-line"></div>
+        <p class="nx-footer-copy">Copyright &copy; 2026 NexGen.</p>
+    </footer>
 </div>
 
 <div class="ar-modal-overlay" id="arViewModalOverlay">

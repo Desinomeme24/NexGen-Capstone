@@ -4,6 +4,7 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 require_once("config.php");
+require_once("ollama_helpers.php");
 date_default_timezone_set('Asia/Manila');
 
 /*
@@ -47,6 +48,9 @@ if (isset($_GET['action']) && $_GET['action'] === 'ask') {
     error_reporting(E_ALL);
     mysqli_report(MYSQLI_REPORT_OFF);
     header('Content-Type: application/json; charset=utf-8');
+    // Allow enough time for an Ollama cold start (model load can take 20-30s)
+    // without PHP's own execution-time limit killing the request first.
+    set_time_limit(65);
 
     register_shutdown_function(function () {
         $error = error_get_last();
@@ -82,6 +86,8 @@ if (isset($_GET['action']) && $_GET['action'] === 'ask') {
     function cb_reply_json($reply, $context = null) {
         if ($context !== null && is_array($context)) {
             $_SESSION['nx_chatbot_context'] = array_merge($context, [
+                'last_question' => $GLOBALS['question'] ?? null,
+                'last_reply' => mb_substr((string)$reply, 0, 800, 'UTF-8'),
                 'saved_at' => time()
             ]);
         }
@@ -620,6 +626,103 @@ if (isset($_GET['action']) && $_GET['action'] === 'ask') {
         return ["{$year}-01-01 00:00:00", "{$year}-12-31 23:59:59", "Year {$year}"];
     }
 
+    /**
+     * Maps a month name/abbreviation (any case) to its numeric value 1-12.
+     * Returns null if it isn't a recognized month token.
+     */
+    function cb_month_name_to_num($name) {
+        static $map = [
+            'jan' => 1, 'january' => 1,
+            'feb' => 2, 'february' => 2,
+            'mar' => 3, 'march' => 3,
+            'apr' => 4, 'april' => 4,
+            'may' => 5,
+            'jun' => 6, 'june' => 6,
+            'jul' => 7, 'july' => 7,
+            'aug' => 8, 'august' => 8,
+            'sep' => 9, 'sept' => 9, 'september' => 9,
+            'oct' => 10, 'october' => 10,
+            'nov' => 11, 'november' => 11,
+            'dec' => 12, 'december' => 12,
+        ];
+        $key = strtolower(trim($name));
+        return $map[$key] ?? null;
+    }
+
+    /**
+     * Builds a date range for a single named month + year, e.g. April 2026.
+     */
+    function cb_date_range_specific_month($year, $month) {
+        $year = (int)$year;
+        $month = (int)$month;
+        if ($year < 2000 || $year > 2100) return null;
+        if ($month < 1 || $month > 12) return null;
+
+        $start = new DateTime();
+        $start->setDate($year, $month, 1)->setTime(0, 0, 0);
+        $end = clone $start;
+        $end->modify('last day of this month')->setTime(23, 59, 59);
+
+        return [$start->format('Y-m-d 00:00:00'), $end->format('Y-m-d 23:59:59'), $start->format('F Y')];
+    }
+
+    /**
+     * Detects a bare or qualified month name in the question, e.g.
+     * "last April", "sales for March 2025", "April sales", "this June".
+     *
+     * Year resolution when no explicit year is given:
+     *   - "next <month>"          -> the upcoming occurrence
+     *   - "this <month>"          -> current calendar year
+     *   - bare month / "last X"   -> the most recently completed occurrence
+     *                                (current year if the month has already
+     *                                started this year, otherwise last year)
+     *
+     * "May" is ambiguous with the modal verb ("I may..."), so it's only
+     * treated as a month when paired with a qualifier word or an explicit
+     * year, to avoid false positives.
+     */
+    function cb_try_month_range($text) {
+        // Use cb_normalize (not cb_prepare_intent_text) so the Tagalog
+        // slang pass doesn't rewrite the month name "May" into "have"
+        // before we get a chance to detect it.
+        $normalized = cb_normalize($text);
+        $monthPattern = 'jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t|tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?';
+
+        if (!preg_match('/\b(?:(last|this|next|in|during|for|of)\s+)?(' . $monthPattern . ')\b(?:\s+(\d{4}))?/i', $normalized, $m)) {
+            return null;
+        }
+
+        $qualifier = strtolower($m[1] ?? '');
+        $monthWord = strtolower($m[2]);
+        $explicitYear = $m[3] ?? null;
+
+        $month = cb_month_name_to_num($monthWord);
+        if (!$month) return null;
+
+        // Avoid false positives on the modal verb "may".
+        if ($monthWord === 'may' && $qualifier === '' && !$explicitYear) {
+            return null;
+        }
+
+        if ($explicitYear) {
+            $year = (int)$explicitYear;
+        } else {
+            $currentYear = (int)date('Y');
+            $currentMonth = (int)date('n');
+
+            if ($qualifier === 'next') {
+                $year = $month < $currentMonth ? $currentYear + 1 : $currentYear;
+            } elseif ($qualifier === 'this') {
+                $year = $currentYear;
+            } else {
+                // bare month name or "last <month>"
+                $year = $month <= $currentMonth ? $currentYear : $currentYear - 1;
+            }
+        }
+
+        return cb_date_range_specific_month($year, $month);
+    }
+
     function cb_try_year_range($text) {
         $normalized = cb_prepare_intent_text($text);
 
@@ -656,6 +759,9 @@ if (isset($_GET['action']) && $_GET['action'] === 'ask') {
 
     function cb_detect_date_range($text) {
         $normalized = cb_prepare_intent_text($text);
+
+        $specificMonth = cb_try_month_range($text);
+        if ($specificMonth) return $specificMonth;
 
         $specificYear = cb_try_year_range($text);
         if ($specificYear) return $specificYear;
@@ -980,6 +1086,232 @@ if (isset($_GET['action']) && $_GET['action'] === 'ask') {
 
     /*
     |--------------------------------------------------------------------------
+    | AI FALLBACK (RAG over live data) — powered by Ollama / Qwen3 8B
+    |--------------------------------------------------------------------------
+    | Used only when none of the rule-based intents above matched. Builds a
+    | small, permission-aware snapshot of live data and asks the local model
+    | to answer using ONLY that snapshot — it never invents numbers.
+    */
+    function cb_build_rag_context($conn, $question, array $perms) {
+        $normalized = cb_normalize($question);
+        $lines = [];
+
+        [$todayStart, $todayEnd] = cb_date_range_today();
+        $todaySummary = cb_get_summary($conn, $todayStart, $todayEnd);
+        $lines[] = "Today's gross revenue: " . cb_money($todaySummary['gross_revenue']) . " ({$todaySummary['transactions']} transaction(s)), net profit: " . cb_money($todaySummary['net_profit']) . ".";
+
+        $wantsInventory = $perms['inventory'] && cb_contains_any($normalized, ['stock', 'inventory', 'product', 'item', 'restock', 'reorder']);
+        $wantsSales = $perms['sales_analytics'] && cb_contains_any($normalized, ['sales', 'revenue', 'profit', 'income', 'top', 'category', 'sold']);
+        $wantsReceivable = $perms['accounts_receivable'] && cb_contains_any($normalized, ['receivable', 'unpaid', 'balance', 'overdue', 'customer', 'utang']);
+
+        if ($wantsInventory) {
+            $lowStock = cb_get_low_stock($conn, 5);
+            if (!empty($lowStock)) {
+                $lines[] = "Low stock products (top 5): " . implode('; ', array_map(function ($i) {
+                    return "{$i['product_name']} ({$i['stock_quantity']} left, reorder at {$i['reorder_level']})";
+                }, $lowStock));
+            }
+            $outOfStock = cb_get_out_of_stock($conn, 5);
+            if (!empty($outOfStock)) {
+                $lines[] = "Out-of-stock products (top 5): " . implode(', ', array_column($outOfStock, 'product_name'));
+            }
+        }
+
+        if ($wantsSales) {
+            [$weekStart, $weekEnd, $weekLabel] = cb_date_range_week();
+            $weekSummary = cb_get_summary($conn, $weekStart, $weekEnd);
+            $lines[] = "{$weekLabel} gross revenue: " . cb_money($weekSummary['gross_revenue']) . ", net profit: " . cb_money($weekSummary['net_profit']) . ".";
+
+            $topProducts = cb_get_top_products_by_qty($conn, $weekStart, $weekEnd, 5);
+            if (!empty($topProducts)) {
+                $lines[] = "Top-selling products {$weekLabel} by quantity: " . implode(', ', array_map(function ($p) {
+                    return "{$p['product_name']} ({$p['qty_sold']} units)";
+                }, $topProducts));
+            }
+        }
+
+        if ($wantsReceivable) {
+            $recvSummary = cb_get_receivable_summary($conn);
+            if ($recvSummary) {
+                $lines[] = "Accounts receivable: " . cb_money($recvSummary['total_balance_due']) . " total balance due across {$recvSummary['total_receivables']} record(s), {$recvSummary['overdue_count']} overdue.";
+            }
+        }
+
+        return implode("\n", $lines);
+    }
+
+    function cb_rag_answer($conn, $question, array $perms, $lastContext = null) {
+        $context = cb_build_rag_context($conn, $question, $perms);
+        if (trim($context) === '') return null;
+
+        $systemPrompt = "You are the NexGen Assistant, a helpful assistant for a Philippine retail inventory and sales system. "
+            . "Answer the user's question using ONLY the DATA (and PREVIOUS EXCHANGE, if given) below — never invent numbers. "
+            . "Currency is Philippine peso (₱). Keep the answer short: 2-4 sentences or a short bullet list. "
+            . "If the user's question refers back to something ('it', 'that', 'explain it', 'why'), use the PREVIOUS EXCHANGE to figure out what they mean. "
+            . "If the DATA does not contain enough information to answer, say so honestly and suggest what to ask instead. "
+            . "Do not mention that you are an AI model or mention Ollama/Llama.";
+
+        $prompt = "DATA:\n{$context}\n";
+
+        if (is_array($lastContext) && !empty($lastContext['last_reply'])) {
+            $prevQuestion = $lastContext['last_question'] ?? '(not recorded)';
+            $prompt .= "\nPREVIOUS EXCHANGE:\nUser previously asked: {$prevQuestion}\nYou previously replied: {$lastContext['last_reply']}\n";
+        }
+
+        $prompt .= "\nQUESTION: {$question}\n\nANSWER:";
+
+        return ollama_generate($prompt, [
+            'system' => $systemPrompt,
+            'temperature' => 0.2,
+            'num_predict' => 300,
+            'think' => false, // fast, direct answers for the chat widget
+        ]);
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | FORECASTING (least-squares trend, computed in PHP — Qwen3 explains it)
+    |--------------------------------------------------------------------------
+    | Small local LLMs are not reliable at arithmetic, so the actual numbers are
+    | computed here from real sales / sale_items history. The model only
+    | turns the computed numbers into a clear, human-readable explanation.
+    */
+    function cb_get_daily_sales_series($conn, $days = 60) {
+        $series = [];
+        $stmt = $conn->prepare("SELECT DATE(sale_date) AS d, COALESCE(SUM(total_amount), 0) AS total FROM sales WHERE sale_date >= (CURDATE() - INTERVAL ? DAY) GROUP BY DATE(sale_date) ORDER BY d ASC");
+        $stmt->bind_param("i", $days);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        while ($row = $result->fetch_assoc()) $series[] = ['date' => $row['d'], 'value' => (float)$row['total']];
+        $stmt->close();
+        return $series;
+    }
+
+    function cb_get_product_daily_qty_series($conn, $productId, $days = 60) {
+        $series = [];
+        $stmt = $conn->prepare("SELECT DATE(s.sale_date) AS d, COALESCE(SUM(si.quantity), 0) AS qty FROM sale_items si INNER JOIN sales s ON si.sale_id = s.id WHERE si.product_id = ? AND s.sale_date >= (CURDATE() - INTERVAL ? DAY) GROUP BY DATE(s.sale_date) ORDER BY d ASC");
+        $stmt->bind_param("ii", $productId, $days);
+        $stmt->execute();
+        $result = $stmt->get_result();
+        while ($row = $result->fetch_assoc()) $series[] = ['date' => $row['d'], 'value' => (float)$row['qty']];
+        $stmt->close();
+        return $series;
+    }
+
+    /**
+     * Least-squares linear trend over a daily series (gaps count as 0-sales days).
+     * Returns null when there isn't enough history to trust a trend.
+     */
+    function cb_linear_forecast(array $series, $periodsAheadDays = 7) {
+        $n = count($series);
+        if ($n < 3) return null;
+
+        $xs = range(0, $n - 1);
+        $ys = array_column($series, 'value');
+
+        $meanX = array_sum($xs) / $n;
+        $meanY = array_sum($ys) / $n;
+
+        $num = 0.0;
+        $den = 0.0;
+        foreach ($xs as $i => $x) {
+            $num += ($x - $meanX) * ($ys[$i] - $meanY);
+            $den += ($x - $meanX) ** 2;
+        }
+
+        $slope = $den != 0 ? $num / $den : 0;
+        $intercept = $meanY - $slope * $meanX;
+
+        $projectedDaily = [];
+        for ($d = 0; $d < $periodsAheadDays; $d++) {
+            $projectedDaily[] = max(0, $intercept + $slope * ($n + $d));
+        }
+
+        return [
+            'daily_average' => $meanY,
+            'slope_per_day' => $slope,
+            'trend' => $slope > 0.01 ? 'increasing' : ($slope < -0.01 ? 'decreasing' : 'flat'),
+            'projected_total' => array_sum($projectedDaily),
+            'projected_daily_avg' => count($projectedDaily) ? array_sum($projectedDaily) / count($projectedDaily) : 0,
+            'periods_ahead_days' => $periodsAheadDays,
+            'history_days' => $n,
+        ];
+    }
+
+    function cb_forecast_horizon_days($smartText) {
+        if (cb_contains_any($smartText, ['next month', 'susunod na buwan', 'sa buwan'])) return 30;
+        if (cb_contains_any($smartText, ['next 2 weeks', 'next two weeks'])) return 14;
+        return 7;
+    }
+
+    function cb_forecast_sales_reply($conn, $smartText) {
+        $horizon = cb_forecast_horizon_days($smartText);
+        $series = cb_get_daily_sales_series($conn, 60);
+        $forecast = cb_linear_forecast($series, $horizon);
+
+        if (!$forecast) {
+            return 'There is not enough sales history yet to generate a reliable forecast. Please check back once you have at least a few days of recorded sales.';
+        }
+
+        $numbers = "Based on the last {$forecast['history_days']} day(s) of sales: "
+            . "daily average is " . cb_money($forecast['daily_average']) . ", "
+            . "trend is {$forecast['trend']} (₱" . number_format($forecast['slope_per_day'], 2) . " change per day), "
+            . "projected total for the next {$horizon} day(s) is " . cb_money($forecast['projected_total']) . " "
+            . "(about " . cb_money($forecast['projected_daily_avg']) . " per day).";
+
+        $ai = ollama_generate(
+            "NUMBERS:\n{$numbers}\n\nWrite a short (2-4 sentence) business-friendly explanation of this sales forecast for a store owner. Mention the trend direction and the projected total. Add one brief, practical suggestion. Do not invent any numbers beyond what is given.",
+            [
+                'system' => 'You are the NexGen Assistant, a retail sales forecasting assistant. Currency is Philippine peso (₱). Be concise and concrete.',
+                'temperature' => 0.4,
+                'num_predict' => 220,
+                'think' => false, // numbers are already computed in PHP; no reasoning needed here
+            ]
+        );
+
+        return $ai !== null ? $ai : $numbers . ' (Note: this is a simple trend projection, not a guarantee.)';
+    }
+
+    function cb_forecast_product_reply($conn, $originalQuestion, $smartText) {
+        $product = cb_find_best_product_match($conn, $originalQuestion);
+
+        if (!$product) {
+            return 'Please specify which product you want to forecast, for example: "Forecast demand for Coca Cola".';
+        }
+
+        $horizon = cb_forecast_horizon_days($smartText);
+        $series = cb_get_product_daily_qty_series($conn, $product['id'], 60);
+        $forecast = cb_linear_forecast($series, $horizon);
+        $currentStock = (int)($product['stock_quantity'] ?? 0);
+
+        if (!$forecast) {
+            return "There is not enough sales history for {$product['product_name']} yet to forecast demand. Current stock is {$currentStock}.";
+        }
+
+        $daysUntilStockout = $forecast['projected_daily_avg'] > 0
+            ? (int)floor($currentStock / $forecast['projected_daily_avg'])
+            : null;
+
+        $numbers = "Product: {$product['product_name']}. Current stock: {$currentStock}, reorder level: {$product['reorder_level']}. "
+            . "Based on the last {$forecast['history_days']} day(s), average daily demand is " . number_format($forecast['daily_average'], 1) . " unit(s), "
+            . "trend is {$forecast['trend']}. Projected demand for the next {$horizon} day(s) is " . number_format($forecast['projected_total'], 1) . " unit(s)"
+            . ($daysUntilStockout !== null ? ", which suggests roughly {$daysUntilStockout} day(s) until stock runs out at this rate." : '.');
+
+        $ai = ollama_generate(
+            "NUMBERS:\n{$numbers}\n\nWrite a short (2-4 sentence) business-friendly demand forecast and restocking suggestion for a store owner, using only these numbers. Do not invent any numbers.",
+            [
+                'system' => 'You are the NexGen Assistant, an inventory demand forecasting assistant. Be concise and concrete.',
+                'temperature' => 0.4,
+                'num_predict' => 220,
+                'think' => false, // numbers are already computed in PHP; no reasoning needed here
+            ]
+        );
+
+        return $ai !== null ? $ai : $numbers . ' (Note: this is a simple trend projection, not a guarantee.)';
+    }
+
+    /*
+    |--------------------------------------------------------------------------
     | NORMALIZED INPUT AND INTENTS
     |--------------------------------------------------------------------------
     */
@@ -1091,6 +1423,10 @@ if (isset($_GET['action']) && $_GET['action'] === 'ask') {
     $isStockMovementMeaningQuestion = cb_intent_match($smartText, ['what is stock movement', 'explain stock movement'], [['stock'], ['movement'], ['meaning','explain','what']]);
     $isReceivableMeaningQuestion = cb_intent_match($smartText, ['what is accounts receivable', 'explain accounts receivable'], [['receivable'], ['meaning','explain','what']]);
     $isGrossRevenueMeaningQuestion = cb_intent_match($smartText, ['what is gross revenue', 'explain gross revenue', 'meaning of gross revenue'], [['gross'], ['revenue'], ['meaning','explain','what']]);
+
+    $isForecastKeyword = cb_contains_any($smartText, ['forecast', 'predict', 'prediction', 'projected', 'projection', 'tantya', 'hula', 'hulaan', 'manghula', 'estimate']);
+    $isForecastProductQuestion = $isForecastKeyword && cb_contains_any($smartText, ['stock', 'product', 'item', 'items', 'restock', 'reorder', 'demand', 'produkto', 'order']);
+    $isForecastSalesQuestion = $isForecastKeyword && !$isForecastProductQuestion;
 
     /*
     |--------------------------------------------------------------------------
@@ -1336,6 +1672,21 @@ if (isset($_GET['action']) && $_GET['action'] === 'ask') {
     if ($isHowManageCategories) cb_reply_json("To manage categories:\n1. Open Inventory Management.\n2. Click 'Manage Categories'.\n3. Add or update the category name.\n4. Save the changes.");
     if ($isHowFilterAnalytics) cb_reply_json("To filter analytics:\n1. Open Sales Analytics.\n2. Choose Today, This Week, This Month, or Custom Range.\n3. The cards, charts, category results, and top products will update based on the selected period.");
     if ($isHowViewReceivables) cb_reply_json("To view receivables:\n1. Open Accounts Receivable.\n2. Review the summary cards.\n3. Use search or status filters if needed.\n4. Click 'Update Payment' when a customer makes a payment.");
+
+    /* FORECASTING */
+    if ($isForecastProductQuestion) {
+        if (!$GLOBALS['chatbotCanInventory']) {
+            cb_reply_json('Product demand forecasting is only available for accounts with Inventory Management access.');
+        }
+        cb_reply_json(cb_forecast_product_reply($conn, $question, $smartText), ['topic' => 'forecast_product']);
+    }
+
+    if ($isForecastSalesQuestion) {
+        if (!$GLOBALS['chatbotCanSalesAnalytics']) {
+            cb_reply_json('Sales forecasting is only available for accounts with Sales Analytics access.');
+        }
+        cb_reply_json(cb_forecast_sales_reply($conn, $smartText), ['topic' => 'forecast_sales']);
+    }
 
     /* INVENTORY */
     if (($isLowStockQuestion || $isOutOfStockQuestion || $isNearingDepletionQuestion || $isRecentStockMovementQuestion || $isSpecificProductStockQuestion) && !$GLOBALS['chatbotCanInventory']) {
@@ -1719,6 +2070,15 @@ if (isset($_GET['action']) && $_GET['action'] === 'ask') {
     if ($isGrossRevenueMeaningQuestion) cb_reply_json('Gross revenue is the total amount of money earned from sales before subtracting any costs such as product cost or expenses.');
 
     /* SMART FALLBACKS */
+    $ragReply = cb_rag_answer($conn, $question, [
+        'inventory' => (bool)$GLOBALS['chatbotCanInventory'],
+        'sales_analytics' => (bool)$GLOBALS['chatbotCanSalesAnalytics'],
+        'accounts_receivable' => (bool)$GLOBALS['chatbotCanAccountsReceivable'],
+    ], $lastContext);
+    if ($ragReply !== null && trim($ragReply) !== '') {
+        cb_reply_json($ragReply, ['topic' => 'rag_fallback']);
+    }
+
     if (cb_fuzzy_has_any_word($smartText, ['sales', 'sale', 'profit', 'revenue'])) {
         cb_reply_json("I think your question is related to sales. You can ask:\n• What are my sales today?\n• What are my sales this week?\n• What is my net profit today?\n• Compare this week vs last week\n• What are my top 5 products?");
     }

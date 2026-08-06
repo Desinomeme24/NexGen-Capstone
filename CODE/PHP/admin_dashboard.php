@@ -80,6 +80,20 @@ if ($result) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Dashboard - NextGen</title>
+    <script>
+        /* THEME: apply saved preference before first paint to avoid a flash */
+        (function () {
+            try {
+                var saved = localStorage.getItem('nexgen-theme');
+                if (saved === 'light' || saved === 'dark') {
+                    document.documentElement.setAttribute('data-theme', saved);
+                }
+            } catch (e) {}
+        })();
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800;900&family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/NexGen/CODE/STYLE/admin_module.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <style>
@@ -100,22 +114,12 @@ if ($result) {
             position: sticky;
             top: 0;
             z-index: 5;
-            background: #0f245c;
+            background: rgba(8, 16, 50, 0.94);
+            backdrop-filter: blur(8px);
         }
 
-        .dashboard-requests-table-wrap::-webkit-scrollbar {
-            width: 10px;
-            height: 10px;
-        }
-
-        .dashboard-requests-table-wrap::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.25);
-            border-radius: 999px;
-        }
-
-        .dashboard-requests-table-wrap::-webkit-scrollbar-track {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 999px;
+        html[data-theme="light"] .dashboard-requests-table-wrap thead th {
+            background: rgba(214, 235, 255, 0.92);
         }
     </style>
 </head>
@@ -142,19 +146,19 @@ if ($result) {
         </div>
 
         <div class="card-grid">
-            <div class="stat-card">
+            <div class="stat-card tone-info">
                 <h3>Pending Requests</h3>
                 <div class="value"><?php echo $pendingRequests; ?></div>
             </div>
-            <div class="stat-card">
+            <div class="stat-card tone-success">
                 <h3>Approved Requests</h3>
                 <div class="value"><?php echo $approvedRequests; ?></div>
             </div>
-            <div class="stat-card">
+            <div class="stat-card tone-danger">
                 <h3>Rejected Requests</h3>
                 <div class="value"><?php echo $rejectedRequests; ?></div>
             </div>
-            <div class="stat-card">
+            <div class="stat-card tone-gold">
                 <h3>Active Users</h3>
                 <div class="value"><?php echo $activeUsers; ?></div>
             </div>
@@ -239,4 +243,4 @@ if ($result) {
     })();
 </script>
 </body>
-</html> 
+</html>

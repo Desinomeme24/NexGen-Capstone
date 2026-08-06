@@ -23,8 +23,9 @@ if (isset($_SESSION['user_id'])) {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <?php include __DIR__ . '/theme_init.php'; ?>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Privacy Policy - NextGen</title>
+    <title>Privacy Policy - NexGen</title>
     <style>
         * {
             box-sizing: border-box;
@@ -149,16 +150,64 @@ if (isset($_SESSION['user_id'])) {
                 padding: 22px 18px;
             }
         }
+
+        /* =========================================================
+           LIGHT MODE
+           Same html[data-theme="light"] switch as the rest of the
+           app (set by theme_init.php, included in <head> above),
+           so this page opens in whichever theme the user already
+           has chosen elsewhere instead of always forcing dark navy.
+        ========================= */
+        html[data-theme="light"] body {
+            background: linear-gradient(180deg, #eaf4ff 0%, #dbeafe 45%, #cfe4fb 100%);
+            color: #0b1f73;
+        }
+
+        html[data-theme="light"] .privacy-logo-text p {
+            color: rgba(11, 31, 115, 0.72);
+        }
+
+        html[data-theme="light"] .back-btn {
+            background: rgba(255, 255, 255, 0.7);
+            color: #0b1f73;
+            border-color: rgba(59, 130, 246, 0.28);
+            box-shadow: 0 10px 22px rgba(30, 64, 175, 0.12);
+        }
+
+        html[data-theme="light"] .back-btn:hover {
+            background: #ffffff;
+        }
+
+        html[data-theme="light"] .policy-card {
+            background: linear-gradient(165deg, rgba(255, 255, 255, 0.9) 0%, rgba(219, 234, 254, 0.88) 100%);
+            border-color: rgba(59, 130, 246, 0.22);
+            box-shadow: 0 20px 45px rgba(30, 64, 175, 0.12);
+        }
+
+        html[data-theme="light"] .policy-card h2 {
+            color: #92620a;
+        }
+
+        html[data-theme="light"] .policy-card p,
+        html[data-theme="light"] .policy-card li {
+            color: rgba(11, 31, 115, 0.82);
+        }
+
+        html[data-theme="light"] .policy-note {
+            background: rgba(246, 203, 8, 0.14);
+            border-color: rgba(246, 203, 8, 0.35);
+            color: #6b4e05;
+        }
     </style>
 </head>
 <body>
     <div class="privacy-page">
         <div class="privacy-top">
             <div class="privacy-logo">
-                <img src="/NexGen/IMAGES/NGlogo.png" alt="NextGen Logo">
+                <img src="/NexGen/IMAGES/NGlogo.png" alt="NexGen Logo">
                 <div class="privacy-logo-text">
                     <h1>Privacy Policy</h1>
-                    <p>NextGen Micro-Enterprise System</p>
+                    <p>NexGen Micro-Enterprise System</p>
                 </div>
             </div>
 
@@ -169,7 +218,7 @@ if (isset($_SESSION['user_id'])) {
             <div class="section">
                 <h2>1. Introduction</h2>
                 <p>
-                    NextGen values the privacy and security of user information. This Privacy Policy explains
+                    NexGen values the privacy and security of user information. This Privacy Policy explains
                     how personal data and system-generated information are collected, used, stored, and protected
                     within the system.
                 </p>
@@ -198,7 +247,7 @@ if (isset($_SESSION['user_id'])) {
             <div class="section">
                 <h2>4. Data Protection</h2>
                 <p>
-                    NextGen applies security measures such as password hashing, role-based access control,
+                    NexGen applies security measures such as password hashing, role-based access control,
                     session timeout, account lockout, CAPTCHA validation, and activity logging to help protect
                     user data from unauthorized access, misuse, or alteration.
                 </p>
@@ -207,7 +256,7 @@ if (isset($_SESSION['user_id'])) {
             <div class="section">
                 <h2>5. Cookie Use</h2>
                 <p>
-                    NextGen uses essential browser storage or session-related cookies for login session continuity,
+                    NexGen uses essential browser storage or session-related cookies for login session continuity,
                     security controls, inactivity timeout handling, and access management. These are used only
                     for proper system operation and are not intended for advertising or public tracking.
                 </p>
@@ -234,14 +283,14 @@ if (isset($_SESSION['user_id'])) {
             <div class="section">
                 <h2>8. Policy Updates</h2>
                 <p>
-                    NextGen may update this Privacy Policy when necessary to improve system security,
+                    NexGen may update this Privacy Policy when necessary to improve system security,
                     compliance, and operational transparency. Users are encouraged to review this page
                     periodically.
                 </p>
             </div>
 
             <div class="policy-note">
-                By using or registering in the NextGen system, users acknowledge that their information may be
+                By using or registering in the NexGen system, users acknowledge that their information may be
                 processed for authentication, approval, access control, security monitoring, legitimate system
                 operations, and essential cookie-based session handling.
             </div>

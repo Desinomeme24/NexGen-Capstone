@@ -268,10 +268,12 @@ if ($currentStatusForTab === '') {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <?php include __DIR__ . '/theme_init.php'; ?>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Inventory Management - NexGen</title>
     <link rel="stylesheet" href="/NexGen/CODE/STYLE/inventory_management.css?v=<?php echo time(); ?>">
     <link rel="stylesheet" href="/NexGen/CODE/STYLE/header.css?v=2">
+    <link rel="stylesheet" href="/NexGen/CODE/STYLE/module_footer.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 </head>
 <body>
@@ -1017,9 +1019,9 @@ if ($currentStatusForTab === '') {
         </div>
     </div>
 
-    <footer class="footer-section" id="footer-section">
-        <div class="footer-top-line"></div>
-        <p>Copyright © 2026 NexGen Micro-Enterprise</p>
+    <footer class="nx-footer">
+        <div class="nx-footer-line"></div>
+        <p class="nx-footer-copy">Copyright &copy; 2026 NexGen.</p>
     </footer>
 </div>
 

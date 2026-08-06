@@ -640,6 +640,7 @@ if (isset($_SESSION['success'])) {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <?php include __DIR__ . '/theme_init.php'; ?>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sales Analytics - NexGen</title>
 
@@ -647,6 +648,7 @@ if (isset($_SESSION['success'])) {
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="/NexGen/CODE/STYLE/header.css">
     <link rel="stylesheet" href="/NexGen/CODE/STYLE/sales_analytics.css?v=2">
+    <link rel="stylesheet" href="/NexGen/CODE/STYLE/module_footer.css">
 </head>
 <body>
 
@@ -988,6 +990,11 @@ if (isset($_SESSION['success'])) {
 
         </div>
     </main>
+
+    <footer class="nx-footer">
+        <div class="nx-footer-line"></div>
+        <p class="nx-footer-copy">Copyright &copy; 2026 NexGen.</p>
+    </footer>
 </div>
 
 <div class="modal fade" id="notificationsModal" tabindex="-1" aria-hidden="true">

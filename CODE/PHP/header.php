@@ -117,12 +117,21 @@ $showCategoryOpen = in_array(
 <div class="overlay" id="overlay"></div>
 
 <header class="topbar">
-    <div class="menu-btn" id="openSidebar" role="button" tabindex="0" aria-label="Open sidebar" onclick="openSidebarMenu()">
-        <span></span>
-        <span></span>
-        <span></span>
+    <div class="topbar-left">
+        <div class="menu-btn" id="openSidebar" role="button" tabindex="0" aria-label="Open sidebar" onclick="openSidebarMenu()">
+            <span></span>
+            <span></span>
+            <span></span>
+        </div>
     </div>
 
+    <div class="topbar-right">
+        <button class="theme-toggle" id="themeToggle" type="button" aria-disabled="true" tabindex="-1" aria-label="Current theme (change this in Settings)" style="pointer-events: none; cursor: default;">
+            <span class="theme-toggle-thumb">
+                <i class="bi bi-moon-stars-fill" id="themeIcon"></i>
+            </span>
+        </button>
+    </div>
 </header>
 
 <div class="logout-modal-overlay" id="logoutModal">
@@ -328,5 +337,23 @@ $showCategoryOpen = in_array(
         });
 
         resetInactivityTimer();
+    })();
+
+    /* THEME INDICATOR: read-only now — the topbar button no longer toggles
+       the theme itself, it just mirrors whatever settings.php's
+       Personalization picker has stored under "nexgen-theme". Change the
+       theme in Settings; this icon updates to match on next page load. */
+    (function () {
+        const themeIcon = document.getElementById('themeIcon');
+
+        function syncIcon(theme) {
+            if (themeIcon) {
+                themeIcon.className = theme === 'light' ? 'bi bi-sun-fill' : 'bi bi-moon-stars-fill';
+            }
+        }
+
+        // data-theme is already set on <html> by theme_init.php before paint —
+        // this just points the icon at whatever that ended up being.
+        syncIcon(document.documentElement.getAttribute('data-theme') || 'dark');
     })();
 </script>

@@ -216,6 +216,7 @@ unset($_SESSION['success'], $_SESSION['error']);
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <?php include __DIR__ . '/theme_init.php'; ?>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>View Sale</title>
     <style>
@@ -566,6 +567,220 @@ unset($_SESSION['success'], $_SESSION['error']);
                 top: 12px;
                 width: calc(100vw - 24px);
             }
+        }
+
+        /* =========================================================
+           LIGHT MODE
+           This page had no theme awareness at all before — no
+           theme_init include, no data-theme rules — so it always
+           rendered dark navy regardless of what theme was set
+           everywhere else in the app. Wired to the same
+           html[data-theme="light"] switch and blue/gold palette
+           used across the Sales module — with actual depth this
+           time (gradients + shadows + hover life), not just flat
+           tinted boxes.
+        ========================= */
+        html[data-theme="light"] body {
+            color: #0b1f73;
+            background:
+                radial-gradient(circle at 10% 0%, rgba(162, 210, 255, 0.55) 0%, transparent 45%),
+                radial-gradient(circle at 90% 10%, rgba(189, 224, 254, 0.45) 0%, transparent 42%),
+                radial-gradient(circle at 50% 100%, rgba(209, 232, 252, 0.55) 0%, transparent 55%),
+                linear-gradient(160deg, #eaf4ff 0%, #dbeafe 40%, #eef6ff 75%, #ffffff 100%);
+        }
+
+        html[data-theme="light"] .page-shell {
+            background:
+                radial-gradient(circle at 100% 0%, rgba(246, 203, 8, 0.08) 0%, transparent 30%),
+                linear-gradient(165deg, rgba(255, 255, 255, 0.94) 0%, rgba(219, 234, 254, 0.88) 100%);
+            border-color: rgba(59, 130, 246, 0.24);
+            box-shadow:
+                0 24px 55px rgba(30, 64, 175, 0.14),
+                inset 0 1px 0 rgba(255, 255, 255, 0.8);
+        }
+
+        html[data-theme="light"] .header {
+            border-bottom-color: rgba(59, 130, 246, 0.18);
+            background: linear-gradient(90deg, rgba(219, 234, 254, 0.4), transparent 60%);
+        }
+
+        html[data-theme="light"] .header-title {
+            color: #0b1f73;
+        }
+
+        html[data-theme="light"] .card {
+            background: linear-gradient(155deg, #ffffff 0%, #eef4ff 55%, #dcecfd 100%);
+            border: 1px solid rgba(59, 130, 246, 0.18);
+            box-shadow: 0 14px 30px rgba(30, 64, 175, 0.08);
+        }
+
+        html[data-theme="light"] .section-title {
+            color: #0b1f73;
+            position: relative;
+            padding-left: 14px;
+        }
+
+        html[data-theme="light"] .section-title::before {
+            content: "";
+            position: absolute;
+            left: 0;
+            top: 2px;
+            bottom: 2px;
+            width: 4px;
+            border-radius: 4px;
+            background: linear-gradient(180deg, #ffdd55, #2563eb);
+        }
+
+        html[data-theme="light"] .info-box {
+            background: linear-gradient(160deg, rgba(255, 255, 255, 0.85) 0%, rgba(210, 231, 253, 0.65) 100%);
+            border: 1px solid rgba(59, 130, 246, 0.2);
+            box-shadow: 0 8px 18px rgba(30, 64, 175, 0.07);
+            transition: transform 0.18s ease, box-shadow 0.18s ease;
+        }
+
+        html[data-theme="light"] .info-box:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 14px 26px rgba(30, 64, 175, 0.12);
+        }
+
+        html[data-theme="light"] .info-box small {
+            color: rgba(11, 31, 115, 0.6);
+        }
+
+        html[data-theme="light"] .info-box strong {
+            color: #0b1f73;
+        }
+
+        html[data-theme="light"] .receivable-box {
+            background: linear-gradient(155deg, rgba(191, 219, 254, 0.5) 0%, rgba(255, 255, 255, 0.7) 100%);
+            border: 1px solid rgba(59, 130, 246, 0.3);
+            box-shadow: 0 8px 18px rgba(30, 64, 175, 0.08);
+            transition: transform 0.18s ease, box-shadow 0.18s ease;
+        }
+
+        html[data-theme="light"] .receivable-box:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 14px 26px rgba(30, 64, 175, 0.14);
+        }
+
+        html[data-theme="light"] .receivable-box small {
+            color: rgba(11, 31, 115, 0.62);
+        }
+
+        html[data-theme="light"] .receivable-box strong {
+            color: #0b1f73;
+        }
+
+        html[data-theme="light"] th,
+        html[data-theme="light"] td {
+            border-bottom-color: rgba(59, 130, 246, 0.14);
+            color: #0b1f73;
+        }
+
+        html[data-theme="light"] th {
+            background: linear-gradient(90deg, rgba(191, 219, 254, 0.6), rgba(219, 234, 254, 0.3));
+            color: #1d4ed8;
+            font-weight: 800;
+        }
+
+        html[data-theme="light"] tbody tr:hover {
+            background: rgba(59, 130, 246, 0.05);
+        }
+
+        html[data-theme="light"] .paid,
+        html[data-theme="light"] .fulfilled {
+            background: linear-gradient(135deg, rgba(110, 231, 183, 0.35), rgba(16, 185, 129, 0.18));
+            color: #047857;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        html[data-theme="light"] .unpaid {
+            background: linear-gradient(135deg, rgba(253, 164, 175, 0.4), rgba(225, 29, 72, 0.15));
+            color: #be123c;
+            border: 1px solid rgba(225, 29, 72, 0.3);
+        }
+
+        html[data-theme="light"] .partial,
+        html[data-theme="light"] .pending {
+            background: linear-gradient(135deg, rgba(253, 230, 138, 0.5), rgba(246, 203, 8, 0.2));
+            color: #92620a;
+            border: 1px solid rgba(212, 160, 23, 0.35);
+        }
+
+        html[data-theme="light"] .btn-secondary {
+            background: linear-gradient(160deg, #ffffff, #eaf2ff);
+            color: #0b1f73;
+            border: 1px solid rgba(11, 31, 115, 0.2);
+            box-shadow: 0 8px 16px rgba(30, 64, 175, 0.08);
+        }
+
+        html[data-theme="light"] .btn-secondary:hover {
+            background: #ffffff;
+            border-color: rgba(37, 99, 235, 0.4);
+            transform: translateY(-1px);
+        }
+
+        html[data-theme="light"] .btn-primary {
+            box-shadow: 0 14px 28px rgba(212, 160, 23, 0.32);
+        }
+
+        html[data-theme="light"] .btn-primary:hover {
+            box-shadow: 0 18px 34px rgba(212, 160, 23, 0.4);
+        }
+
+        /* Total Due is the number that matters most on this page —
+           give it the gold treatment instead of blending into the
+           same blue as every other box. */
+        html[data-theme="light"] .total-card {
+            background: linear-gradient(150deg, rgba(255, 236, 179, 0.55) 0%, rgba(255, 255, 255, 0.85) 60%, rgba(219, 234, 254, 0.7) 100%);
+            border: 1.5px solid rgba(212, 160, 23, 0.35);
+            box-shadow: 0 16px 32px rgba(180, 130, 10, 0.14);
+        }
+
+        html[data-theme="light"] .total-card small {
+            color: rgba(11, 31, 115, 0.6);
+        }
+
+        html[data-theme="light"] .total-card strong {
+            background: linear-gradient(100deg, #92620a, #d4a017 60%, #0b1f73);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        html[data-theme="light"] .form-group label {
+            color: rgba(11, 31, 115, 0.72);
+        }
+
+        html[data-theme="light"] .form-group input {
+            background: #ffffff;
+            border: 1px solid rgba(59, 130, 246, 0.25);
+            color: #0b1f73;
+            box-shadow: inset 0 1px 3px rgba(30, 64, 175, 0.06);
+        }
+
+        html[data-theme="light"] .form-group input:focus {
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+        }
+
+        html[data-theme="light"] .form-note,
+        html[data-theme="light"] .empty-note {
+            color: rgba(11, 31, 115, 0.6);
+        }
+
+        html[data-theme="light"] .nx-toast {
+            background: rgba(255, 255, 255, 0.96);
+            border: 1px solid rgba(59, 130, 246, 0.22);
+            box-shadow: 0 24px 50px rgba(30, 64, 175, 0.2);
+        }
+
+        html[data-theme="light"] .nx-toast-title {
+            color: #0b1f73;
+        }
+
+        html[data-theme="light"] .nx-toast-message {
+            color: rgba(11, 31, 115, 0.68);
         }
     </style>
 </head>

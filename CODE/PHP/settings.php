@@ -51,7 +51,23 @@ $verifyOtpCsrfToken = generateCsrfToken('verify_password_otp_form');
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script>
+        /* THEME: apply saved preference before first paint to avoid a flash */
+        (function () {
+            try {
+                var saved = localStorage.getItem("nexgen-theme");
+                if (saved === "light" || saved === "dark") {
+                    document.documentElement.setAttribute("data-theme", saved);
+                }
+            } catch (e) {}
+        })();
+    </script>
     <title>Settings - NextGen</title>
+    <!-- header.css owns the shared --bg-page/--text-heading/etc tokens and the
+         data-theme="light" overrides. Loading it here (without header.php's
+         markup) lets settings.css react to the same theme switch as every
+         other page, instead of keeping its own separate copy of the palette. -->
+    <link rel="stylesheet" href="/NexGen/CODE/STYLE/header.css">
     <link rel="stylesheet" href="/NexGen/CODE/STYLE/settings.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 </head>
@@ -89,6 +105,7 @@ $verifyOtpCsrfToken = generateCsrfToken('verify_password_otp_form');
 
         <nav class="settings-nav">
             <button class="nav-item active" data-target="account-panel" type="button"><i class="bi bi-person"></i><span>Account</span></button>
+            <button class="nav-item" data-target="personalization-panel" type="button"><i class="bi bi-palette"></i><span>Personalization</span></button>
             <button class="nav-item" data-target="security-panel" type="button"><i class="bi bi-shield-lock"></i><span>Security &amp; Access</span></button>
         </nav>
 
@@ -149,6 +166,31 @@ $verifyOtpCsrfToken = generateCsrfToken('verify_password_otp_form');
                     <div class="info-chip"><i class="bi bi-envelope-check"></i> Email only</div>
                 </div>
             </form>
+        </section>
+
+        <section class="settings-panel" id="personalization-panel">
+            <div class="panel-header">
+                <h2>Personalization</h2>
+                <p class="panel-subtitle">Choose how NexGen looks. </p>
+            </div>
+
+            <div class="theme-picker" id="themePicker">
+                <button type="button" class="theme-option" data-theme-choice="dark">
+                    <span class="theme-swatch theme-swatch-dark">
+                        <span class="theme-swatch-card"></span>
+                        <span class="theme-swatch-card short"></span>
+                    </span>
+                    <span class="theme-option-label"><i class="bi bi-moon-stars-fill"></i> Dark</span>
+                </button>
+
+                <button type="button" class="theme-option" data-theme-choice="light">
+                    <span class="theme-swatch theme-swatch-light">
+                        <span class="theme-swatch-card"></span>
+                        <span class="theme-swatch-card short"></span>
+                    </span>
+                    <span class="theme-option-label"><i class="bi bi-sun-fill"></i> Light</span>
+                </button>
+            </div>
         </section>
 
         <section class="settings-panel" id="security-panel">
@@ -374,6 +416,44 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 });
+</script>
+
+<script>
+    /* THEME: personalization picker — sets data-theme, persists it under the
+       same key admin_dashboard.php reads on load, and keeps the .selected
+       highlight in sync with whichever theme is actually active. */
+    (function () {
+        const themeOptions = document.querySelectorAll(".theme-option");
+
+        function currentTheme() {
+            return document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
+        }
+
+        function syncSelected() {
+            const active = currentTheme();
+            themeOptions.forEach(function (option) {
+                option.classList.toggle("selected", option.dataset.themeChoice === active);
+            });
+        }
+
+        function applyTheme(choice) {
+            if (choice === "light") {
+                document.documentElement.setAttribute("data-theme", "light");
+            } else {
+                document.documentElement.removeAttribute("data-theme");
+            }
+            try { localStorage.setItem("nexgen-theme", choice); } catch (e) {}
+            syncSelected();
+        }
+
+        themeOptions.forEach(function (option) {
+            option.addEventListener("click", function () {
+                applyTheme(option.dataset.themeChoice);
+            });
+        });
+
+        syncSelected();
+    })();
 </script>
 
 <script>

@@ -56,6 +56,7 @@ $pageSubtitle = $isOwner
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <?php include __DIR__ . '/theme_init.php'; ?>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo htmlspecialchars($pageTitle); ?> - NextGen</title>
     <link rel="stylesheet" href="/NexGen/CODE/STYLE/dashboard.css">
@@ -81,20 +82,14 @@ $pageSubtitle = $isOwner
     <?php include 'header.php'; ?>
 
     <section class="top-video-area" id="topVideoArea">
-        <div class="video-background">
-            <video class="bg-video active" autoplay muted loop playsinline>
-                <source src="/NexGen/VIDEOS/storevideo1.mp4" type="video/mp4">
-            </video>
-            <video class="bg-video" autoplay muted loop playsinline>
-                <source src="/NexGen/VIDEOS/storevideo2.mp4" type="video/mp4">
-            </video>
-            <video class="bg-video" autoplay muted loop playsinline>
-                <source src="/NexGen/VIDEOS/storevideo3.mp4" type="video/mp4">
-            </video>
-            <video class="bg-video" autoplay muted loop playsinline>
-                <source src="/NexGen/VIDEOS/storevideo2.mp4" type="video/mp4">
-            </video>
-            <div class="video-overlay"></div>
+        <div class="hero-bg-circuit" aria-hidden="true">
+            <div class="circuit-orb orb-1"></div>
+            <div class="circuit-orb orb-2"></div>
+            <div class="circuit-orb orb-3"></div>
+            <div class="circuit-orb orb-4"></div>
+            <div class="circuit-flow"></div>
+            <div class="circuit-grid"></div>
+            <div class="circuit-pulses-layer" id="circuitPulses"></div>
         </div>
 
         <div class="hero-scroll-indicator">
@@ -214,7 +209,7 @@ $pageSubtitle = $isOwner
             </div>
 
             <div class="why-outline-text why-reveal why-reveal-up">WHY US</div>
-            <div class="why-highlight-box why-reveal why-reveal-up">WHY NEXTGEN MICRO-ENTERPRISE?</div>
+            <div class="why-highlight-box why-reveal why-reveal-up">WHY NEXGEN FOR SMEs?</div>
 
             <div class="why-content">
                 <div class="why-left why-reveal why-reveal-left">
@@ -224,9 +219,9 @@ $pageSubtitle = $isOwner
                 <div class="why-right why-reveal why-reveal-right">
                     <div class="why-icon-text">
                         <div class="why-description">
-                            <p><strong>Next Gen</strong> is designed to provide micro-enterprises with a simple, secure, and intelligent way to manage business operations.</p>
-                            <p>We focus on usability, reliability, and real-time data access.</p>
-                            <p class="why-closing">Choose Next Gen — where business management meets smart technology.</p>
+                            <p><strong>Next Gen</strong> is designed to provide Small and Medium Enterprises (SMEs) with a secure, efficient, and intelligent platform for managing inventory, sales transactions, and business operations.</p>
+                            <p>We prioritize accuracy, usability, reliability, and real-time access to business information to help enterprises operate more effectively.</p>
+                            <p class="why-closing">Choose NexGen — where smarter business management meets intelligent technology.</p>
                         </div>
 
                         <button type="button" class="why-toggle-btn" id="whyToggleBtn" aria-expanded="false" aria-controls="whyExtra">
@@ -235,8 +230,8 @@ $pageSubtitle = $isOwner
                         </button>
 
                         <div class="why-extra" id="whyExtra">
-                            <p>Founded to support small and growing businesses, Next Gen brings together inventory tracking, sales recording, and analytics in one connected platform — so owners spend less time juggling tools and more time growing.</p>
-                            <p>Every feature is built around real feedback from micro-enterprise owners, keeping the experience simple enough for daily use without sacrificing the insight larger businesses rely on.</p>
+                            <p>Founded to support growing businesses, NexGen brings together inventory management, sales recording, sales analytics, accounts receivable monitoring, and an AI-powered chatbot assistant into one centralized web-based platform.</p>
+                            <p>Our system reduces manual work, improves data accuracy, streamlines daily operations, and provides real-time business insights, allowing business owners to focus on making informed decisions and achieving sustainable growth.</p>
                         </div>
                     </div>
 
@@ -247,26 +242,35 @@ $pageSubtitle = $isOwner
     </section>
 
     <footer class="footer-section" id="footer-section">
+        <div class="footer-wave-wrap" aria-hidden="true">
+            <svg class="wave-back" viewBox="0 0 2400 100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M0,40 C150,70 350,10 600,40 C850,70 1050,10 1200,40 C1350,70 1550,10 1800,40 C2050,70 2250,10 2400,40 L2400,100 L0,100 Z"></path>
+            </svg>
+            <svg class="wave-mid" viewBox="0 0 2400 100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M0,30 C150,50 350,10 600,30 C850,50 1050,10 1200,30 C1350,50 1550,10 1800,30 C2050,50 2250,10 2400,30 L2400,100 L0,100 Z"></path>
+            </svg>
+            <svg class="wave-front" viewBox="0 0 2400 100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M0,25 C150,38 350,12 600,25 C850,38 1050,12 1200,25 C1350,38 1550,12 1800,25 C2050,38 2250,12 2400,25 L2400,100 L0,100 Z"></path>
+            </svg>
+            <svg class="wave-crest" viewBox="0 0 2400 100" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M0,40 C150,70 350,10 600,40 C850,70 1050,10 1200,40 C1350,70 1550,10 1800,40 C2050,70 2250,10 2400,40"></path>
+            </svg>
+        </div>
         <div class="footer-top-line"></div>
 
         <div class="footer-logo">
-            <img src="/NexGen/IMAGES/NGlogo.png" alt="Logo">
+            <img src="/NexGen/IMAGES/NGlogo.png" alt="NexGen Logo">
         </div>
 
-        <div class="footer-grid">
-            <div class="footer-item">
-                <span class="footer-icon">✉️</span>
-                <p><strong>Email:</strong> nextgenmicroenterprise@gmail.com</p>
-            </div>
-
-            <div class="footer-item">
-                <span class="footer-icon">🌐</span>
-                <p><strong>Website:</strong> https://nextgenmicroenterprise.com</p>
-            </div>
+        <div class="footer-social">
+            <a href="https://www.facebook.com/profile.php?id=61587577520854" target="_blank" rel="noopener" aria-label="NexGen on Facebook"><i class="bi bi-facebook"></i></a>
+            <a href="#" target="_blank" rel="noopener" aria-label="NexGen on Instagram"><i class="bi bi-instagram"></i></a>
+            <a href="#" target="_blank" rel="noopener" aria-label="NexGen on X"><i class="bi bi-twitter-x"></i></a>
+            <a href="#" target="_blank" rel="noopener" aria-label="NexGen on TikTok"><i class="bi bi-tiktok"></i></a>
         </div>
 
         <div class="footer-copy">
-            Copyright © 2026 NextGen Micro-Enterprise
+            &copy; 2026 NexGen. All rights reserved.
         </div>
     </footer>
 
@@ -274,5 +278,66 @@ $pageSubtitle = $isOwner
 
 <?php include 'chatbot.php'; ?>
 <script src="/NexGen/CODE/JS/dashboard.js"></script>
+<script>
+/* Circuit pulse spawner — same approach as login_process.php's
+   #circuitPulses, adapted to the taller scrollable hero area
+   (uses the .hero-bg-circuit container's own size instead of the
+   viewport, since this section runs ~200vh tall). */
+(function () {
+    var container = document.querySelector('.hero-bg-circuit');
+    var layer = document.getElementById('circuitPulses');
+    if (!container || !layer) return;
+
+    var GRID = 48;
+
+    function spawnPulse() {
+        var width = container.offsetWidth || window.innerWidth;
+        var height = container.offsetHeight || window.innerHeight;
+        var cols = Math.ceil(width / GRID);
+        var rows = Math.ceil(height / GRID);
+
+        var dot = document.createElement('div');
+        dot.className = 'circuit-pulse';
+
+        var horizontal = Math.random() < 0.5;
+        var steps = 3 + Math.floor(Math.random() * 5);
+        var x, y, dx, dy;
+
+        if (horizontal) {
+            y = Math.floor(Math.random() * rows) * GRID;
+            x = Math.floor(Math.random() * Math.max(1, cols - steps)) * GRID;
+            dx = steps * GRID; dy = 0;
+        } else {
+            x = Math.floor(Math.random() * cols) * GRID;
+            y = Math.floor(Math.random() * Math.max(1, rows - steps)) * GRID;
+            dx = 0; dy = steps * GRID;
+        }
+
+        dot.style.left = x + 'px';
+        dot.style.top = y + 'px';
+
+        var duration = steps * 0.6;
+        dot.style.animationDuration = duration + 's';
+        layer.appendChild(dot);
+
+        if (dot.animate) {
+            dot.animate(
+                [{ transform: 'translate(0,0)' }, { transform: 'translate(' + dx + 'px,' + dy + 'px)' }],
+                { duration: duration * 1000, easing: 'linear' }
+            );
+        }
+
+        setTimeout(function () { dot.remove(); }, duration * 1000);
+    }
+
+    var reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduceMotion) return;
+
+    for (var i = 0; i < 14; i++) {
+        setTimeout(spawnPulse, i * 150);
+    }
+    setInterval(spawnPulse, 350);
+})();
+</script>
 </body>
 </html>

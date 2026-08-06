@@ -148,6 +148,17 @@ if (
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pending Requests - NextGen</title>
+    <script>
+        /* THEME: apply saved preference before first paint to avoid a flash */
+        (function () {
+            try {
+                var saved = localStorage.getItem('nexgen-theme');
+                if (saved === 'light' || saved === 'dark') {
+                    document.documentElement.setAttribute('data-theme', saved);
+                }
+            } catch (e) {}
+        })();
+    </script>
     <link rel="stylesheet" href="/NexGen/CODE/STYLE/admin_module.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 
@@ -183,7 +194,12 @@ if (
             position: sticky;
             top: 0;
             z-index: 5;
-            background: #0f245c;
+            background: rgba(8, 16, 50, 0.94);
+            backdrop-filter: blur(8px);
+        }
+
+        html[data-theme="light"] .pending-requests-table-wrap thead th {
+            background: rgba(214, 235, 255, 0.92);
         }
 
         .pending-requests-table-wrap::-webkit-scrollbar {

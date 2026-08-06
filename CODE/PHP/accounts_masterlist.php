@@ -244,6 +244,17 @@ if (
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Accounts Masterlist - NextGen</title>
+    <script>
+        /* THEME: apply saved preference before first paint to avoid a flash */
+        (function () {
+            try {
+                var saved = localStorage.getItem('nexgen-theme');
+                if (saved === 'light' || saved === 'dark') {
+                    document.documentElement.setAttribute('data-theme', saved);
+                }
+            } catch (e) {}
+        })();
+    </script>
     <link rel="stylesheet" href="/NexGen/CODE/STYLE/admin_module.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <style>
@@ -273,7 +284,12 @@ if (
             position: sticky;
             top: 0;
             z-index: 5;
-            background: #0f245c;
+            background: rgba(8, 16, 50, 0.94);
+            backdrop-filter: blur(8px);
+        }
+
+        html[data-theme="light"] .accounts-table-wrap thead th {
+            background: rgba(214, 235, 255, 0.92);
         }
 
         .accounts-table-wrap::-webkit-scrollbar {
@@ -320,6 +336,21 @@ if (
         .badge-terminated-state {
             background: rgba(255, 107, 107, 0.18);
             color: #ffb3b3;
+        }
+
+        html[data-theme="light"] .badge-active-state {
+            background: rgba(16, 138, 92, 0.14);
+            color: #0f7a52;
+        }
+
+        html[data-theme="light"] .badge-inactive-state {
+            background: rgba(217, 155, 12, 0.14);
+            color: #9a6a12;
+        }
+
+        html[data-theme="light"] .badge-terminated-state {
+            background: rgba(200, 30, 77, 0.12);
+            color: #c81e4d;
         }
 
         .created-col,
@@ -384,8 +415,8 @@ if (
             padding: 16px 18px;
             margin-bottom: 12px;
             border-radius: 16px;
-            background: rgba(255, 255, 255, 0.04);
-            border: 1px solid rgba(255, 255, 255, 0.06);
+            background: var(--card);
+            border: 1px solid var(--line);
         }
 
         .account-card-index {
@@ -442,6 +473,12 @@ if (
             background: rgba(91, 141, 239, 0.14);
             color: #8fb4ff;
             border: 1px solid rgba(143, 180, 255, 0.4);
+        }
+
+        html[data-theme="light"] .position-pill {
+            background: rgba(59, 130, 246, 0.12);
+            color: #1d4ed8;
+            border-color: rgba(59, 130, 246, 0.3);
         }
 
         .account-card-meta-row {

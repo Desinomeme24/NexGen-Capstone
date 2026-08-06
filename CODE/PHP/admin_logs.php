@@ -186,6 +186,17 @@ if (
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Logs - NextGen</title>
+    <script>
+        /* THEME: apply saved preference before first paint to avoid a flash */
+        (function () {
+            try {
+                var saved = localStorage.getItem('nexgen-theme');
+                if (saved === 'light' || saved === 'dark') {
+                    document.documentElement.setAttribute('data-theme', saved);
+                }
+            } catch (e) {}
+        })();
+    </script>
     <link rel="stylesheet" href="/NexGen/CODE/STYLE/admin_module.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 
@@ -214,7 +225,12 @@ if (
             position: sticky;
             top: 0;
             z-index: 5;
-            background: #0f245c;
+            background: rgba(8, 16, 50, 0.94);
+            backdrop-filter: blur(8px);
+        }
+
+        html[data-theme="light"] .logs-table-wrap thead th {
+            background: rgba(214, 235, 255, 0.92);
         }
 
         .logs-table-wrap::-webkit-scrollbar {
@@ -256,6 +272,16 @@ if (
             color: #ffb0b0;
         }
 
+        html[data-theme="light"] .mini-badge.yes {
+            background: rgba(16, 138, 92, 0.14);
+            color: #0f7a52;
+        }
+
+        html[data-theme="light"] .mini-badge.no {
+            background: rgba(200, 30, 77, 0.12);
+            color: #c81e4d;
+        }
+
         .log-admin-cell {
             display: flex;
             flex-direction: column;
@@ -265,23 +291,23 @@ if (
 
         .log-admin-name {
             font-weight: 600;
-            color: #ffffff;
+            color: var(--white);
         }
 
         .log-admin-username {
             font-size: 11px;
-            color: rgba(255, 255, 255, 0.55);
+            color: var(--muted);
         }
 
         .log-action-chip {
             display: inline-block;
             padding: 3px 9px;
             border-radius: 8px;
-            background: rgba(255, 255, 255, 0.08);
-            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: var(--card);
+            border: 1px solid var(--line);
             font-size: 11.5px;
             font-weight: 600;
-            color: #cfe0ff;
+            color: var(--text);
             white-space: nowrap;
         }
 
@@ -319,14 +345,19 @@ if (
             max-width: 560px;
             max-height: 84vh;
             overflow-y: auto;
-            background: linear-gradient(180deg, #1f3c88 0%, #16307a 100%);
+            background: linear-gradient(180deg, rgba(59, 130, 246, 0.16) 0%, rgba(5, 11, 36, 0.96) 100%);
             border-radius: 18px;
             padding: 24px;
             box-shadow: 0 20px 45px rgba(0, 0, 0, 0.3);
-            color: #fff;
-            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: var(--text);
+            border: 1px solid rgba(125, 211, 252, 0.28);
             transform: translateY(12px) scale(0.97);
             transition: 0.2s ease;
+        }
+
+        html[data-theme="light"] .log-detail-box {
+            background: linear-gradient(180deg, #ffffff 0%, #eaf4ff 100%);
+            border-color: rgba(59, 130, 246, 0.25);
         }
 
         .log-detail-overlay.show .log-detail-box {
@@ -339,7 +370,7 @@ if (
             align-items: flex-start;
             gap: 12px;
             margin-bottom: 16px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+            border-bottom: 1px solid var(--line);
             padding-bottom: 14px;
         }
 
@@ -351,13 +382,13 @@ if (
 
         .log-detail-header p {
             font-size: 12.5px;
-            color: rgba(255, 255, 255, 0.65);
+            color: var(--muted);
         }
 
         .log-detail-close {
-            background: rgba(255, 255, 255, 0.12);
+            background: var(--card);
             border: none;
-            color: #fff;
+            color: var(--text);
             width: 32px;
             height: 32px;
             border-radius: 999px;
@@ -370,7 +401,7 @@ if (
         }
 
         .log-detail-close:hover {
-            background: rgba(255, 255, 255, 0.22);
+            background: var(--card-hover);
         }
 
         .log-detail-grid {
@@ -393,7 +424,7 @@ if (
             font-size: 10.5px;
             text-transform: uppercase;
             letter-spacing: 0.4px;
-            color: rgba(255, 255, 255, 0.55);
+            color: var(--muted);
             margin-bottom: 4px;
             font-weight: 700;
         }
@@ -405,8 +436,8 @@ if (
         }
 
         .log-detail-description {
-            background: rgba(255, 255, 255, 0.08);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: var(--card);
+            border: 1px solid var(--line);
             border-radius: 12px;
             padding: 12px 14px;
             font-size: 13.5px;

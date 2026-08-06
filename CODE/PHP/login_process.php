@@ -333,34 +333,83 @@ $profileImage = !empty($user['profile_image']) ? $user['profile_image'] : '/NexG
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login Success – NextGen</title>
     <meta http-equiv="refresh" content="6;url=<?php echo htmlspecialchars($redirectUrl, ENT_QUOTES, 'UTF-8'); ?>">
+    <?php include 'theme_init.php'; ?>
     <link href="https://fonts.googleapis.com/css2?family=Sora:wght@700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
     <style>
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        /* ── Theme tokens: dark navy by default, pastel sky-blue in light
+           mode (html[data-theme="light"], set by theme_init.php above from
+           the same "nexgen-theme" the rest of the app uses) ── */
+        :root {
+            --circuit-bg-1: #000871;
+            --circuit-bg-2: #050b1a;
+            --circuit-line: rgba(0, 127, 255, 0.18);
+            --circuit-pulse: #5268ff;
+            --scrim: rgba(5, 12, 35, 0.42);
+            --card-text-main: #ffffff;
+            --card-text-muted: rgba(255, 255, 255, 0.6);
+            --card-label: #6a95ff;
+            --card-glass-top: rgba(255, 255, 255, 0.16);
+            --card-glass-bottom: rgba(255, 255, 255, 0.06);
+            --card-border: rgba(255, 255, 255, 0.28);
+            --card-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+        }
+        html[data-theme="light"] {
+            --circuit-bg-1: #e5f0fa;
+            --circuit-bg-2: #d1e8fc;
+            --circuit-line: rgba(36, 56, 189, 0.22);
+            --circuit-pulse: #2563eb;
+            --scrim: rgba(255, 255, 255, 0.35);
+            --card-text-main: #10264d;
+            --card-text-muted: rgba(16, 38, 77, 0.65);
+            --card-label: #1d4ed8;
+            --card-glass-top: rgba(162, 210, 255, 0.6);
+            --card-glass-bottom: rgba(140, 201, 255, 0.28);
+            --card-border: rgba(37, 99, 235, 0.38);
+            --card-shadow: 0 24px 55px rgba(37, 99, 235, 0.28);
+        }
 
         html, body {
             width: 100%; height: 100%;
             overflow: hidden;
             font-family: 'DM Sans', sans-serif;
-            background: #0a1220;
+            background: var(--circuit-bg-2);
         }
 
-        /* ── Same videos as dashboard ── */
-        .bg-video-wrap {
+        /* ── Circuit board background: grid traces + drifting signal
+           pulses, replacing the old store-video background ── */
+        .bg-circuit {
             position: fixed; inset: 0; z-index: 0; overflow: hidden;
+            background: linear-gradient(160deg, var(--circuit-bg-1) 0%, var(--circuit-bg-2) 100%);
         }
-        .bg-video {
+        .bg-circuit .circuit-grid {
             position: absolute; inset: 0;
-            width: 100%; height: 100%;
-            object-fit: cover;
-            opacity: 0;
-            transition: opacity 1.2s ease-in-out;
+            background-image:
+                linear-gradient(var(--circuit-line) 1px, transparent 1px),
+                linear-gradient(90deg, var(--circuit-line) 1px, transparent 1px);
+            background-size: 48px 48px;
         }
-        .bg-video.active { opacity: 1; }
+        .circuit-pulse {
+            position: absolute;
+            width: 4px; height: 4px;
+            border-radius: 50%;
+            background: var(--circuit-pulse);
+            box-shadow: 0 0 8px 2px var(--circuit-pulse);
+            opacity: 0;
+            animation: pulseFade linear infinite;
+        }
+        @keyframes pulseFade {
+            0%   { opacity: 0; }
+            10%  { opacity: 1; }
+            90%  { opacity: 1; }
+            100% { opacity: 0; }
+        }
 
         /* ── Dim so content stays readable ── */
         .overlay {
             position: fixed; inset: 0; z-index: 1;
-            background: rgba(5, 12, 35, 0.42);
+            background: var(--scrim);
             backdrop-filter: blur(3px);
             -webkit-backdrop-filter: blur(3px);
         }
@@ -380,12 +429,12 @@ $profileImage = !empty($user['profile_image']) ? $user['profile_image'] : '/NexG
             border-radius: 28px;
             background: linear-gradient(
                 165deg,
-                rgba(255, 255, 255, 0.16) 0%,
-                rgba(255, 255, 255, 0.06) 100%
+                var(--card-glass-top) 0%,
+                var(--card-glass-bottom) 100%
             );
-            border: 1px solid rgba(255, 255, 255, 0.28);
+            border: 1px solid var(--card-border);
             box-shadow:
-                0 24px 60px rgba(0, 0, 0, 0.45),
+                var(--card-shadow),
                 inset 0 1px 0 rgba(255, 255, 255, 0.35),
                 inset 0 0 0 1px rgba(255, 255, 255, 0.04);
             backdrop-filter: blur(22px) saturate(160%);
@@ -499,17 +548,17 @@ $profileImage = !empty($user['profile_image']) ? $user['profile_image'] : '/NexG
             font-family: 'Sora', sans-serif;
             font-size: 12px; font-weight: 700;
             letter-spacing: 2.5px; text-transform: uppercase;
-            color: #6a95ff; margin-bottom: 8px;
+            color: var(--card-label); margin-bottom: 8px;
         }
         .user-name {
             font-family: 'Sora', sans-serif;
             font-size: 28px; font-weight: 800;
-            color: #ffffff; letter-spacing: -0.3px;
+            color: var(--card-text-main); letter-spacing: -0.3px;
             margin-bottom: 6px;
             text-shadow: 0 2px 20px rgba(0,0,0,0.5);
         }
         .label-redirect {
-            font-size: 13px; color: rgba(255,255,255,0.6);
+            font-size: 13px; color: var(--card-text-muted);
             margin-bottom: 24px;
         }
 
@@ -530,16 +579,9 @@ $profileImage = !empty($user['profile_image']) ? $user['profile_image'] : '/NexG
 </head>
 <body>
 
-<div class="bg-video-wrap">
-    <video class="bg-video active" autoplay muted loop playsinline>
-        <source src="/NexGen/VIDEOS/storevideo1.mp4" type="video/mp4">
-    </video>
-    <video class="bg-video" autoplay muted loop playsinline>
-        <source src="/NexGen/VIDEOS/storevideo2.mp4" type="video/mp4">
-    </video>
-    <video class="bg-video" autoplay muted loop playsinline>
-        <source src="/NexGen/VIDEOS/storevideo3.mp4" type="video/mp4">
-    </video>
+<div class="bg-circuit">
+    <div class="circuit-grid"></div>
+    <div id="circuitPulses"></div>
 </div>
 
 <div class="overlay"></div>
@@ -586,13 +628,50 @@ $profileImage = !empty($user['profile_image']) ? $user['profile_image'] : '/NexG
 
 <script>
 (function(){
-    var videos = document.querySelectorAll('.bg-video');
-    var i = 0;
-    setInterval(function(){
-        videos[i].classList.remove('active');
-        i = (i + 1) % videos.length;
-        videos[i].classList.add('active');
-    }, 6000);
+    var layer = document.getElementById('circuitPulses');
+    var GRID = 48;
+    var cols = Math.ceil(window.innerWidth / GRID);
+    var rows = Math.ceil(window.innerHeight / GRID);
+
+    function spawnPulse(){
+        var dot = document.createElement('div');
+        dot.className = 'circuit-pulse';
+
+        var horizontal = Math.random() < 0.5;
+        var steps = 3 + Math.floor(Math.random() * 5);
+        var x, y, dx, dy;
+
+        if (horizontal) {
+            y = Math.floor(Math.random() * rows) * GRID;
+            x = Math.floor(Math.random() * Math.max(1, cols - steps)) * GRID;
+            dx = steps * GRID; dy = 0;
+        } else {
+            x = Math.floor(Math.random() * cols) * GRID;
+            y = Math.floor(Math.random() * Math.max(1, rows - steps)) * GRID;
+            dx = 0; dy = steps * GRID;
+        }
+
+        dot.style.left = x + 'px';
+        dot.style.top = y + 'px';
+
+        var duration = steps * 0.6;
+        dot.style.animationDuration = duration + 's';
+        layer.appendChild(dot);
+
+        if (dot.animate) {
+            dot.animate(
+                [{ transform: 'translate(0,0)' }, { transform: 'translate(' + dx + 'px,' + dy + 'px)' }],
+                { duration: duration * 1000, easing: 'linear' }
+            );
+        }
+
+        setTimeout(function () { dot.remove(); }, duration * 1000);
+    }
+
+    for (var i = 0; i < 14; i++) {
+        setTimeout(spawnPulse, i * 150);
+    }
+    setInterval(spawnPulse, 350);
 })();
 
 /* Reliable redirect: don't depend solely on <meta refresh>, which some

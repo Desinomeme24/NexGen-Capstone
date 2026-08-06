@@ -21,7 +21,10 @@ $currentPage   = basename($_SERVER['PHP_SELF']);
 
 <aside class="admin-sidebar admin-sidebar-custom" id="adminSidebar">
     <div class="brand-box">
-        <img src="/NexGen/CODE/PHP/<?php echo e($profileImage); ?>" alt="Profile">
+        <div class="avatar-ring">
+            <img src="/NexGen/CODE/PHP/<?php echo e($profileImage); ?>" alt="Profile">
+            <span class="status-dot" title="Online"></span>
+        </div>
         <div class="brand-meta">
             <h2><?php echo e($adminFullName); ?></h2>
             <p>System Administrator</p>
@@ -111,9 +114,9 @@ $currentPage   = basename($_SERVER['PHP_SELF']);
 .logout-confirm-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.45);
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
+    background: rgba(2, 4, 15, 0.55);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -134,15 +137,23 @@ $currentPage   = basename($_SERVER['PHP_SELF']);
 .logout-confirm-box {
     width: 100%;
     max-width: 340px;
-    background: linear-gradient(180deg, #1f3c88 0%, #1a3578 100%);
-    border-radius: 14px;
-    padding: 22px 20px;
-    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.28);
+    background: linear-gradient(180deg, rgba(59, 130, 246, 0.16) 0%, rgba(5, 11, 36, 0.96) 100%);
+    border-radius: 20px;
+    padding: 24px 20px;
+    box-shadow: 0 20px 45px rgba(3, 3, 30, 0.5);
     text-align: center;
     color: #fff;
-    border: 1px solid rgba(255, 255, 255, 0.10);
+    border: 1px solid rgba(125, 211, 252, 0.28);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
     transform: translateY(10px) scale(0.98);
     transition: 0.2s ease;
+}
+
+html[data-theme="light"] .logout-confirm-box {
+    background: linear-gradient(180deg, #ffffff 0%, #eaf4ff 100%);
+    color: #16224a;
+    border-color: rgba(59, 130, 246, 0.25);
 }
 
 .logout-confirm-overlay.show .logout-confirm-box {
@@ -150,30 +161,36 @@ $currentPage   = basename($_SERVER['PHP_SELF']);
 }
 
 .logout-confirm-icon {
-    width: 48px;
-    height: 48px;
+    width: 50px;
+    height: 50px;
     margin: 0 auto 12px;
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.12);
+    background: rgba(246, 203, 8, 0.14);
+    border: 1px solid rgba(246, 203, 8, 0.35);
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 20px;
-    color: #f7d98b;
+    color: #ffdd55;
 }
 
 .logout-confirm-box h3 {
     margin: 0 0 6px;
+    font-family: 'Poppins', 'Sora', sans-serif;
     font-size: 19px;
     font-weight: 700;
-    color: #fff;
+    color: inherit;
 }
 
 .logout-confirm-box p {
     margin: 0 0 18px;
     font-size: 13.5px;
-    color: rgba(255, 255, 255, 0.88);
+    color: rgba(255, 255, 255, 0.8);
     line-height: 1.5;
+}
+
+html[data-theme="light"] .logout-confirm-box p {
+    color: rgba(22, 34, 74, 0.72);
 }
 
 .logout-confirm-actions {
@@ -196,22 +213,23 @@ $currentPage   = basename($_SERVER['PHP_SELF']);
 }
 
 .logout-btn-cancel {
-    background: rgba(255, 255, 255, 0.14);
-    color: #fff;
+    background: rgba(59, 130, 246, 0.16);
+    color: inherit;
+    border: 1px solid rgba(125, 211, 252, 0.25);
 }
 
 .logout-btn-cancel:hover {
-    background: rgba(255, 255, 255, 0.22);
+    background: rgba(59, 130, 246, 0.26);
 }
 
 .logout-btn-confirm {
-    background: #f7d98b;
-    color: #17306b;
+    background: linear-gradient(135deg, #ffdd55 0%, #f6cb08 100%);
+    color: #2b1a00;
 }
 
 .logout-btn-confirm:hover {
     transform: translateY(-1px);
-    box-shadow: 0 10px 20px rgba(247, 217, 139, 0.25);
+    box-shadow: 0 10px 20px rgba(246, 203, 8, 0.3);
 }
 
 @media (max-height: 760px) {

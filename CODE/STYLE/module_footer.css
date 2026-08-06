@@ -1,0 +1,74 @@
+
+/* =========================================================
+   UNIVERSAL MODULE FOOTER
+   One footer, one set of classes, used identically on every
+   module page (Sales, Inventory, Sales Analytics, Accounts
+   Receivable). Self-contained on purpose — it does NOT read
+   each page's own --ink / --text-main variables, because those
+   differ slightly from file to file. That mismatch is exactly
+   why the old .footer-section footer disappeared on some pages
+   when the theme was switched (inventory_management.css had no
+   light-mode rule for it at all, so light text stayed light on
+   a light background). This file always sets its own colors for
+   both themes, so it renders the same everywhere, every time.
+
+   USAGE:
+   1. Link this file on every module page, after that page's own
+      stylesheet:
+        <link rel="stylesheet" href="/NexGen/CODE/STYLE/module_footer.css">
+
+   2. Drop this markup at the bottom of the page (inside the
+      main page wrapper, same place the old footer sat):
+
+        <footer class="nx-footer">
+          <div class="nx-footer-line"></div>
+          <p class="nx-footer-copy">Copyright &copy; 2026 NexGenEnterprises</p>
+        </footer>
+
+   That's it — no per-page CSS needed, and nothing to keep in
+   sync across four separate files.
+========================= */
+
+.nx-footer {
+  text-align: center;
+  padding: 26px 20px 18px;
+}
+
+.nx-footer-line {
+  width: 100%;
+  max-width: 480px;
+  height: 2px;
+  border-radius: 999px;
+  margin: 0 auto 14px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 221, 85, 0.55),
+    rgba(59, 130, 246, 0.55),
+    transparent
+  );
+}
+
+.nx-footer-copy {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+/* ---- Light mode: same html[data-theme="light"] switch every
+   module page already uses for its own toggle ---- */
+html[data-theme="light"] .nx-footer-line {
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(184, 134, 11, 0.45),
+    rgba(59, 130, 246, 0.45),
+    transparent
+  );
+}
+
+html[data-theme="light"] .nx-footer-copy {
+  color: rgba(11, 31, 115, 0.68);
+}

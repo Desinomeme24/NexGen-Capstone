@@ -81,20 +81,12 @@ $pageSubtitle = $isOwner
     <?php include 'header.php'; ?>
 
     <section class="top-video-area" id="topVideoArea">
-        <div class="video-background">
-            <video class="bg-video active" autoplay muted loop playsinline>
-                <source src="/NexGen/VIDEOS/storevideo1.mp4" type="video/mp4">
-            </video>
-            <video class="bg-video" autoplay muted loop playsinline>
-                <source src="/NexGen/VIDEOS/storevideo2.mp4" type="video/mp4">
-            </video>
-            <video class="bg-video" autoplay muted loop playsinline>
-                <source src="/NexGen/VIDEOS/storevideo3.mp4" type="video/mp4">
-            </video>
-            <video class="bg-video" autoplay muted loop playsinline>
-                <source src="/NexGen/VIDEOS/storevideo2.mp4" type="video/mp4">
-            </video>
-            <div class="video-overlay"></div>
+        <div class="animated-bg">
+            <div class="animated-bg-layer animated-bg-layer-1"></div>
+            <div class="animated-bg-layer animated-bg-layer-2"></div>
+            <div class="animated-bg-layer animated-bg-layer-3"></div>
+            <div class="animated-bg-layer animated-bg-layer-4"></div>
+            <div class="animated-bg-overlay"></div>
         </div>
 
         <div class="hero-scroll-indicator">

@@ -272,7 +272,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'unloc
 */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'update_user') {
     $userId                = (int)($_POST['user_id'] ?? 0);
-    $employeeNo            = trim($_POST['employee_no'] ?? '');
     $userFullName          = trim($_POST['full_name'] ?? '');
     $username              = trim($_POST['username'] ?? '');
     $email                 = trim($_POST['email'] ?? '');
@@ -351,7 +350,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'updat
         $stmt = $conn->prepare("
             UPDATE users
             SET
-                employee_no = ?,
                 full_name = ?,
                 username = ?,
                 email = ?,
@@ -373,8 +371,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'updat
         }
 
         $stmt->bind_param(
-            "ssssssssiiiiii",
-            $employeeNo,
+            "sssssssiiiiii",
             $userFullName,
             $username,
             $email,
@@ -462,14 +459,13 @@ $params = [];
 $types = "";
 
 if ($search !== '') {
-    $where .= " AND (full_name LIKE ? OR username LIKE ? OR email LIKE ? OR employee_no LIKE ? OR phone LIKE ?) ";
+    $where .= " AND (full_name LIKE ? OR username LIKE ? OR email LIKE ? OR phone LIKE ?) ";
     $like = "%{$search}%";
     $params[] = $like;
     $params[] = $like;
     $params[] = $like;
     $params[] = $like;
-    $params[] = $like;
-    $types .= "sssss";
+    $types .= "ssss";
 }
 
 if ($roleFilter !== '' && $roleFilter !== 'all') {
@@ -488,7 +484,6 @@ $users = [];
 $sql = "
     SELECT
         id,
-        employee_no,
         full_name,
         username,
         email,
@@ -525,8 +520,7 @@ if ($editId > 0) {
     $stmt = $conn->prepare("
         SELECT
             id,
-            employee_no,
-            full_name,
+                full_name,
             username,
             email,
             phone,
@@ -567,7 +561,6 @@ function renderManageUsersTable(array $users, string $search, string $roleFilter
         <div class="table-wrap manage-users-table-wrap" id="manageUsersTableWrap" data-mobile-cards>
                 <table>
                     <colgroup>
-                        <col style="width: 190px;">
                         <col style="width: 200px;">
                         <col style="width: 160px;">
                         <col style="width: 220px;">
@@ -582,7 +575,6 @@ function renderManageUsersTable(array $users, string $search, string $roleFilter
                     </colgroup>
                     <thead>
                         <tr>
-                            <th>EMPLOYEE NO</th>
                             <th>FULL NAME</th>
                             <th>USERNAME</th>
                             <th>EMAIL</th>
@@ -599,7 +591,7 @@ function renderManageUsersTable(array $users, string $search, string $roleFilter
                     <tbody>
                     <?php if (empty($users)): ?>
                         <tr>
-                            <td colspan="12">No user accounts found.</td>
+                            <td colspan="11">No user accounts found.</td>
                         </tr>
                     <?php else: ?>
                         <?php foreach ($users as $user): ?>
@@ -607,16 +599,15 @@ function renderManageUsersTable(array $users, string $search, string $roleFilter
                             $isLocked = !empty($user['locked_until']) && strtotime((string)$user['locked_until']) > time();
                             ?>
                             <tr>
-                                <td class="table-employee" data-label="Employee No">
+                                <td class="table-employee" data-label="Full Name">
                                     <div class="user-name-cell">
                                         <span class="user-avatar"><?php echo e(getInitials($user['full_name'])); ?></span>
                                         <span class="user-identity-text">
-                                            <span class="identity-username"><?php echo e($user['username']); ?></span>
-                                            <span class="user-name-text"><?php echo e($user['employee_no']); ?></span>
+                                            <span class="identity-username"><?php echo e($user['full_name']); ?></span>
+                                            <span class="user-name-text"><?php echo e($user['username']); ?></span>
                                         </span>
                                     </div>
                                 </td>
-                                <td data-label="Full Name"><?php echo e($user['full_name']); ?></td>
                                 <td data-label="Username"><?php echo e($user['username']); ?></td>
                                 <td class="table-email" data-label="Email"><?php echo e($user['email']); ?></td>
                                 <td class="table-phone" data-label="Phone"><?php echo e($user['phone']); ?></td>
@@ -674,6 +665,22 @@ if (
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Manage Users - NextGen</title>
+    <script>
+        /* THEME: apply saved preference before first paint to avoid a flash.
+           Personalization now lives on the Settings page and writes to the
+           shared 'nexgen-theme' key, so every admin page reads that same key. */
+        (function () {
+            try {
+                var saved = localStorage.getItem('nexgen-theme');
+                if (saved === 'light' || saved === 'dark') {
+                    document.documentElement.setAttribute('data-theme', saved);
+                }
+            } catch (e) {}
+        })();
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800;900&family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/NexGen/CODE/STYLE/admin_module.css?v=20260723">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <style>
@@ -691,7 +698,7 @@ if (
             align-items: center;
             justify-content: center;
             flex-shrink: 0;
-            color: #0f4c81;
+            color: var(--gold);
             font-size: 30px;
         }
 
@@ -722,9 +729,9 @@ if (
             font-size: 12.5px;
             font-weight: 700;
             letter-spacing: 0.3px;
-            color: #fff3c4;
-            background: #14224a;
-            border: 1.5px solid rgba(255, 255, 255, 0.22);
+            color: #071a40;
+            background: linear-gradient(135deg, var(--tone-info-a) 0%, var(--tone-info-b) 100%);
+            border: 1.5px solid var(--glass-border);
         }
 
         .user-name-text {
@@ -768,7 +775,12 @@ if (
             position: sticky;
             top: 0;
             z-index: 5;
-            background: #14224a;
+            background: rgba(8, 16, 50, 0.94);
+            backdrop-filter: blur(8px);
+        }
+
+        html[data-theme="light"] .manage-users-table-wrap thead th {
+            background: rgba(214, 235, 255, 0.92);
         }
 
         .manage-users-table-wrap::-webkit-scrollbar {
@@ -777,7 +789,7 @@ if (
         }
 
         .manage-users-table-wrap::-webkit-scrollbar-thumb {
-            background: rgba(255, 255, 255, 0.25);
+            background: rgba(59, 130, 246, 0.45);
             border-radius: 999px;
         }
 
@@ -876,6 +888,16 @@ if (
             color: #ffb0b0;
         }
 
+        html[data-theme="light"] .mini-badge.yes {
+            background: rgba(16, 138, 92, 0.14);
+            color: #0f7a52;
+        }
+
+        html[data-theme="light"] .mini-badge.no {
+            background: rgba(200, 30, 77, 0.12);
+            color: #c81e4d;
+        }
+
         .modules-cell {
             line-height: 1.5;
             white-space: normal;
@@ -924,12 +946,12 @@ if (
             gap: 10px;
             margin: 0 0 16px;
             padding-bottom: 10px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+            border-bottom: 1px solid var(--line);
             font-size: 12px;
             font-weight: 800;
             text-transform: uppercase;
             letter-spacing: 0.6px;
-            color: rgba(255, 255, 255, 0.55);
+            color: var(--gold);
         }
 
         .editor-grid {
@@ -949,7 +971,7 @@ if (
         }
 
         .field-group label {
-            color: rgba(255, 255, 255, 0.65);
+            color: var(--muted);
             font-weight: 700;
             font-size: 11.5px;
             text-transform: uppercase;
@@ -960,11 +982,11 @@ if (
         .field-group select,
         .field-group textarea {
             width: 100%;
-            border: 1px solid rgba(255, 255, 255, 0.14);
+            border: 1px solid var(--line-bright);
             border-radius: 12px;
             padding: 11px 14px;
-            background: rgba(255, 255, 255, 0.06);
-            color: #fff;
+            background: var(--card);
+            color: var(--text);
             font-size: 13.5px;
             outline: none;
             box-sizing: border-box;
@@ -974,15 +996,15 @@ if (
         .field-group input:hover,
         .field-group select:hover,
         .field-group textarea:hover {
-            background: rgba(255, 255, 255, 0.09);
+            background: var(--card-hover);
         }
 
         .field-group input:focus,
         .field-group select:focus,
         .field-group textarea:focus {
-            border-color: #f7d98b;
-            background: rgba(255, 255, 255, 0.09);
-            box-shadow: 0 0 0 3px rgba(247, 217, 139, 0.16);
+            border-color: var(--gold);
+            background: var(--card-hover);
+            box-shadow: 0 0 0 3px var(--gold-soft);
         }
 
         .field-group textarea {
@@ -992,7 +1014,7 @@ if (
 
         .field-group input::placeholder,
         .field-group textarea::placeholder {
-            color: rgba(255, 255, 255, 0.4);
+            color: var(--faint);
         }
 
         .field-group select option {
@@ -1007,7 +1029,7 @@ if (
             flex-wrap: wrap;
             margin-top: 24px;
             padding-top: 18px;
-            border-top: 1px solid rgba(255, 255, 255, 0.10);
+            border-top: 1px solid var(--line);
         }
 
         .form-actions-primary {
@@ -1018,8 +1040,8 @@ if (
 
         .btn-ghost {
             background: transparent;
-            border: 1px dashed rgba(255, 255, 255, 0.25);
-            color: rgba(255, 255, 255, 0.7);
+            border: 1px dashed var(--line-bright);
+            color: var(--muted);
             border-radius: 12px;
             padding: 11px 16px;
             font-size: 13px;
@@ -1029,8 +1051,8 @@ if (
         }
 
         .btn-ghost:hover {
-            border-color: rgba(255, 255, 255, 0.45);
-            color: #fff;
+            border-color: var(--gold-dim);
+            color: var(--text);
         }
 
         .access-box {
@@ -1042,7 +1064,7 @@ if (
 
         .access-box p {
             margin: 0 0 16px;
-            color: rgba(255, 255, 255, 0.65);
+            color: var(--muted);
             font-size: 13px;
             line-height: 1.6;
         }
@@ -1057,22 +1079,22 @@ if (
             display: flex;
             align-items: center;
             gap: 12px;
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.10);
+            background: var(--card);
+            border: 1px solid var(--line);
             border-radius: 12px;
             padding: 12px 14px;
             transition: 0.18s ease;
         }
 
         .check-card:has(input:checked) {
-            background: rgba(247, 217, 139, 0.10);
-            border-color: rgba(247, 217, 139, 0.35);
+            background: var(--gold-soft);
+            border-color: rgba(246, 203, 8, 0.4);
         }
 
         .check-card input[type="checkbox"] {
             width: 17px;
             height: 17px;
-            accent-color: #f7d98b;
+            accent-color: var(--gold-dim);
             cursor: pointer;
             flex-shrink: 0;
         }
@@ -1084,7 +1106,7 @@ if (
 
         .check-card label {
             margin: 0;
-            color: #fff;
+            color: var(--text);
             font-weight: 600;
             font-size: 13px;
             cursor: pointer;
@@ -1093,9 +1115,9 @@ if (
         .role-note {
             margin-top: 12px;
             font-size: 12.5px;
-            color: rgba(255, 255, 255, 0.6);
+            color: var(--muted);
             line-height: 1.6;
-            background: rgba(255, 255, 255, 0.04);
+            background: var(--card);
             border-radius: 10px;
             padding: 10px 12px;
         }
@@ -1107,8 +1129,8 @@ if (
         }
 
         .security-stat {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.10);
+            background: var(--card);
+            border: 1px solid var(--line);
             border-radius: 12px;
             padding: 12px 14px;
         }
@@ -1118,7 +1140,7 @@ if (
             font-size: 10.5px;
             text-transform: uppercase;
             letter-spacing: 0.4px;
-            color: rgba(255, 255, 255, 0.5);
+            color: var(--muted);
             font-weight: 700;
             margin-bottom: 4px;
         }
@@ -1126,11 +1148,11 @@ if (
         .security-stat .value {
             font-size: 14px;
             font-weight: 700;
-            color: #fff;
+            color: var(--text);
         }
 
         .security-stat.is-locked .value {
-            color: #f7a8a8;
+            color: var(--danger);
         }
 
         .edit-modal-overlay,
@@ -1157,10 +1179,20 @@ if (
         .edit-modal-box,
         .custom-confirm-box,
         .custom-alert-box {
-            background: linear-gradient(180deg, #264ba6 0%, #1c3f99 100%);
-            border: 1px solid rgba(255, 255, 255, 0.10);
+            background: linear-gradient(180deg, rgba(59, 130, 246, 0.16) 0%, rgba(5, 11, 36, 0.96) 100%);
+            border: 1px solid rgba(125, 211, 252, 0.28);
             border-radius: 24px;
-            box-shadow: 0 22px 50px rgba(0, 0, 0, 0.32);
+            box-shadow: 0 22px 50px rgba(3, 3, 30, 0.5);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            color: var(--text);
+        }
+
+        html[data-theme="light"] .edit-modal-box,
+        html[data-theme="light"] .custom-confirm-box,
+        html[data-theme="light"] .custom-alert-box {
+            background: linear-gradient(180deg, #ffffff 0%, #eaf4ff 100%);
+            border-color: rgba(59, 130, 246, 0.25);
         }
 
         .edit-modal-box {
@@ -1175,7 +1207,7 @@ if (
             max-width: 380px;
             padding: 26px 22px;
             text-align: center;
-            color: #fff;
+            color: var(--text);
         }
 
         .edit-modal-header {
@@ -1184,14 +1216,15 @@ if (
             align-items: center;
             gap: 14px;
             padding: 20px 24px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+            border-bottom: 1px solid var(--line);
         }
 
         .edit-modal-header h2 {
             margin: 0;
-            color: #fff;
+            color: var(--text);
             font-size: 20px;
             font-weight: 800;
+            font-family: var(--font-display);
         }
 
         .edit-modal-body {
@@ -1200,9 +1233,9 @@ if (
 
         .modal-close-btn {
             appearance: none;
-            border: none;
-            background: rgba(255, 255, 255, 0.10);
-            color: #fff;
+            border: 1px solid var(--line-bright);
+            background: var(--card);
+            color: var(--text);
             width: 34px;
             height: 34px;
             border-radius: 50%;
@@ -1216,7 +1249,7 @@ if (
         }
 
         .modal-close-btn:hover {
-            background: rgba(255, 255, 255, 0.2);
+            background: var(--card-hover);
         }
 
         .custom-confirm-icon,
@@ -1225,12 +1258,13 @@ if (
             height: 62px;
             margin: 0 auto 14px;
             border-radius: 50%;
-            background: rgba(255, 255, 255, 0.12);
+            background: var(--gold-soft);
+            border: 1px solid rgba(246, 203, 8, 0.35);
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 26px;
-            color: #f7d98b;
+            color: var(--gold);
         }
 
         .custom-confirm-box h3,
@@ -1238,14 +1272,15 @@ if (
             margin: 0 0 8px;
             font-size: 25px;
             font-weight: 800;
-            color: #fff;
+            color: var(--text);
+            font-family: var(--font-display);
         }
 
         .custom-confirm-box p,
         .custom-alert-box p {
             margin: 0 0 22px;
             font-size: 15px;
-            color: rgba(255, 255, 255, 0.88);
+            color: var(--muted);
             line-height: 1.5;
         }
 
@@ -1271,24 +1306,25 @@ if (
         }
 
         .custom-btn-cancel {
-            background: rgba(255, 255, 255, 0.14);
-            color: #fff;
+            background: rgba(59, 130, 246, 0.16);
+            color: var(--text);
+            border: 1px solid var(--glass-border);
         }
 
         .custom-btn-cancel:hover {
-            background: rgba(255, 255, 255, 0.22);
+            background: rgba(59, 130, 246, 0.26);
         }
 
         .custom-btn-confirm,
         .custom-btn-ok {
-            background: #f7d98b;
-            color: #17306b;
+            background: linear-gradient(135deg, #ffdd55 0%, #f6cb08 100%);
+            color: #2b1a00;
         }
 
         .custom-btn-confirm:hover,
         .custom-btn-ok:hover {
             transform: translateY(-1px);
-            box-shadow: 0 10px 20px rgba(247, 217, 139, 0.25);
+            box-shadow: 0 10px 20px rgba(246, 203, 8, 0.3);
         }
 
         @media (max-width: 1350px) {
@@ -1383,8 +1419,8 @@ if (
                 column-gap: 12px;
                 row-gap: 6px;
                 align-items: center;
-                background: rgba(255, 255, 255, 0.06);
-                border: 1px solid rgba(255, 255, 255, 0.14);
+                background: var(--card);
+                border: 1px solid var(--line-bright);
                 border-radius: 14px;
                 margin-bottom: 12px;
                 padding: 16px 16px 14px;
@@ -1441,7 +1477,7 @@ if (
                 display: block;
                 font-size: 17px;
                 font-weight: 700;
-                color: #fff;
+                color: var(--text);
                 white-space: normal;
                 overflow: visible;
                 text-overflow: unset;
@@ -1451,7 +1487,7 @@ if (
                 font-size: 12.5px;
                 font-weight: 600;
                 letter-spacing: 0.2px;
-                color: #cddaf7;
+                color: var(--muted);
                 white-space: normal;
                 overflow: visible;
                 text-overflow: unset;
@@ -1471,9 +1507,9 @@ if (
                 grid-area: role;
                 margin-top: 8px;
                 padding-top: 12px;
-                border-top: 1px solid rgba(255, 255, 255, 0.1);
+                border-top: 1px solid var(--line);
                 font-size: 13.5px;
-                color: #eef3ff;
+                color: var(--text);
             }
 
             .manage-users-table-wrap[data-mobile-cards] td[data-label="Verified"] {
@@ -1491,7 +1527,7 @@ if (
                 grid-area: edit;
                 margin-top: 8px;
                 padding-top: 12px;
-                border-top: 1px solid rgba(255, 255, 255, 0.1);
+                border-top: 1px solid var(--line);
             }
 
             .manage-users-table-wrap[data-mobile-cards] td[data-label="Action"] .btn {
@@ -1534,7 +1570,7 @@ if (
                         type="text"
                         name="search"
                         id="searchInput"
-                        placeholder="Search by name, username, email, employee number, or phone."
+                        placeholder="Search by name, username, email, or phone."
                         value="<?php echo e($search); ?>"
                         autocomplete="off"
                     >
@@ -1560,7 +1596,7 @@ if (
 
                 <?php renderManageUsersTable($users, $search, $roleFilter, $statusFilter); ?>
             </div>
-        </section>
+        </section> 
     </main>
 </div>
 
@@ -1580,11 +1616,6 @@ if (
                 <div class="modal-section">
                     <h3 class="modal-section-title">Account Details</h3>
                     <div class="editor-grid">
-                        <div class="field-group">
-                            <label for="employee_no">Employee Number</label>
-                            <input type="text" id="employee_no" name="employee_no" value="<?php echo e($editUser['employee_no']); ?>">
-                        </div>
-
                         <div class="field-group">
                             <label for="full_name">Full Name</label>
                             <input type="text" id="full_name" name="full_name" value="<?php echo e($editUser['full_name']); ?>" required>

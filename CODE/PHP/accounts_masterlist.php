@@ -91,21 +91,19 @@ $types = "";
 
 if ($search !== '') {
     $where .= " AND (
-        u.employee_no LIKE ?
-        OR u.full_name LIKE ?
+        u.full_name LIKE ?
         OR u.email LIKE ?
         OR u.phone LIKE ?
         OR u.role LIKE ?
     ) ";
     $like = "%{$search}%";
-    $params = [$like, $like, $like, $like, $like];
-    $types = "sssss";
+    $params = [$like, $like, $like, $like];
+    $types = "ssss";
 }
 
 $sql = "
     SELECT
         u.id,
-        u.employee_no,
         u.full_name,
         u.email,
         u.phone,
@@ -149,46 +147,43 @@ function renderAccountsTable(array $accounts): void
         <table>
             <colgroup>
                 <col style="width: 80px;">
-                <col style="width: 150px;">
                 <col style="width: 240px;">
-                <col style="width: 270px;">
-                <col style="width: 160px;">
-                <col style="width: 160px;">
+                <col style="width: 280px;">
+                <col style="width: 170px;">
                 <col style="width: 150px;">
-                <col style="width: 180px;">
+                <col style="width: 150px;">
+                <col style="width: 190px;">
             </colgroup>
             <thead>
                 <tr>
                     <th>ID</th>
-                    <th>EMPLOYEE NO</th>
                     <th>FULL NAME</th>
                     <th>EMAIL</th>
                     <th>PHONE</th>
-                    <th>POSITION</th>
-                    <th>STATUS</th>
-                    <th>CREATED</th>
+                    <th class="admin-col-center">POSITION</th>
+                    <th class="admin-col-center">STATUS</th>
+                    <th class="admin-col-center">CREATED</th>
                 </tr>
             </thead>
             <tbody>
             <?php if (empty($accounts)): ?>
                 <tr>
-                    <td colspan="8">No account records found.</td>
+                    <td colspan="7">No account records found.</td>
                 </tr>
             <?php else: ?>
                 <?php foreach ($accounts as $acc): ?>
                     <tr>
                         <td class="id-col"><?php echo (int)$acc['id']; ?></td>
-                        <td class="empno-col"><?php echo e($acc['employee_no']); ?></td>
                         <td><?php echo e($acc['full_name']); ?></td>
                         <td><?php echo e($acc['email']); ?></td>
                         <td><?php echo e($acc['phone']); ?></td>
-                        <td class="position-col"><?php echo e($acc['position']); ?></td>
-                        <td class="status-col">
+                        <td class="position-col admin-col-center"><?php echo e($acc['position']); ?></td>
+                        <td class="status-col admin-col-center">
                             <span class="<?php echo e(statusBadgeClass((string)$acc['visibility_status'])); ?>">
                                 <?php echo e(ucfirst((string)$acc['visibility_status'])); ?>
                             </span>
                         </td>
-                        <td class="created-col">
+                        <td class="created-col admin-col-center">
                             <?php echo !empty($acc['created_at']) ? e(date('M d, Y h:i A', strtotime($acc['created_at']))) : '—'; ?>
                         </td>
                     </tr>
@@ -263,7 +258,7 @@ if (
 
         .accounts-table-wrap table {
             width: 100%;
-            min-width: 1300px;
+            min-width: 1120px;
             border-collapse: separate;
             border-spacing: 0;
             table-layout: fixed;
@@ -325,8 +320,7 @@ if (
         .created-col,
         .status-col,
         .position-col,
-        .id-col,
-        .empno-col {
+        .id-col {
             white-space: nowrap;
         }
 
@@ -504,7 +498,7 @@ if (
                     type="text"
                     name="search"
                     id="accountsSearchInput"
-                    placeholder="Search account, role, phone, or email..."
+                    placeholder="Search name, role, phone, or email..."
                     value="<?php echo e($search); ?>"
                     autocomplete="off"
                 >

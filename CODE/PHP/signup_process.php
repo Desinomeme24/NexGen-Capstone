@@ -1,169 +1,225 @@
 <?php
-session_start();
-include 'config.php';
+require_once 'config.php';
 
-function generateRequestCode(mysqli $conn): string {
-    $prefix = "REQ-" . date("Ymd") . "-";
+function signupRedirect(string $message, string $type = 'error'): void
+{
+    $_SESSION[$type] = $message;
+    if ($type === 'error') {
+        $_SESSION['form_type'] = 'signup';
+    }
+    header('Location: /NexGen/CODE/PHP/index.php?open=signup');
+    exit();
+}
 
-    $sql = "SELECT request_code
-            FROM registration_requests
-            WHERE request_code LIKE ?
-            ORDER BY id DESC
-            LIMIT 1";
-
-    $like = $prefix . "%";
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param("s", $like);
-    $stmt->execute();
-    $result = $stmt->get_result();
-
-    $nextNumber = 1;
-
-    if ($row = $result->fetch_assoc()) {
-        $lastCode = $row['request_code'];
-        $lastSeq = (int) substr($lastCode, -4);
-        $nextNumber = $lastSeq + 1;
+function generateRequestCode(mysqli $conn): string
+{
+    $prefix = 'REQ-' . date('Ymd') . '-';
+    $stmt = $conn->prepare(
+        'SELECT request_code FROM registration_requests WHERE request_code LIKE ? ORDER BY id DESC LIMIT 1'
+    );
+    if (!$stmt) {
+        throw new RuntimeException('Unable to generate request code: ' . $conn->error);
     }
 
+    $like = $prefix . '%';
+    $stmt->bind_param('s', $like);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
     $stmt->close();
 
-    return $prefix . str_pad((string)$nextNumber, 4, "0", STR_PAD_LEFT);
+    $nextNumber = 1;
+    if ($row && !empty($row['request_code'])) {
+        $nextNumber = ((int)substr($row['request_code'], -4)) + 1;
+    }
+
+    return $prefix . str_pad((string)$nextNumber, 4, '0', STR_PAD_LEFT);
 }
 
-if ($_SERVER["REQUEST_METHOD"] !== "POST") {
-    $_SESSION['error'] = "Invalid request.";
-    $_SESSION['form_type'] = 'signup';
-    header("Location: /NexGen/CODE/PHP/index.php");
-    exit();
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    signupRedirect('Invalid request.');
 }
 
-/* SECURITY: CSRF validation */
 if (!validateCsrfToken('signup_form', $_POST['csrf_token'] ?? '')) {
-    $_SESSION['error'] = "Invalid or expired signup form token.";
-    $_SESSION['form_type'] = 'signup';
-    header("Location: /NexGen/CODE/PHP/index.php");
-    exit();
+    signupRedirect('Invalid or expired signup form token. Please reopen the signup form and try again.');
 }
 
-/* CAPTCHA: Validate manual image captcha for signup */
 $captchaSelection = $_POST['captcha_selection'] ?? [];
 if (!validateImageCaptchaSelection('signup_form', (array)$captchaSelection)) {
-    $_SESSION['error'] = "Please select the correct captcha images.";
-    $_SESSION['form_type'] = 'signup';
-    header("Location: /NexGen/CODE/PHP/index.php");
-    exit();
+    signupRedirect('Please complete the image captcha correctly.');
 }
 
-/* PRIVACY POLICY: Require privacy policy consent before signup submission */
 if (!isset($_POST['privacy_consent'])) {
-    $_SESSION['error'] = "You must agree to the Privacy Policy before submitting your account request.";
-    $_SESSION['form_type'] = 'signup';
-    header("Location: /NexGen/CODE/PHP/index.php");
-    exit();
+    signupRedirect('You must agree to the Privacy Policy before submitting your account request.');
 }
 
-$employee_no      = trim($_POST['employee_no'] ?? '');
-$signup_username  = trim($_POST['signup_username'] ?? '');
-$full_name        = trim($_POST['fullname'] ?? '');
-$email            = trim($_POST['email'] ?? '');
-$phone            = trim($_POST['phone'] ?? '');
-$address          = trim($_POST['address'] ?? '');
-$requested_role   = trim($_POST['requested_role'] ?? '');
-$signup_password  = trim($_POST['signup_password'] ?? '');
-$confirm_password = trim($_POST['confirm_password'] ?? '');
-$request_code     = generateRequestCode($conn);
+$username        = trim($_POST['signup_username'] ?? '');
+$fullName        = trim($_POST['fullname'] ?? '');
+$email           = trim($_POST['email'] ?? '');
+$phone           = trim($_POST['phone'] ?? '');
+$address         = trim($_POST['address'] ?? '');
+$requestedRole   = trim($_POST['requested_role'] ?? '');
+$password        = (string)($_POST['signup_password'] ?? '');
+$confirmPassword = (string)($_POST['confirm_password'] ?? '');
 
-if (
-    $employee_no === '' || $signup_username === '' || $full_name === '' ||
-    $email === '' || $phone === '' || $address === '' ||
-    $requested_role === '' || $signup_password === '' || $confirm_password === ''
-) {
-    $_SESSION['error'] = "Please fill in all fields.";
-    $_SESSION['form_type'] = 'signup';
-    header("Location: /NexGen/CODE/PHP/index.php");
-    exit();
+$businessName    = trim($_POST['business_name'] ?? '');
+$businessType    = trim($_POST['business_type'] ?? '');
+$businessAddress = trim($_POST['business_address'] ?? '');
+$businessCode    = strtoupper(trim($_POST['business_code'] ?? ''));
+$employeeNo      = trim($_POST['employee_no'] ?? '');
+$businessId      = null;
+
+if ($username === '' || $fullName === '' || $email === '' || $phone === '' ||
+    $address === '' || $requestedRole === '' || $password === '' || $confirmPassword === '') {
+    signupRedirect('Please fill in all required account fields.');
 }
 
-if (!in_array($requested_role, ['owner', 'employee'], true)) {
-    $_SESSION['error'] = "Invalid requested role.";
-    $_SESSION['form_type'] = 'signup';
-    header("Location: /NexGen/CODE/PHP/index.php");
-    exit();
+if (!in_array($requestedRole, ['owner', 'employee'], true)) {
+    signupRedirect('Invalid requested role.');
 }
 
-if (!preg_match('/^(?=.*[A-Za-z])(?=.*[^A-Za-z0-9]).{8,}$/', $signup_password)) {
-    $_SESSION['error'] = "Password must be at least 8 characters long and contain at least one special character.";
-    $_SESSION['form_type'] = 'signup';
-    header("Location: /NexGen/CODE/PHP/index.php");
-    exit();
-}
+if ($requestedRole === 'owner') {
+    if ($businessName === '' || $businessType === '' || $businessAddress === '') {
+        signupRedirect('SME owners must provide the business name, business type, and business address.');
+    }
 
-if ($signup_password !== $confirm_password) {
-    $_SESSION['error'] = "Passwords do not match.";
-    $_SESSION['form_type'] = 'signup';
-    header("Location: /NexGen/CODE/PHP/index.php");
-    exit();
+    // The owner's business does not exist yet, so business_id remains NULL
+    // until the system administrator approves the request and creates the business.
+    $businessId = null;
+    $businessCode = '';
+    $employeeNo = '';
+} else {
+    if ($businessCode === '' || $employeeNo === '') {
+        signupRedirect('Employees must provide the SME business code and employee number.');
+    }
+
+    $businessStmt = $conn->prepare(
+        'SELECT id, business_name, business_type, business_address
+         FROM businesses
+         WHERE business_code = ?
+         LIMIT 1'
+    );
+    if (!$businessStmt) {
+        signupRedirect('Unable to verify the SME business code: ' . $conn->error);
+    }
+    $businessStmt->bind_param('s', $businessCode);
+    $businessStmt->execute();
+    $business = $businessStmt->get_result()->fetch_assoc();
+    $businessStmt->close();
+
+    if (!$business) {
+        signupRedirect('The SME business code was not found. Please ask the business owner for the correct code.');
+    }
+
+    $businessId = (int)$business['id'];
+    $businessName = (string)$business['business_name'];
+    $businessType = (string)$business['business_type'];
+    $businessAddress = (string)$business['business_address'];
 }
 
 if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-    $_SESSION['error'] = "Invalid email address.";
-    $_SESSION['form_type'] = 'signup';
-    header("Location: /NexGen/CODE/PHP/index.php");
-    exit();
+    signupRedirect('Please enter a valid email address.');
 }
 
-$checkUserSql = "SELECT id FROM users WHERE username = ? OR email = ? LIMIT 1";
-$checkUserStmt = $conn->prepare($checkUserSql);
-$checkUserStmt->bind_param("ss", $signup_username, $email);
-$checkUserStmt->execute();
-$checkUserStmt->store_result();
-
-if ($checkUserStmt->num_rows > 0) {
-    $checkUserStmt->close();
-    $_SESSION['error'] = "Username or email already exists.";
-    $_SESSION['form_type'] = 'signup';
-    header("Location: /NexGen/CODE/PHP/index.php");
-    exit();
-}
-$checkUserStmt->close();
-
-$checkReqSql = "SELECT id FROM registration_requests WHERE username = ? OR email = ? OR employee_no = ? LIMIT 1";
-$checkReqStmt = $conn->prepare($checkReqSql);
-$checkReqStmt->bind_param("sss", $signup_username, $email, $employee_no);
-$checkReqStmt->execute();
-$checkReqStmt->store_result();
-
-if ($checkReqStmt->num_rows > 0) {
-    $checkReqStmt->close();
-    $_SESSION['error'] = "A registration request already exists for this username, email, or employee number.";
-    $_SESSION['form_type'] = 'signup';
-    header("Location: /NexGen/CODE/PHP/index.php");
-    exit();
-}
-$checkReqStmt->close();
-
-if (!isset($_FILES['valid_id']) || $_FILES['valid_id']['error'] !== 0) {
-    $_SESSION['error'] = "Please upload your valid ID.";
-    $_SESSION['form_type'] = 'signup';
-    header("Location: /NexGen/CODE/PHP/index.php");
-    exit();
+if (!preg_match('/^[A-Za-z0-9_.-]{3,50}$/', $username)) {
+    signupRedirect('Username must be 3 to 50 characters and may contain letters, numbers, dots, underscores, and hyphens.');
 }
 
-$target_dir = __DIR__ . "/uploads/valid_ids/";
-if (!is_dir($target_dir)) {
-    mkdir($target_dir, 0777, true);
+if (!isStrongPassword($password)) {
+    signupRedirect('Password must be at least 8 characters and include uppercase, lowercase, number, and special character.');
+}
+
+if ($password !== $confirmPassword) {
+    signupRedirect('Passwords do not match.');
+}
+
+$checkUser = $conn->prepare('SELECT id FROM users WHERE username = ? OR email = ? LIMIT 1');
+if (!$checkUser) {
+    signupRedirect('Unable to check existing accounts: ' . $conn->error);
+}
+$checkUser->bind_param('ss', $username, $email);
+$checkUser->execute();
+$checkUser->store_result();
+if ($checkUser->num_rows > 0) {
+    $checkUser->close();
+    signupRedirect('That username or email is already used by an existing account.');
+}
+$checkUser->close();
+
+/*
+|--------------------------------------------------------------------------
+| CHECK ACTIVE REGISTRATION REQUESTS
+|--------------------------------------------------------------------------
+| Username and email are globally unique.
+| Employee numbers are unique only within the same business.
+| Approved requests are not checked here because the users table above
+| already protects usernames/emails of approved accounts.
+*/
+if ($requestedRole === 'employee') {
+    $checkRequest = $conn->prepare(
+        "SELECT id
+         FROM registration_requests
+         WHERE request_status IN ('pending', 'resubmit')
+           AND (
+                username = ?
+                OR email = ?
+                OR (
+                    requested_role = 'employee'
+                    AND business_id = ?
+                    AND employee_no = ?
+                )
+           )
+         LIMIT 1"
+    );
+
+    if (!$checkRequest) {
+        signupRedirect('Unable to check existing registration requests: ' . $conn->error);
+    }
+
+    $checkRequest->bind_param('ssis', $username, $email, $businessId, $employeeNo);
+} else {
+    $checkRequest = $conn->prepare(
+        "SELECT id
+         FROM registration_requests
+         WHERE request_status IN ('pending', 'resubmit')
+           AND (username = ? OR email = ?)
+         LIMIT 1"
+    );
+
+    if (!$checkRequest) {
+        signupRedirect('Unable to check existing registration requests: ' . $conn->error);
+    }
+
+    $checkRequest->bind_param('ss', $username, $email);
+}
+
+$checkRequest->execute();
+$checkRequest->store_result();
+
+if ($checkRequest->num_rows > 0) {
+    $checkRequest->close();
+
+    if ($requestedRole === 'employee') {
+        signupRedirect(
+            'A pending registration request already exists for this username, email, or employee number within this SME.'
+        );
+    }
+
+    signupRedirect(
+        'A pending registration request already exists for this username or email.'
+    );
+}
+
+$checkRequest->close();
+
+if (!isset($_FILES['valid_id']) || $_FILES['valid_id']['error'] !== UPLOAD_ERR_OK) {
+    signupRedirect('Please upload a valid ID or proof of employment.');
 }
 
 $validIdFile = $_FILES['valid_id'];
-
 [$isValidUpload, $scanResult] = nxValidateSecureUpload($validIdFile, [
     'allowed_extensions' => ['jpg', 'jpeg', 'png', 'gif', 'webp', 'pdf'],
     'allowed_mime_types' => [
-        'image/jpeg',
-        'image/png',
-        'image/gif',
-        'image/webp',
-        'application/pdf'
+        'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'
     ],
     'max_size' => 5 * 1024 * 1024,
     'require_image' => false,
@@ -171,66 +227,75 @@ $validIdFile = $_FILES['valid_id'];
 ]);
 
 if (!$isValidUpload) {
-    $_SESSION['error'] = "Valid ID upload blocked: " . $scanResult;
-    $_SESSION['form_type'] = 'signup';
-    header("Location: /NexGen/CODE/PHP/index.php");
-    exit();
+    signupRedirect('Valid ID upload blocked: ' . $scanResult);
 }
 
-$file_ext = strtolower(pathinfo($validIdFile['name'], PATHINFO_EXTENSION));
-$new_file_name = uniqid("valid_id_", true) . "." . $file_ext;
-$target_file = $target_dir . $new_file_name;
-$valid_id_path = "uploads/valid_ids/" . $new_file_name;
-
-if (!move_uploaded_file($validIdFile['tmp_name'], $target_file)) {
-    $_SESSION['error'] = "Failed to upload valid ID.";
-    $_SESSION['form_type'] = 'signup';
-    header("Location: /NexGen/CODE/PHP/index.php");
-    exit();
+$targetDir = __DIR__ . '/uploads/valid_ids/';
+if (!is_dir($targetDir) && !mkdir($targetDir, 0755, true) && !is_dir($targetDir)) {
+    signupRedirect('The valid-ID upload folder could not be created.');
 }
 
-$hashed_password = password_hash($signup_password, PASSWORD_DEFAULT);
+$extension = strtolower(pathinfo($validIdFile['name'], PATHINFO_EXTENSION));
+$newFileName = 'valid_id_' . bin2hex(random_bytes(12)) . '.' . $extension;
+$targetFile = $targetDir . $newFileName;
+$validIdPath = 'uploads/valid_ids/' . $newFileName;
 
-$insertSql = "INSERT INTO registration_requests (
-                request_code,
-                employee_no,
-                full_name,
-                email,
-                phone,
-                address,
-                username,
-                password_hash,
-                valid_id_path,
-                requested_role,
-                request_status
-             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')";
+if (!move_uploaded_file($validIdFile['tmp_name'], $targetFile)) {
+    signupRedirect('Failed to save the uploaded valid ID.');
+}
 
-$insertStmt = $conn->prepare($insertSql);
-$insertStmt->bind_param(
-    "ssssssssss",
-    $request_code,
-    $employee_no,
-    $full_name,
-    $email,
-    $phone,
-    $address,
-    $signup_username,
-    $hashed_password,
-    $valid_id_path,
-    $requested_role
-);
+try {
+    $requestCode = generateRequestCode($conn);
+    $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+    $employeeNoForDb = $employeeNo !== '' ? $employeeNo : null;
+    $businessCodeForDb = $businessCode !== '' ? $businessCode : null;
+    $businessIdForDb = $requestedRole === 'employee' ? $businessId : null;
 
-if ($insertStmt->execute()) {
-    $_SESSION['success'] = "Your account request has been submitted successfully. Request code: {$request_code}. Please wait for admin approval before logging in.";
-} else {
-    if (file_exists($target_file)) {
-        @unlink($target_file);
+    $insert = $conn->prepare(
+        "INSERT INTO registration_requests (
+            request_code, employee_no, full_name, email, phone, address,
+            username, password_hash, valid_id_path, requested_role,
+            request_status, business_name, business_type, business_address,
+            business_code, business_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?)"
+    );
+
+    if (!$insert) {
+        throw new RuntimeException('Unable to prepare registration request: ' . $conn->error);
     }
-    $_SESSION['error'] = "Failed to submit registration request: " . $insertStmt->error;
-    $_SESSION['form_type'] = 'signup';
-}
 
-$insertStmt->close();
-header("Location: /NexGen/CODE/PHP/index.php");
-exit();
+    $insert->bind_param(
+        'ssssssssssssssi',
+        $requestCode,
+        $employeeNoForDb,
+        $fullName,
+        $email,
+        $phone,
+        $address,
+        $username,
+        $hashedPassword,
+        $validIdPath,
+        $requestedRole,
+        $businessName,
+        $businessType,
+        $businessAddress,
+        $businessCodeForDb,
+        $businessIdForDb
+    );
+
+    if (!$insert->execute()) {
+        throw new RuntimeException('Failed to submit registration request: ' . $insert->error);
+    }
+    $insert->close();
+
+    signupRedirect(
+        "Your account request was submitted successfully. Request code: {$requestCode}. Please wait for administrator approval.",
+        'success'
+    );
+} catch (Throwable $e) {
+    if (is_file($targetFile)) {
+        @unlink($targetFile);
+    }
+    signupRedirect($e->getMessage());
+}
 ?>

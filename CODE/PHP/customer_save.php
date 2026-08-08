@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once("config.php");
+require_once __DIR__ . '/tenant_helper.php';
 
 function isAjaxRequest() {
     return (
@@ -55,6 +56,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit();
 }
 
+$businessId = nxRequireBusinessId($conn);
+
 $customer_name = normalizeText($_POST['customer_name'] ?? '');
 $phone = normalizeText($_POST['phone'] ?? '');
 $email = normalizeText($_POST['email'] ?? '');
@@ -83,20 +86,20 @@ if (in_array($payment_status_context, ['Unpaid', 'Partially Paid'], true)) {
     }
 }
 
-function generateCustomerCode($conn) {
+function generateCustomerCode($conn, int $businessId) {
     $prefix = 'CUS-' . date('Ymd');
 
     $stmt = $conn->prepare("
         SELECT COUNT(*) AS total
         FROM customers
-        WHERE customer_code LIKE CONCAT(?, '%')
+        WHERE business_id = ? AND customer_code LIKE CONCAT(?, '%')
     ");
 
     if (!$stmt) {
         return false;
     }
 
-    $stmt->bind_param("s", $prefix);
+    $stmt->bind_param("is", $businessId, $prefix);
     $stmt->execute();
     $result = $stmt->get_result();
     $row = $result ? $result->fetch_assoc() : ['total' => 0];
@@ -106,7 +109,7 @@ function generateCustomerCode($conn) {
     return $prefix . '-' . str_pad((string)$next, 3, '0', STR_PAD_LEFT);
 }
 
-$customer_code = generateCustomerCode($conn);
+$customer_code = generateCustomerCode($conn, $businessId);
 
 if ($customer_code === false) {
     if (isAjaxRequest()) {
@@ -120,13 +123,14 @@ if ($customer_code === false) {
 
 $stmt = $conn->prepare("
     INSERT INTO customers (
+        business_id,
         customer_code,
         customer_name,
         phone,
         email,
         address,
         status
-    ) VALUES (?, ?, ?, ?, ?, 1)
+    ) VALUES (?, ?, ?, ?, ?, ?, 1)
 ");
 
 if (!$stmt) {
@@ -139,7 +143,7 @@ if (!$stmt) {
     exit();
 }
 
-$stmt->bind_param("sssss", $customer_code, $customer_name, $phone, $email, $address);
+$stmt->bind_param("isssss", $businessId, $customer_code, $customer_name, $phone, $email, $address);
 
 if ($stmt->execute()) {
     $customer_id = $conn->insert_id;

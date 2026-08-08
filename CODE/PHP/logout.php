@@ -1,6 +1,5 @@
 <?php
-session_start();
-include 'config.php';
+require_once 'config.php';
 
 $isTimeoutLogout = isset($_GET['timeout']) && $_GET['timeout'] === '1';
 $isManualLogout = $_SERVER['REQUEST_METHOD'] === 'POST';
@@ -36,7 +35,7 @@ session_destroy();
 session_start();
 
 if ($isTimeoutLogout) {
-    $_SESSION['error'] = "Your session expired due to 5 minutes of inactivity. Please log in again.";
+    $_SESSION['error'] = "Your session expired due to 10 minutes of inactivity. Please log in again.";
     $_SESSION['form_type'] = 'login';
 } else {
     $_SESSION['success'] = "You have been logged out successfully.";

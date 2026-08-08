@@ -53,13 +53,12 @@ if ($status !== 'all') {
 }
 
 if ($search !== '') {
-    $where .= " AND (full_name LIKE ? OR username LIKE ? OR employee_no LIKE ? OR email LIKE ?) ";
+    $where .= " AND (full_name LIKE ? OR username LIKE ? OR email LIKE ?) ";
     $like = "%{$search}%";
     $params[] = $like;
     $params[] = $like;
     $params[] = $like;
-    $params[] = $like;
-    $types .= "ssss";
+    $types .= "sss";
 }
 
 $sql = "SELECT * FROM registration_requests {$where} ORDER BY created_at DESC";
@@ -89,7 +88,6 @@ function renderPendingRequestsTable(array $requests): void
             <thead>
                 <tr>
                     <th>NO.</th>
-                    <th>Employee No</th>
                     <th>Full Name</th>
                     <th>Username</th>   
                     <th>Email</th>
@@ -102,13 +100,12 @@ function renderPendingRequestsTable(array $requests): void
             <tbody>
             <?php if (empty($requests)): ?>
                 <tr>
-                    <td colspan="9">No matching registration requests found.</td>
+                    <td colspan="8">No matching registration requests found.</td>
                 </tr>
             <?php else: ?>
                 <?php foreach ($requests as $row): ?>
                     <tr>
                         <td data-label="ID"><?php echo (int)$row['id']; ?></td>
-                        <td data-label="Employee No"><?php echo e($row['employee_no']); ?></td>
                         <td data-label="Full Name"><?php echo e($row['full_name']); ?></td>
                         <td data-label="Username"><?php echo e($row['username']); ?></td>
                         <td data-label="Email"><?php echo e($row['email']); ?></td>
@@ -148,8 +145,20 @@ if (
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Pending Requests - NextGen</title>
+    <script>
+        /* THEME: apply saved preference before first paint to avoid a flash */
+        (function () {
+            try {
+                var saved = localStorage.getItem('nexgen-theme');
+                if (saved === 'light' || saved === 'dark') {
+                    document.documentElement.setAttribute('data-theme', saved);
+                }
+            } catch (e) {}
+        })();
+    </script>
     <link rel="stylesheet" href="/NexGen/CODE/STYLE/admin_module.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 
     <style>
         .pending-requests-table-wrap {
@@ -183,7 +192,12 @@ if (
             position: sticky;
             top: 0;
             z-index: 5;
-            background: #0f245c;
+            background: rgba(8, 16, 50, 0.94);
+            backdrop-filter: blur(8px);
+        }
+
+        html[data-theme="light"] .pending-requests-table-wrap thead th {
+            background: rgba(214, 235, 255, 0.92);
         }
 
         .pending-requests-table-wrap::-webkit-scrollbar {
@@ -392,7 +406,7 @@ if (
                         type="text"
                         name="search"
                         id="requestSearchInput"
-                        placeholder="Search by name, username, employee no, or email..."
+                        placeholder="Search by name, username, or email..."
                         value="<?php echo e($search); ?>"
                         autocomplete="off"
                     >

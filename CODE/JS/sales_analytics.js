@@ -878,7 +878,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
   addMetricRings();
   addDecorativeOrbs();
-  addParticleWaves();
   add3DHover();
 
   setTimeout(() => {

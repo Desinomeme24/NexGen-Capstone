@@ -1,11 +1,14 @@
 <?php
 session_start();
 require_once("config.php");
+require_once("tenant_helper.php");
 
 if (!isset($_SESSION['user_id'])) {
     header("Location: /NexGen/CODE/PHP/index.php");
     exit();
 }
+
+$businessId = nxRequireBusinessId($conn);
 
 header('Content-Type: text/csv; charset=utf-8');
 header('Content-Disposition: attachment; filename=inventory_report_' . date('Y-m-d') . '.csv');
@@ -27,12 +30,16 @@ fputcsv($output, [
     'Created At'
 ]);
 
-$query = $conn->query("
+$stmt = $conn->prepare("
     SELECT p.*, c.category_name
     FROM products p
-    INNER JOIN categories c ON p.category_id = c.id
+    INNER JOIN categories c ON p.category_id = c.id AND c.business_id = p.business_id
+    WHERE p.business_id = ?
     ORDER BY p.product_name ASC
 ");
+$stmt->bind_param("i", $businessId);
+$stmt->execute();
+$query = $stmt->get_result();
 
 while ($row = $query->fetch_assoc()) {
     fputcsv($output, [
@@ -52,4 +59,5 @@ while ($row = $query->fetch_assoc()) {
 }
 
 fclose($output);
+$stmt->close();
 exit();

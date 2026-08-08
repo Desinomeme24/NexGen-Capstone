@@ -57,18 +57,9 @@ h6 {
   --radius-lg: 22px;
   --radius-md: 18px;
   --radius-sm: 14px;
-}
 
-html {
-  scroll-behavior: smooth;
-}
-
-body {
-  margin: 0;
-  font-family: "Inter", "Segoe UI", Arial, sans-serif;
-  color: var(--text-main);
-  overflow-x: hidden;
-  background:
+  /* ---- structural theme tokens (dark = current design) ---- */
+  --page-bg:
     radial-gradient(
       circle at 12% 8%,
       rgba(59, 130, 246, 0.35) 0%,
@@ -85,6 +76,74 @@ body {
       rgba(0, 51, 255, 0) 45%
     ),
     linear-gradient(180deg, #050b24 0%, #0a1550 42%, #02040f 100%);
+  --panel-rgb: 11, 31, 115;
+  --input-bg: rgba(6, 14, 46, 0.55);
+  --card-border: rgba(255, 255, 255, 0.18);
+  --card-glass-1: rgba(255, 255, 255, 0.1);
+  --card-glass-2: rgba(255, 255, 255, 0.03);
+  --accent-strong: var(--gold-light);
+  --hero-text-gradient: linear-gradient(
+    100deg,
+    #ffffff 0%,
+    var(--ink) 35%,
+    var(--gold-light) 100%
+  );
+  --modal-text: #ffffff;
+}
+
+/* ---- LIGHT MODE — same html[data-theme="light"] switch as accounts_receivable.css,
+   so the one toggle in the topbar drives this page too ---- */
+html[data-theme="light"] {
+  --lilac: #d1e8fc;
+  --blush: #a2d2ff;
+  --ink: #0a1f4d;
+  --ink-soft: #4a5568;
+  --text-main: #0a1f4d;
+  --text-soft: #0a1f4d;
+  --text-muted: #475569;
+
+  --page-bg:
+    radial-gradient(
+      circle at 12% 8%,
+      rgba(59, 130, 246, 0.12) 0%,
+      rgba(59, 130, 246, 0) 32%
+    ),
+    radial-gradient(
+      circle at 88% 18%,
+      rgba(125, 211, 252, 0.14) 0%,
+      rgba(125, 211, 252, 0) 30%
+    ),
+    radial-gradient(
+      circle at 50% 100%,
+      rgba(162, 210, 255, 0.3) 0%,
+      rgba(162, 210, 255, 0) 45%
+    ),
+    linear-gradient(180deg, #eaf4ff 0%, #d1e8fc 42%, #e5f0fa 100%);
+  --panel-rgb: 255, 255, 255;
+  --input-bg: rgba(255, 255, 255, 0.85);
+  --card-border: rgba(59, 130, 246, 0.22);
+  --card-glass-1: rgba(59, 130, 246, 0.06);
+  --card-glass-2: rgba(255, 255, 255, 0.5);
+  --accent-strong: #9a6b00;
+  --hero-text-gradient: linear-gradient(
+    100deg,
+    var(--ink) 0%,
+    #1d4ed8 45%,
+    #9a6b00 100%
+  );
+  --modal-text: #0a1f4d;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: "Inter", "Segoe UI", Arial, sans-serif;
+  color: var(--text-main);
+  overflow-x: hidden;
+  background: var(--page-bg);
   background-attachment: fixed;
   min-height: 100vh;
 }
@@ -317,13 +376,13 @@ body::after {
   padding: 22px 24px;
   border-radius: var(--radius-xl);
   background:
+    linear-gradient(135deg, var(--card-glass-1), var(--card-glass-2)),
     linear-gradient(
-      135deg,
-      rgba(255, 255, 255, 0.1),
-      rgba(255, 255, 255, 0.03)
-    ),
-    linear-gradient(180deg, rgba(11, 31, 115, 0.82), rgba(11, 31, 115, 0.88));
-  border: 1px solid rgba(255, 255, 255, 0.18);
+      180deg,
+      rgba(var(--panel-rgb), 0.82),
+      rgba(var(--panel-rgb), 0.88)
+    );
+  border: 1px solid var(--card-border);
   box-shadow: var(--shadow-md);
   position: relative;
   overflow: hidden;
@@ -416,12 +475,7 @@ body::after {
   line-height: 1.08;
   letter-spacing: -0.6px;
   text-align: center;
-  background: linear-gradient(
-    100deg,
-    #ffffff 0%,
-    var(--ink) 35%,
-    var(--gold-light) 100%
-  );
+  background: var(--hero-text-gradient);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -436,7 +490,7 @@ body::after {
 }
 
 .analytics-title-wrap p strong {
-  color: #ffffff;
+  color: var(--text-main);
 }
 
 .analytics-divider {
@@ -470,12 +524,7 @@ body::after {
   margin: 0;
   line-height: 1.15;
   letter-spacing: -0.5px;
-  background: linear-gradient(
-    100deg,
-    #ffffff 0%,
-    var(--ink) 35%,
-    var(--gold-light) 100%
-  );
+  background: var(--hero-text-gradient);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -504,7 +553,7 @@ body::after {
 }
 
 .toolbar-heading p strong {
-  color: #ffffff;
+  color: var(--text-main);
 }
 
 .toolbar-controls {
@@ -519,7 +568,7 @@ body::after {
   align-items: center;
   gap: 8px;
   border: 1px solid rgba(59, 130, 246, 0.3);
-  background: rgba(6, 14, 46, 0.55);
+  background: var(--input-bg);
   color: var(--ink);
   font-weight: 700;
   font-size: 14px;
@@ -555,7 +604,7 @@ body::after {
   gap: 4px;
   padding: 4px;
   border-radius: 999px;
-  background: rgba(6, 14, 46, 0.55);
+  background: var(--input-bg);
   border: 1px solid rgba(59, 130, 246, 0.28);
 }
 
@@ -579,7 +628,7 @@ body::after {
 }
 
 .segment-btn:hover {
-  color: #ffffff;
+  color: var(--text-main);
 }
 
 .segment-btn.active {
@@ -603,7 +652,7 @@ body::after {
   align-items: center;
   gap: 8px;
   border: 1px solid rgba(59, 130, 246, 0.3);
-  background: rgba(6, 14, 46, 0.55);
+  background: var(--input-bg);
   color: var(--ink);
   font-weight: 700;
   font-size: 13.5px;
@@ -647,7 +696,7 @@ body::after {
   justify-content: center;
   border-radius: 50%;
   border: 1px solid rgba(59, 130, 246, 0.3);
-  background: rgba(6, 14, 46, 0.55);
+  background: var(--input-bg);
   color: var(--ink);
   font-size: 16px;
   cursor: pointer;
@@ -763,7 +812,7 @@ body::after {
   padding: 16px 18px 18px;
   min-height: 142px;
   box-shadow: var(--shadow-md);
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid var(--card-border);
   transition:
     transform 0.28s ease,
     box-shadow 0.28s ease,
@@ -1075,13 +1124,13 @@ body::after {
 .analytics-card,
 .appendices-card {
   background:
+    linear-gradient(135deg, var(--card-glass-1), var(--card-glass-2)),
     linear-gradient(
-      135deg,
-      rgba(255, 255, 255, 0.1),
-      rgba(255, 255, 255, 0.03)
-    ),
-    linear-gradient(180deg, rgba(11, 31, 115, 0.82), rgba(11, 31, 115, 0.88));
-  border: 1px solid rgba(255, 255, 255, 0.18);
+      180deg,
+      rgba(var(--panel-rgb), 0.82),
+      rgba(var(--panel-rgb), 0.88)
+    );
+  border: 1px solid var(--card-border);
   border-radius: 26px;
   padding: 18px;
   box-shadow: var(--shadow-md);
@@ -1152,12 +1201,7 @@ body::after {
   position: relative;
   z-index: 3;
   display: inline-block;
-  background: linear-gradient(
-    100deg,
-    #ffffff 0%,
-    var(--ink) 45%,
-    var(--gold-light) 100%
-  );
+  background: var(--hero-text-gradient);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
@@ -1230,7 +1274,7 @@ body::after {
 .mini-sales-table thead th,
 .top-product-table thead th {
   background: rgba(255, 255, 255, 0.08);
-  color: #ffffff;
+  color: var(--text-main);
   font-weight: 800;
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
@@ -1249,11 +1293,11 @@ body::after {
 }
 
 .empty-box {
-  border: 1px dashed rgba(255, 255, 255, 0.18);
+  border: 1px dashed var(--card-border);
   border-radius: 20px;
   padding: 18px;
   text-align: center;
-  color: #eef5ff;
+  color: var(--text-main);
   background: rgba(255, 255, 255, 0.04);
   font-weight: 700;
   position: relative;
@@ -1397,13 +1441,13 @@ body::after {
 
 .empty-icon {
   font-size: 42px;
-  color: #ffffff;
+  color: var(--text-main);
   margin-bottom: 10px;
 }
 
 .large-empty h5 {
   font-weight: 900;
-  color: #ffffff;
+  color: var(--text-main);
   margin-bottom: 8px;
 }
 
@@ -1419,12 +1463,12 @@ body::after {
 
 .toolbar-box {
   background:
+    linear-gradient(135deg, var(--card-glass-1), var(--card-glass-2)),
     linear-gradient(
-      135deg,
-      rgba(255, 255, 255, 0.1),
-      rgba(255, 255, 255, 0.03)
-    ),
-    linear-gradient(180deg, rgba(11, 31, 115, 0.82), rgba(11, 31, 115, 0.88));
+      180deg,
+      rgba(var(--panel-rgb), 0.82),
+      rgba(var(--panel-rgb), 0.88)
+    );
   border-radius: 24px;
   padding: 14px 16px;
   display: flex;
@@ -1432,7 +1476,7 @@ body::after {
   align-items: center;
   gap: 14px;
   flex-wrap: wrap;
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid var(--card-border);
   box-shadow: var(--shadow-md);
 }
 
@@ -2011,13 +2055,13 @@ body::after {
 /* CUSTOM RANGE MODAL */
 .custom-range-content {
   border-radius: 22px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid var(--card-border);
   background: linear-gradient(
     180deg,
-    rgba(11, 31, 115, 0.9),
-    rgba(11, 31, 115, 0.92)
+    rgba(var(--panel-rgb), 0.9),
+    rgba(var(--panel-rgb), 0.92)
   );
-  color: #ffffff;
+  color: var(--modal-text);
 }
 
 .custom-range-content .modal-header,
@@ -2026,13 +2070,13 @@ body::after {
 }
 
 .custom-range-content .form-label {
-  color: #ffffff;
+  color: var(--modal-text);
   font-weight: 700;
 }
 
 .custom-range-content .form-control {
   background: rgba(255, 255, 255, 0.94);
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid var(--card-border);
   color: #0b1f73;
   font-weight: 700;
 }

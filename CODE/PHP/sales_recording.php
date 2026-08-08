@@ -12,6 +12,8 @@ if ((int)($_SESSION['can_sales'] ?? 0) !== 1) {
 }
 
 include 'config.php';
+require_once __DIR__ . '/tenant_helper.php';
+$businessId = nxRequireBusinessId($conn);
 
 $user_id = $_SESSION['user_id'];
 
@@ -74,9 +76,9 @@ switch ($period) {
         break;
 }
 
-$where = " WHERE 1=1 ";
-$params = [];
-$types = "";
+$where = " WHERE s.business_id = ? ";
+$params = [$businessId];
+$types = "i";
 
 if ($filter !== 'All') {
     if (in_array($filter, ['Paid', 'Unpaid', 'Partially Paid', 'Fulfilled', 'Pending'], true)) {
@@ -132,11 +134,11 @@ if (!empty($params)) {
 $stmt->execute();
 $result = $stmt->get_result();
 
-$summaryWhere = "";
-$summaryParams = [];
-$summaryTypes = "";
+$summaryWhere = " WHERE business_id = ? ";
+$summaryParams = [$businessId];
+$summaryTypes = "i";
 if ($dateStart && $dateEnd) {
-    $summaryWhere = " WHERE sale_date BETWEEN ? AND ? ";
+    $summaryWhere .= " AND sale_date BETWEEN ? AND ? ";
     $summaryParams[] = $dateStart->format('Y-m-d H:i:s');
     $summaryParams[] = $dateEnd->format('Y-m-d H:i:s');
     $summaryTypes .= "ss";
@@ -172,30 +174,38 @@ $summary = $summaryResult ? $summaryResult->fetch_assoc() : [
     'gcash_count' => 0
 ];
 
-$products = $conn->query("
+$productList = [];
+$productStmt = $conn->prepare("
     SELECT id, product_name, selling_price, stock_quantity
     FROM products
-    WHERE is_active = 1
+    WHERE business_id = ? AND is_active = 1
     ORDER BY product_name ASC
 ");
-
-$productList = [];
-while ($row = $products->fetch_assoc()) {
-    $productList[] = $row;
+if ($productStmt) {
+    $productStmt->bind_param("i", $businessId);
+    $productStmt->execute();
+    $products = $productStmt->get_result();
+    while ($row = $products->fetch_assoc()) {
+        $productList[] = $row;
+    }
+    $productStmt->close();
 }
 
-$customers = $conn->query("
+$customerList = [];
+$customerStmt = $conn->prepare("
     SELECT id, customer_name, customer_code
     FROM customers
-    WHERE status = 1
+    WHERE business_id = ? AND status = 1
     ORDER BY customer_name ASC
 ");
-
-$customerList = [];
-if ($customers) {
+if ($customerStmt) {
+    $customerStmt->bind_param("i", $businessId);
+    $customerStmt->execute();
+    $customers = $customerStmt->get_result();
     while ($row = $customers->fetch_assoc()) {
         $customerList[] = $row;
     }
+    $customerStmt->close();
 }
 
 function generateSalesNo() {
@@ -227,10 +237,12 @@ unset($_SESSION['success'], $_SESSION['error']);
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <?php include __DIR__ . '/theme_init.php'; ?>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sales</title>
     <link rel="stylesheet" href="/NexGen/CODE/STYLE/sales_recording.css?v=8">
     <link rel="stylesheet" href="/NexGen/CODE/STYLE/header.css?v=5">
+    <link rel="stylesheet" href="/NexGen/CODE/STYLE/module_footer.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 
     <style>
@@ -980,9 +992,9 @@ unset($_SESSION['success'], $_SESSION['error']);
     </div>
 </div>
 
-<footer class="footer-section" id="footer-section">
-    <div class="footer-top-line"></div>
-    <p>Copyright © 2026 NexGen Micro-Enterprise</p>
+<footer class="nx-footer">
+    <div class="nx-footer-line"></div>
+    <p class="nx-footer-copy">Copyright &copy; 2026 NexGen.</p>
 </footer>
 
 <?php include 'chatbot.php'; ?>

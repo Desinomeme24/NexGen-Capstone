@@ -1,6 +1,8 @@
 <?php
 session_start();
 require_once("config.php");
+require_once __DIR__ . '/tenant_helper.php';
+$businessId = nxRequireBusinessId($conn);
 
 if (!isset($_SESSION['user_id'])) {
     header("Location: /NexGen/CODE/PHP/index.php");
@@ -78,8 +80,9 @@ $sql = "
                 ELSE 'Unpaid'
             END AS live_status
         FROM accounts_receivable ar
-        INNER JOIN customers c ON ar.customer_id = c.id
-        INNER JOIN sales s ON ar.sale_id = s.id
+        INNER JOIN customers c ON ar.customer_id = c.id AND c.business_id = {$businessId}
+        INNER JOIN sales s ON ar.sale_id = s.id AND s.business_id = {$businessId}
+        WHERE ar.business_id = {$businessId}
     ) x
     WHERE 1=1
 ";
@@ -186,6 +189,7 @@ $summaryQuery = $conn->query("
             END
         ) AS partial_count
     FROM accounts_receivable
+    WHERE business_id = {$businessId}
 ");
 if ($summaryQuery) {
     $summary = $summaryQuery->fetch_assoc();
@@ -198,8 +202,8 @@ $recentPaymentsQuery = $conn->query("
         ar.updated_at,
         c.customer_name
     FROM accounts_receivable ar
-    INNER JOIN customers c ON ar.customer_id = c.id
-    WHERE ar.amount_paid > 0
+    INNER JOIN customers c ON ar.customer_id = c.id AND c.business_id = {$businessId}
+    WHERE ar.business_id = {$businessId} AND ar.amount_paid > 0
     ORDER BY ar.updated_at DESC
     LIMIT 5
 ");
@@ -252,6 +256,7 @@ $agingQuery = $conn->query("
             THEN balance_due ELSE 0
         END) AS d90_plus
     FROM accounts_receivable
+    WHERE business_id = {$businessId}
 ");
 if ($agingQuery) {
     $agingRow = $agingQuery->fetch_assoc();
@@ -513,11 +518,13 @@ $overdueCount = (int)($summary['overdue_count'] ?? 0);
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <?php include __DIR__ . '/theme_init.php'; ?>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Accounts Receivable - NexGen</title>
     <link rel="stylesheet" href="/NexGen/CODE/STYLE/header.css?v=2">
     <link rel="stylesheet" href="/NexGen/CODE/STYLE/accounts_receivable.css?v=8">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+        <link rel="stylesheet" href="/NexGen/CODE/STYLE/module_footer.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <style>
         .overdue-alert-wrap {
             position: fixed;
@@ -1528,5 +1535,10 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 });
 </script>
+    <footer class="nx-footer">
+        <div class="nx-footer-line"></div>
+        <p class="nx-footer-copy">Copyright &copy; 2026 NexGen.</p>
+    </footer>
+
 </body>
 </html>

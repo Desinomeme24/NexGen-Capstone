@@ -17,6 +17,14 @@ const closeEditProductModal = document.getElementById("closeEditProductModal");
 const stockModal = document.getElementById("stockModal");
 const closeStockModal = document.getElementById("closeStockModal");
 
+const receiveShipmentModal = document.getElementById("receiveShipmentModal");
+const closeReceiveShipmentModal = document.getElementById(
+  "closeReceiveShipmentModal",
+);
+
+const placeOrderModal = document.getElementById("placeOrderModal");
+const closePlaceOrderModal = document.getElementById("closePlaceOrderModal");
+
 const categoryModal = document.getElementById("categoryModal");
 const openCategoryModal = document.getElementById("openCategoryModal");
 const closeCategoryModal = document.getElementById("closeCategoryModal");
@@ -234,6 +242,35 @@ function closeAllMenus(exceptMenu = null) {
   });
 }
 
+let actionMenuAutoId = 0;
+
+// The dropdown menus start out nested inside .inventory-table-shell, which
+// uses overflow: hidden to keep its rounded corners clean. Browsers clip
+// position: fixed descendants to an overflow:hidden ancestor's box too —
+// it's not just a coordinate calculation, the paint itself gets cut off —
+// so a menu that needs to render below that card is silently hidden even
+// though its on-screen coordinates are correct. Moving each menu to be a
+// direct child of <body> removes it from that clipped ancestor entirely,
+// while the button that opens it keeps a matching ID to find it again.
+function escapeOverflowForActionMenus() {
+  document
+    .querySelectorAll("body > [data-menu-id]")
+    .forEach((el) => el.remove());
+
+  document.querySelectorAll(".action-menu-wrap").forEach((wrap) => {
+    const menu = wrap.querySelector("[data-action-menu]");
+    if (!menu) return;
+
+    actionMenuAutoId += 1;
+    const menuId = "action-menu-" + actionMenuAutoId;
+
+    menu.dataset.menuId = menuId;
+    wrap.dataset.menuFor = menuId;
+
+    document.body.appendChild(menu);
+  });
+}
+
 function positionActionMenu(button, menu) {
   const gap = 10;
   const edgePadding = 8;
@@ -248,9 +285,8 @@ function positionActionMenu(button, menu) {
   menu.style.display = "";
   menu.style.visibility = "";
 
-  // Preferred: centered beside the button, to its left.
+  // Preferred: to the left of the button.
   let left = btnRect.left - menuRect.width - gap;
-  let top = btnRect.top + btnRect.height / 2 - menuRect.height / 2;
 
   // Not enough room on the left? Open to the right instead.
   if (left < edgePadding) {
@@ -261,6 +297,18 @@ function positionActionMenu(button, menu) {
   const maxLeft = window.innerWidth - menuRect.width - edgePadding;
   if (left > maxLeft) left = maxLeft;
   if (left < edgePadding) left = edgePadding;
+
+  // Anchor the menu to the button instead of centering on it, so it
+  // consistently opens in the same spot relative to whichever row was
+  // clicked. Prefer dropping down from the button's top edge; only flip
+  // upward (aligning the menu's bottom with the button's bottom) if there
+  // genuinely isn't enough room below.
+  const spaceBelow = window.innerHeight - btnRect.top - edgePadding;
+  let top = btnRect.top;
+
+  if (menuRect.height > spaceBelow) {
+    top = btnRect.bottom - menuRect.height;
+  }
 
   const maxTop = window.innerHeight - menuRect.height - edgePadding;
   if (top > maxTop) top = maxTop;
@@ -356,6 +404,7 @@ async function refreshInventoryContent(url) {
     dynamicArea.innerHTML = nextDynamicArea.innerHTML;
     syncBrowserUrl(url);
     initDynamicFilterControls();
+    escapeOverflowForActionMenus();
   } catch (error) {
     if (error.name !== "AbortError") {
       window.location.href = url;
@@ -492,7 +541,30 @@ if (closeStockModal && stockModal) {
   });
 }
 
-[productModal, editProductModal, stockModal, categoryModal].forEach((modal) => {
+if (closeReceiveShipmentModal && receiveShipmentModal) {
+  closeReceiveShipmentModal.addEventListener("click", function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    closeModal(receiveShipmentModal);
+  });
+}
+
+if (closePlaceOrderModal && placeOrderModal) {
+  closePlaceOrderModal.addEventListener("click", function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    closeModal(placeOrderModal);
+  });
+}
+
+[
+  productModal,
+  editProductModal,
+  stockModal,
+  categoryModal,
+  receiveShipmentModal,
+  placeOrderModal,
+].forEach((modal) => {
   if (!modal) return;
 
   modal.addEventListener("click", (event) => {
@@ -642,12 +714,59 @@ document.addEventListener("click", (event) => {
     return;
   }
 
+  const receiveButton = event.target.closest(".receive-btn");
+  if (receiveButton) {
+    const productId = document.getElementById("receive_product_id");
+    const productName = document.getElementById("receive_product_name");
+    const expectedQty = document.getElementById("receive_expected_qty");
+    const quantity = document.getElementById("receive_quantity");
+    const remarks = document.getElementById("receive_remarks");
+
+    const onOrderQty = receiveButton.dataset.receiveOnorder || "0";
+
+    if (productId) productId.value = receiveButton.dataset.receiveId;
+    if (productName) productName.value = receiveButton.dataset.receiveName;
+    if (expectedQty) expectedQty.value = onOrderQty;
+
+    // Default the received quantity to what's expected. Editable so a
+    // partial or over-shipment can still be recorded accurately.
+    if (quantity) quantity.value = onOrderQty;
+    if (remarks) remarks.value = "";
+
+    closeAllMenus();
+    openModal(receiveShipmentModal);
+    return;
+  }
+
+  const placeOrderButton = event.target.closest(".place-order-btn");
+  if (placeOrderButton) {
+    const productId = document.getElementById("order_product_id");
+    const productName = document.getElementById("order_product_name");
+    const currentOnOrder = document.getElementById("order_current_on_order");
+    const quantity = document.getElementById("order_quantity");
+    const remarks = document.getElementById("order_remarks");
+
+    if (productId) productId.value = placeOrderButton.dataset.orderId;
+    if (productName) productName.value = placeOrderButton.dataset.orderName;
+    if (currentOnOrder)
+      currentOnOrder.value = placeOrderButton.dataset.orderCurrent || "0";
+    if (quantity) quantity.value = "";
+    if (remarks) remarks.value = "";
+
+    closeAllMenus();
+    openModal(placeOrderModal);
+    return;
+  }
+
   const toggleButton = event.target.closest("[data-action-menu-toggle]");
   if (toggleButton) {
     event.stopPropagation();
 
     const wrap = toggleButton.closest(".action-menu-wrap");
-    const menu = wrap ? wrap.querySelector("[data-action-menu]") : null;
+    const menuId = wrap ? wrap.dataset.menuFor : null;
+    const menu = menuId
+      ? document.querySelector('[data-menu-id="' + menuId + '"]')
+      : null;
 
     if (!menu) return;
 
@@ -691,6 +810,7 @@ window.addEventListener("scroll", () => closeAllMenus(), true);
 window.addEventListener("resize", () => closeAllMenus());
 
 initDynamicFilterControls();
+escapeOverflowForActionMenus();
 
 /* POPUP AUTO HIDE */
 const popupOverlay = document.getElementById("popupOverlay");

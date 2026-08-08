@@ -1,155 +1,28 @@
 <?php
 session_start();
 require_once("config.php");
+require_once("tenant_helper.php");
 
-
-
-if (!isset($_SESSION['user_id'])) {
-    header("Location: /NexGen/CODE/PHP/index.php");
-    exit();
-}
-
-if ($_SERVER["REQUEST_METHOD"] !== "POST") {
-    header("Location: /NexGen/CODE/PHP/inventory_management.php");
-    exit();
-}
-
-$role = $_SESSION['role'] ?? 'employee';
-$isOwner = $role === 'owner';
-
-$product_code   = trim($_POST['product_code'] ?? '');
-$product_name   = trim($_POST['product_name'] ?? '');
-$category_id    = intval($_POST['category_id'] ?? 0);
-$brand          = trim($_POST['brand'] ?? '');
-$unit           = trim($_POST['unit'] ?? '');
-$cost_price     = floatval($_POST['cost_price'] ?? 0);
-$selling_price  = floatval($_POST['selling_price'] ?? 0);
-$stock_quantity = intval($_POST['stock_quantity'] ?? 0);
-$reorder_level  = $isOwner ? intval($_POST['reorder_level'] ?? 5) : 5;
-$on_order_level = $isOwner ? intval($_POST['on_order_level'] ?? 0) : 0;
-$expiry_date    = !empty($_POST['expiry_date']) ? $_POST['expiry_date'] : null;
-$description    = trim($_POST['description'] ?? '');
-$is_active      = intval($_POST['is_active'] ?? 1);
-
-if ($product_code === '' || $product_name === '' || $category_id <= 0 || $unit === '') {
-    $_SESSION['inventory_error'] = "Please fill in all required fields.";
-    header("Location: /NexGen/CODE/PHP/inventory_management.php");
-    exit();
-}
-
-if ($cost_price < 0 || $selling_price < 0 || $stock_quantity < 0 || $reorder_level < 0 || $on_order_level < 0) {
-    $_SESSION['inventory_error'] = "Cost, selling price, stock, reorder level, and on-order level must not be negative.";
-    header("Location: /NexGen/CODE/PHP/inventory_management.php");
-    exit();
-}
-
-$imagePath = "uploads/products/default.png";
-
-if (!empty($_FILES['product_image']['name'])) {
-    $uploadDir = __DIR__ . "/uploads/products/";
-
-    if (!is_dir($uploadDir)) {
-        mkdir($uploadDir, 0777, true);
-    }
-
-    $fileTmp = $_FILES['product_image']['tmp_name'];
-    $fileName = $_FILES['product_image']['name'];
-    $fileSize = $_FILES['product_image']['size'];
-    $fileError = $_FILES['product_image']['error'];
-    $allowed = ['jpg', 'jpeg', 'png', 'webp'];
-    $extension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
-
-    if ($fileError === 0 && in_array($extension, $allowed, true) && $fileSize <= 5 * 1024 * 1024) {
-        $newFileName = "product_" . time() . "_" . uniqid() . "." . $extension;
-        $destination = $uploadDir . $newFileName;
-
-        if (move_uploaded_file($fileTmp, $destination)) {
-            $imagePath = "uploads/products/" . $newFileName;
-        }
-    }
-}
-
+if (!isset($_SESSION['user_id'])) { header("Location: /NexGen/CODE/PHP/index.php"); exit(); }
+if ((int)($_SESSION['can_inventory'] ?? 0) !== 1) { $_SESSION['inventory_error']='Unauthorized access.'; header("Location: /NexGen/CODE/PHP/dashboard.php"); exit(); }
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') { header("Location: /NexGen/CODE/PHP/inventory_management.php"); exit(); }
+$businessId=nxRequireBusinessId($conn); $role=$_SESSION['role']??'employee'; $isOwner=$role==='owner';
+$product_code=trim($_POST['product_code']??''); $product_name=trim($_POST['product_name']??''); $category_id=(int)($_POST['category_id']??0);
+$brand=trim($_POST['brand']??''); $unit=trim($_POST['unit']??''); $cost_price=(float)($_POST['cost_price']??0); $selling_price=(float)($_POST['selling_price']??0);
+$stock_quantity=(int)($_POST['stock_quantity']??0); $reorder_level=$isOwner?(int)($_POST['reorder_level']??5):5; $on_order_level=$isOwner?(int)($_POST['on_order_level']??0):0;
+$expiry_date=!empty($_POST['expiry_date'])?$_POST['expiry_date']:null; $description=trim($_POST['description']??''); $is_active=(int)($_POST['is_active']??1);
+if ($product_code===''||$product_name===''||$category_id<=0||$unit==='') { $_SESSION['inventory_error']='Please fill in all required fields.'; header("Location: /NexGen/CODE/PHP/inventory_management.php"); exit(); }
+if (min($cost_price,$selling_price,$stock_quantity,$reorder_level,$on_order_level)<0) { $_SESSION['inventory_error']='Numeric values must not be negative.'; header("Location: /NexGen/CODE/PHP/inventory_management.php"); exit(); }
+$cat=$conn->prepare('SELECT id FROM categories WHERE id=? AND business_id=?'); $cat->bind_param('ii',$category_id,$businessId); $cat->execute(); $catOk=$cat->get_result()->fetch_assoc(); $cat->close();
+if(!$catOk){$_SESSION['inventory_error']='Invalid category for this business.';header("Location: /NexGen/CODE/PHP/inventory_management.php");exit();}
+$imagePath='uploads/products/default.png';
+if(!empty($_FILES['product_image']['name'])){ $f=$_FILES['product_image']; [$ok,$msg]=nxValidateSecureUpload($f,['allowed_extensions'=>['jpg','jpeg','png','webp'],'allowed_mime_types'=>['image/jpeg','image/png','image/webp'],'max_size'=>5*1024*1024,'require_image'=>true,'allow_pdf'=>false]); if(!$ok){$_SESSION['inventory_error']='Product image blocked: '.$msg;header("Location: /NexGen/CODE/PHP/inventory_management.php");exit();} $dir=__DIR__.'/uploads/products/'; if(!is_dir($dir))mkdir($dir,0777,true); $ext=strtolower(pathinfo($f['name'],PATHINFO_EXTENSION)); $name='product_'.bin2hex(random_bytes(8)).'.'.$ext; if(!move_uploaded_file($f['tmp_name'],$dir.$name)){$_SESSION['inventory_error']='Failed to upload product image.';header("Location: /NexGen/CODE/PHP/inventory_management.php");exit();} $imagePath='uploads/products/'.$name; }
 $conn->begin_transaction();
-
-try {
-  
-    $checkStmt = $conn->prepare("
-        SELECT id
-        FROM products
-        WHERE product_code = ?
-        LIMIT 1
-    ");
-
-    if (!$checkStmt) {
-        throw new Exception("Failed to prepare product code validation.");
-    }
-
-    $checkStmt->bind_param("s", $product_code);
-    $checkStmt->execute();
-    $existingProduct = $checkStmt->get_result()->fetch_assoc();
-    $checkStmt->close();
-
-    if ($existingProduct) {
-        throw new Exception("Failed to save product. Product code may already exist.");
-    }
-
-    $stmt = $conn->prepare("
-        INSERT INTO products (
-            product_code,
-            product_name,
-            category_id,
-            brand,
-            unit,
-            cost_price,
-            selling_price,
-            stock_quantity,
-            reorder_level,
-            on_order_level,
-            expiry_date,
-            product_image,
-            description,
-            is_active
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ");
-
-    if (!$stmt) {
-        throw new Exception("Failed to prepare product insert query.");
-    }
-
-    $stmt->bind_param(
-        "ssissddiiisssi",
-        $product_code,
-        $product_name,
-        $category_id,
-        $brand,
-        $unit,
-        $cost_price,
-        $selling_price,
-        $stock_quantity,
-        $reorder_level,
-        $on_order_level,
-        $expiry_date,
-        $imagePath,
-        $description,
-        $is_active
-    );
-
-    if (!$stmt->execute()) {
-        throw new Exception("Failed to save product. Product code may already exist.");
-    }
-
-    $stmt->close();
-
-    $conn->commit();
-
-    $_SESSION['inventory_success'] = "Product added successfully.";
-
-} catch (Exception $e) {
-    $conn->rollback();
-
-    $_SESSION['inventory_error'] = $e->getMessage();
-}
-
-header("Location: /NexGen/CODE/PHP/inventory_management.php");
-exit();
+try{
+ $check=$conn->prepare('SELECT id FROM products WHERE business_id=? AND product_code=? LIMIT 1'); $check->bind_param('is',$businessId,$product_code); $check->execute(); if($check->get_result()->fetch_assoc())throw new Exception('Product code already exists in your business.'); $check->close();
+ $stmt=$conn->prepare('INSERT INTO products (business_id,product_code,product_name,category_id,brand,unit,cost_price,selling_price,stock_quantity,reorder_level,on_order_level,expiry_date,product_image,description,is_active) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
+ $stmt->bind_param('ississddiiisssi',$businessId,$product_code,$product_name,$category_id,$brand,$unit,$cost_price,$selling_price,$stock_quantity,$reorder_level,$on_order_level,$expiry_date,$imagePath,$description,$is_active);
+ if(!$stmt->execute())throw new Exception('Failed to save product: '.$stmt->error); $stmt->close(); $conn->commit(); $_SESSION['inventory_success']='Product added successfully.';
+}catch(Throwable $e){$conn->rollback(); if($imagePath!=='uploads/products/default.png'&&file_exists(__DIR__.'/'.$imagePath))@unlink(__DIR__.'/'.$imagePath); $_SESSION['inventory_error']=$e->getMessage();}
+header("Location: /NexGen/CODE/PHP/inventory_management.php"); exit();
 ?>

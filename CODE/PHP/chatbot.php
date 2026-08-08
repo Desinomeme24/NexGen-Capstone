@@ -4,6 +4,7 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 require_once("config.php");
+require_once __DIR__ . "/tenant_helper.php";
 require_once("ollama_helpers.php");
 date_default_timezone_set('Asia/Manila');
 
@@ -32,6 +33,9 @@ $chatbotCanInventory = (int)($_SESSION['can_inventory'] ?? 0) === 1;
 $chatbotCanSales = (int)($_SESSION['can_sales'] ?? 0) === 1;
 $chatbotCanSalesAnalytics = (int)($_SESSION['can_sales_analytics'] ?? 0) === 1;
 $chatbotCanAccountsReceivable = (int)($_SESSION['can_accounts_receivable'] ?? 0) === 1;
+
+$chatbotBusinessId = nxRequireBusinessId($conn);
+$GLOBALS['chatbotBusinessId'] = $chatbotBusinessId;
 
 /*
 |--------------------------------------------------------------------------
@@ -185,6 +189,10 @@ if (isset($_GET['action']) && $_GET['action'] === 'ask') {
         $tableName = $conn->real_escape_string($tableName);
         $result = $conn->query("SHOW TABLES LIKE '{$tableName}'");
         return $result && $result->num_rows > 0;
+    }
+
+    function cb_business_id(): int {
+        return (int)($GLOBALS['chatbotBusinessId'] ?? 0);
     }
 
     function cb_open_module_reply($label, $url, $intro) {
@@ -797,7 +805,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'ask') {
             SELECT COALESCE(SUM(total_amount), 0) AS gross_revenue,
                    COUNT(*) AS total_transactions
             FROM sales
-            WHERE sale_date >= '{$start}' AND sale_date <= '{$end}'
+            WHERE business_id = " . cb_business_id() . " AND sale_date >= '{$start}' AND sale_date <= '{$end}'
         ";
         $resultRevenue = $conn->query($sqlRevenue);
         if ($resultRevenue) {
@@ -811,7 +819,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'ask') {
             FROM sale_items si
             INNER JOIN sales s ON si.sale_id = s.id
             INNER JOIN products p ON si.product_id = p.id
-            WHERE s.sale_date >= '{$start}' AND s.sale_date <= '{$end}'
+            WHERE s.business_id = " . cb_business_id() . " AND p.business_id = " . cb_business_id() . " AND s.sale_date >= '{$start}' AND s.sale_date <= '{$end}'
         ";
         $resultCogs = $conn->query($sqlCogs);
         if ($resultCogs) {
@@ -841,7 +849,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'ask') {
 
     function cb_get_low_stock($conn, $limit = 10) {
         $items = [];
-        $stmt = $conn->prepare("SELECT product_name, product_code, stock_quantity, reorder_level, on_order_level FROM products WHERE is_active = 1 AND stock_quantity <= reorder_level AND stock_quantity > 0 ORDER BY stock_quantity ASC, product_name ASC LIMIT ?");
+        $stmt = $conn->prepare("SELECT product_name, product_code, stock_quantity, reorder_level, on_order_level FROM products WHERE business_id = " . cb_business_id() . " AND is_active = 1 AND stock_quantity <= reorder_level AND stock_quantity > 0 ORDER BY stock_quantity ASC, product_name ASC LIMIT ?");
         $stmt->bind_param("i", $limit);
         $stmt->execute();
         $result = $stmt->get_result();
@@ -852,7 +860,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'ask') {
 
     function cb_get_out_of_stock($conn, $limit = 10) {
         $items = [];
-        $stmt = $conn->prepare("SELECT product_name, product_code, stock_quantity, on_order_level FROM products WHERE is_active = 1 AND stock_quantity <= 0 ORDER BY product_name ASC LIMIT ?");
+        $stmt = $conn->prepare("SELECT product_name, product_code, stock_quantity, on_order_level FROM products WHERE business_id = " . cb_business_id() . " AND is_active = 1 AND stock_quantity <= 0 ORDER BY product_name ASC LIMIT ?");
         $stmt->bind_param("i", $limit);
         $stmt->execute();
         $result = $stmt->get_result();
@@ -863,7 +871,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'ask') {
 
     function cb_get_nearing_depletion($conn, $limit = 10) {
         $items = [];
-        $stmt = $conn->prepare("SELECT product_name, product_code, stock_quantity, reorder_level FROM products WHERE is_active = 1 AND stock_quantity > reorder_level AND stock_quantity <= (reorder_level + 3) ORDER BY stock_quantity ASC, product_name ASC LIMIT ?");
+        $stmt = $conn->prepare("SELECT product_name, product_code, stock_quantity, reorder_level FROM products WHERE business_id = " . cb_business_id() . " AND is_active = 1 AND stock_quantity > reorder_level AND stock_quantity <= (reorder_level + 3) ORDER BY stock_quantity ASC, product_name ASC LIMIT ?");
         $stmt->bind_param("i", $limit);
         $stmt->execute();
         $result = $stmt->get_result();
@@ -874,7 +882,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'ask') {
 
     function cb_get_recent_stock_movements($conn, $limit = 5) {
         $items = [];
-        $stmt = $conn->prepare("SELECT sm.movement_type, sm.quantity, sm.created_at, sm.remarks, p.product_name, p.product_code FROM stock_movements sm INNER JOIN products p ON sm.product_id = p.id ORDER BY sm.created_at DESC LIMIT ?");
+        $stmt = $conn->prepare("SELECT sm.movement_type, sm.quantity, sm.created_at, sm.remarks, p.product_name, p.product_code FROM stock_movements sm INNER JOIN products p ON sm.product_id = p.id WHERE sm.business_id = " . cb_business_id() . " AND p.business_id = " . cb_business_id() . " ORDER BY sm.created_at DESC LIMIT ?");
         $stmt->bind_param("i", $limit);
         $stmt->execute();
         $result = $stmt->get_result();
@@ -885,7 +893,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'ask') {
 
     function cb_get_recent_products($conn, $limit = 5) {
         $items = [];
-        $stmt = $conn->prepare("SELECT product_name, product_code, created_at FROM products ORDER BY created_at DESC LIMIT ?");
+        $stmt = $conn->prepare("SELECT product_name, product_code, created_at FROM products WHERE business_id = " . cb_business_id() . " ORDER BY created_at DESC LIMIT ?");
         $stmt->bind_param("i", $limit);
         $stmt->execute();
         $result = $stmt->get_result();
@@ -896,7 +904,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'ask') {
 
     function cb_get_product_stock_by_name($conn, $name) {
         $items = [];
-        $stmt = $conn->prepare("SELECT product_name, product_code, stock_quantity, reorder_level, on_order_level FROM products WHERE is_active = 1 AND product_name LIKE ? ORDER BY product_name ASC LIMIT 5");
+        $stmt = $conn->prepare("SELECT product_name, product_code, stock_quantity, reorder_level, on_order_level FROM products WHERE business_id = " . cb_business_id() . " AND is_active = 1 AND product_name LIKE ? ORDER BY product_name ASC LIMIT 5");
         $search = '%' . $name . '%';
         $stmt->bind_param("s", $search);
         $stmt->execute();
@@ -910,7 +918,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'ask') {
         $questionNorm = cb_prepare_intent_text($question);
         $questionTokens = cb_tokenize($questionNorm);
 
-        $result = $conn->query("SELECT id, product_name, product_code, stock_quantity, reorder_level, on_order_level FROM products WHERE is_active = 1 ORDER BY product_name ASC");
+        $result = $conn->query("SELECT id, product_name, product_code, stock_quantity, reorder_level, on_order_level FROM products WHERE business_id = " . cb_business_id() . " AND is_active = 1 ORDER BY product_name ASC");
         if (!$result) return null;
 
         $best = null;
@@ -940,7 +948,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'ask') {
 
     function cb_get_top_products_by_qty($conn, $startDate, $endDate, $limit = 5) {
         $items = [];
-        $stmt = $conn->prepare("SELECT p.product_name, COALESCE(SUM(si.quantity), 0) AS qty_sold FROM sale_items si INNER JOIN sales s ON si.sale_id = s.id INNER JOIN products p ON si.product_id = p.id WHERE s.sale_date BETWEEN ? AND ? GROUP BY p.id, p.product_name ORDER BY qty_sold DESC, p.product_name ASC LIMIT ?");
+        $stmt = $conn->prepare("SELECT p.product_name, COALESCE(SUM(si.quantity), 0) AS qty_sold FROM sale_items si INNER JOIN sales s ON si.sale_id = s.id INNER JOIN products p ON si.product_id = p.id WHERE s.business_id = " . cb_business_id() . " AND p.business_id = " . cb_business_id() . " AND s.sale_date BETWEEN ? AND ? GROUP BY p.id, p.product_name ORDER BY qty_sold DESC, p.product_name ASC LIMIT ?");
         $stmt->bind_param("ssi", $startDate, $endDate, $limit);
         $stmt->execute();
         $result = $stmt->get_result();
@@ -951,7 +959,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'ask') {
 
     function cb_get_top_products_by_revenue($conn, $startDate, $endDate, $limit = 5) {
         $items = [];
-        $stmt = $conn->prepare("SELECT p.product_name, COALESCE(SUM(si.quantity * si.unit_price), 0) AS revenue FROM sale_items si INNER JOIN sales s ON si.sale_id = s.id INNER JOIN products p ON si.product_id = p.id WHERE s.sale_date BETWEEN ? AND ? GROUP BY p.id, p.product_name ORDER BY revenue DESC, p.product_name ASC LIMIT ?");
+        $stmt = $conn->prepare("SELECT p.product_name, COALESCE(SUM(si.quantity * si.unit_price), 0) AS revenue FROM sale_items si INNER JOIN sales s ON si.sale_id = s.id INNER JOIN products p ON si.product_id = p.id WHERE s.business_id = " . cb_business_id() . " AND p.business_id = " . cb_business_id() . " AND s.sale_date BETWEEN ? AND ? GROUP BY p.id, p.product_name ORDER BY revenue DESC, p.product_name ASC LIMIT ?");
         $stmt->bind_param("ssi", $startDate, $endDate, $limit);
         $stmt->execute();
         $result = $stmt->get_result();
@@ -962,7 +970,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'ask') {
 
     function cb_get_slow_products($conn, $startDate, $endDate, $limit = 5) {
         $items = [];
-        $stmt = $conn->prepare("SELECT p.product_name, COALESCE(SUM(CASE WHEN s.sale_date BETWEEN ? AND ? THEN si.quantity ELSE 0 END), 0) AS qty_sold FROM products p LEFT JOIN sale_items si ON p.id = si.product_id LEFT JOIN sales s ON si.sale_id = s.id WHERE p.is_active = 1 GROUP BY p.id, p.product_name ORDER BY qty_sold ASC, p.product_name ASC LIMIT ?");
+        $stmt = $conn->prepare("SELECT p.product_name, COALESCE(SUM(CASE WHEN s.sale_date BETWEEN ? AND ? THEN si.quantity ELSE 0 END), 0) AS qty_sold FROM products p LEFT JOIN sale_items si ON p.id = si.product_id LEFT JOIN sales s ON si.sale_id = s.id AND s.business_id = " . cb_business_id() . " WHERE p.business_id = " . cb_business_id() . " AND p.is_active = 1 GROUP BY p.id, p.product_name ORDER BY qty_sold ASC, p.product_name ASC LIMIT ?");
         $stmt->bind_param("ssi", $startDate, $endDate, $limit);
         $stmt->execute();
         $result = $stmt->get_result();
@@ -973,7 +981,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'ask') {
 
     function cb_get_no_recent_sales($conn, $days = 30, $limit = 10) {
         $items = [];
-        $stmt = $conn->prepare("SELECT p.product_name FROM products p LEFT JOIN sale_items si ON p.id = si.product_id LEFT JOIN sales s ON si.sale_id = s.id AND s.sale_date >= (NOW() - INTERVAL ? DAY) WHERE p.is_active = 1 GROUP BY p.id, p.product_name HAVING COUNT(s.id) = 0 ORDER BY p.product_name ASC LIMIT ?");
+        $stmt = $conn->prepare("SELECT p.product_name FROM products p LEFT JOIN sale_items si ON p.id = si.product_id LEFT JOIN sales s ON si.sale_id = s.id AND s.business_id = " . cb_business_id() . " AND s.sale_date >= (NOW() - INTERVAL ? DAY) WHERE p.business_id = " . cb_business_id() . " AND p.is_active = 1 GROUP BY p.id, p.product_name HAVING COUNT(s.id) = 0 ORDER BY p.product_name ASC LIMIT ?");
         $stmt->bind_param("ii", $days, $limit);
         $stmt->execute();
         $result = $stmt->get_result();
@@ -984,7 +992,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'ask') {
 
     function cb_get_category_units($conn, $startDate, $endDate) {
         $items = [];
-        $stmt = $conn->prepare("SELECT c.category_name, COALESCE(SUM(si.quantity), 0) AS units_sold FROM sale_items si INNER JOIN sales s ON si.sale_id = s.id INNER JOIN products p ON si.product_id = p.id INNER JOIN categories c ON p.category_id = c.id WHERE s.sale_date BETWEEN ? AND ? GROUP BY c.id, c.category_name ORDER BY units_sold DESC, c.category_name ASC");
+        $stmt = $conn->prepare("SELECT c.category_name, COALESCE(SUM(si.quantity), 0) AS units_sold FROM sale_items si INNER JOIN sales s ON si.sale_id = s.id INNER JOIN products p ON si.product_id = p.id INNER JOIN categories c ON p.category_id = c.id WHERE s.business_id = " . cb_business_id() . " AND p.business_id = " . cb_business_id() . " AND c.business_id = " . cb_business_id() . " AND s.sale_date BETWEEN ? AND ? GROUP BY c.id, c.category_name ORDER BY units_sold DESC, c.category_name ASC");
         $stmt->bind_param("ss", $startDate, $endDate);
         $stmt->execute();
         $result = $stmt->get_result();
@@ -995,7 +1003,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'ask') {
 
     function cb_get_category_revenue($conn, $startDate, $endDate) {
         $items = [];
-        $stmt = $conn->prepare("SELECT c.category_name, COALESCE(SUM(si.quantity * si.unit_price), 0) AS revenue FROM sale_items si INNER JOIN sales s ON si.sale_id = s.id INNER JOIN products p ON si.product_id = p.id INNER JOIN categories c ON p.category_id = c.id WHERE s.sale_date BETWEEN ? AND ? GROUP BY c.id, c.category_name ORDER BY revenue DESC, c.category_name ASC");
+        $stmt = $conn->prepare("SELECT c.category_name, COALESCE(SUM(si.quantity * si.unit_price), 0) AS revenue FROM sale_items si INNER JOIN sales s ON si.sale_id = s.id INNER JOIN products p ON si.product_id = p.id INNER JOIN categories c ON p.category_id = c.id WHERE s.business_id = " . cb_business_id() . " AND p.business_id = " . cb_business_id() . " AND c.business_id = " . cb_business_id() . " AND s.sale_date BETWEEN ? AND ? GROUP BY c.id, c.category_name ORDER BY revenue DESC, c.category_name ASC");
         $stmt->bind_param("ss", $startDate, $endDate);
         $stmt->execute();
         $result = $stmt->get_result();
@@ -1019,7 +1027,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'ask') {
 
     function cb_get_unusual_stock_movements($conn, $limit = 5) {
         $items = [];
-        $stmt = $conn->prepare("SELECT sm.movement_type, sm.quantity, sm.created_at, p.product_name FROM stock_movements sm INNER JOIN products p ON sm.product_id = p.id WHERE sm.quantity >= 20 ORDER BY sm.created_at DESC LIMIT ?");
+        $stmt = $conn->prepare("SELECT sm.movement_type, sm.quantity, sm.created_at, p.product_name FROM stock_movements sm INNER JOIN products p ON sm.product_id = p.id WHERE sm.business_id = " . cb_business_id() . " AND p.business_id = " . cb_business_id() . " AND sm.quantity >= 20 ORDER BY sm.created_at DESC LIMIT ?");
         $stmt->bind_param("i", $limit);
         $stmt->execute();
         $result = $stmt->get_result();
@@ -1039,7 +1047,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'ask') {
             'partial_count' => 0
         ];
 
-        $result = $conn->query("SELECT COUNT(*) AS total_receivables, COALESCE(SUM(balance_due), 0) AS total_balance_due, SUM(CASE WHEN due_date IS NOT NULL AND due_date <> '' AND due_date < CURDATE() AND balance_due > 0 THEN 1 ELSE 0 END) AS overdue_count, SUM(CASE WHEN balance_due > 0 AND (amount_paid IS NULL OR amount_paid <= 0) AND NOT (due_date IS NOT NULL AND due_date <> '' AND due_date < CURDATE()) THEN 1 ELSE 0 END) AS unpaid_count, SUM(CASE WHEN amount_paid > 0 AND balance_due > 0 AND NOT (due_date IS NOT NULL AND due_date <> '' AND due_date < CURDATE()) THEN 1 ELSE 0 END) AS partial_count FROM accounts_receivable");
+        $result = $conn->query("SELECT COUNT(*) AS total_receivables, COALESCE(SUM(balance_due), 0) AS total_balance_due, SUM(CASE WHEN due_date IS NOT NULL AND due_date <> '' AND due_date < CURDATE() AND balance_due > 0 THEN 1 ELSE 0 END) AS overdue_count, SUM(CASE WHEN balance_due > 0 AND (amount_paid IS NULL OR amount_paid <= 0) AND NOT (due_date IS NOT NULL AND due_date <> '' AND due_date < CURDATE()) THEN 1 ELSE 0 END) AS unpaid_count, SUM(CASE WHEN amount_paid > 0 AND balance_due > 0 AND NOT (due_date IS NOT NULL AND due_date <> '' AND due_date < CURDATE()) THEN 1 ELSE 0 END) AS partial_count FROM accounts_receivable WHERE business_id = " . cb_business_id() . "");
         if ($result) $summary = $result->fetch_assoc();
 
         return $summary;
@@ -1049,7 +1057,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'ask') {
         $items = [];
         if (!cb_table_exists($conn, 'accounts_receivable')) return $items;
 
-        $stmt = $conn->prepare("SELECT ar.balance_due, ar.amount_paid, ar.due_date, c.customer_name, s.sales_no FROM accounts_receivable ar INNER JOIN customers c ON ar.customer_id = c.id INNER JOIN sales s ON ar.sale_id = s.id WHERE ar.balance_due > 0 ORDER BY ar.due_date ASC, ar.balance_due DESC LIMIT ?");
+        $stmt = $conn->prepare("SELECT ar.balance_due, ar.amount_paid, ar.due_date, c.customer_name, s.sales_no FROM accounts_receivable ar INNER JOIN customers c ON ar.customer_id = c.id INNER JOIN sales s ON ar.sale_id = s.id WHERE ar.business_id = " . cb_business_id() . " AND c.business_id = " . cb_business_id() . " AND s.business_id = " . cb_business_id() . " AND ar.balance_due > 0 ORDER BY ar.due_date ASC, ar.balance_due DESC LIMIT ?");
         $stmt->bind_param("i", $limit);
         $stmt->execute();
         $result = $stmt->get_result();
@@ -1062,7 +1070,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'ask') {
         $items = [];
         if (!cb_table_exists($conn, 'accounts_receivable')) return $items;
 
-        $stmt = $conn->prepare("SELECT ar.balance_due, ar.due_date, c.customer_name, s.sales_no FROM accounts_receivable ar INNER JOIN customers c ON ar.customer_id = c.id INNER JOIN sales s ON ar.sale_id = s.id WHERE ar.balance_due > 0 AND ar.due_date IS NOT NULL AND ar.due_date <> '' AND ar.due_date < CURDATE() ORDER BY ar.due_date ASC, ar.balance_due DESC LIMIT ?");
+        $stmt = $conn->prepare("SELECT ar.balance_due, ar.due_date, c.customer_name, s.sales_no FROM accounts_receivable ar INNER JOIN customers c ON ar.customer_id = c.id INNER JOIN sales s ON ar.sale_id = s.id WHERE ar.business_id = " . cb_business_id() . " AND c.business_id = " . cb_business_id() . " AND s.business_id = " . cb_business_id() . " AND ar.balance_due > 0 AND ar.due_date IS NOT NULL AND ar.due_date <> '' AND ar.due_date < CURDATE() ORDER BY ar.due_date ASC, ar.balance_due DESC LIMIT ?");
         $stmt->bind_param("i", $limit);
         $stmt->execute();
         $result = $stmt->get_result();
@@ -1075,7 +1083,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'ask') {
         $items = [];
         if (!cb_table_exists($conn, 'accounts_receivable')) return $items;
 
-        $stmt = $conn->prepare("SELECT c.customer_name, s.sales_no, ar.balance_due, ar.due_date, CASE WHEN ar.balance_due <= 0 THEN 'Paid' WHEN ar.due_date IS NOT NULL AND ar.due_date <> '' AND ar.due_date < CURDATE() AND ar.balance_due > 0 THEN 'Overdue' WHEN ar.amount_paid > 0 AND ar.balance_due > 0 THEN 'Partially Paid' ELSE 'Unpaid' END AS live_status FROM accounts_receivable ar INNER JOIN customers c ON ar.customer_id = c.id INNER JOIN sales s ON ar.sale_id = s.id WHERE ar.balance_due > 0 ORDER BY CASE WHEN ar.due_date IS NOT NULL AND ar.due_date <> '' AND ar.due_date < CURDATE() AND ar.balance_due > 0 THEN 1 WHEN ar.amount_paid > 0 AND ar.balance_due > 0 THEN 2 ELSE 3 END, ar.due_date ASC, ar.balance_due DESC LIMIT ?");
+        $stmt = $conn->prepare("SELECT c.customer_name, s.sales_no, ar.balance_due, ar.due_date, CASE WHEN ar.balance_due <= 0 THEN 'Paid' WHEN ar.due_date IS NOT NULL AND ar.due_date <> '' AND ar.due_date < CURDATE() AND ar.balance_due > 0 THEN 'Overdue' WHEN ar.amount_paid > 0 AND ar.balance_due > 0 THEN 'Partially Paid' ELSE 'Unpaid' END AS live_status FROM accounts_receivable ar INNER JOIN customers c ON ar.customer_id = c.id INNER JOIN sales s ON ar.sale_id = s.id WHERE ar.business_id = " . cb_business_id() . " AND c.business_id = " . cb_business_id() . " AND s.business_id = " . cb_business_id() . " AND ar.balance_due > 0 ORDER BY CASE WHEN ar.due_date IS NOT NULL AND ar.due_date <> '' AND ar.due_date < CURDATE() AND ar.balance_due > 0 THEN 1 WHEN ar.amount_paid > 0 AND ar.balance_due > 0 THEN 2 ELSE 3 END, ar.due_date ASC, ar.balance_due DESC LIMIT ?");
         $stmt->bind_param("i", $limit);
         $stmt->execute();
         $result = $stmt->get_result();
@@ -1178,7 +1186,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'ask') {
     */
     function cb_get_daily_sales_series($conn, $days = 60) {
         $series = [];
-        $stmt = $conn->prepare("SELECT DATE(sale_date) AS d, COALESCE(SUM(total_amount), 0) AS total FROM sales WHERE sale_date >= (CURDATE() - INTERVAL ? DAY) GROUP BY DATE(sale_date) ORDER BY d ASC");
+        $stmt = $conn->prepare("SELECT DATE(sale_date) AS d, COALESCE(SUM(total_amount), 0) AS total FROM sales WHERE business_id = " . cb_business_id() . " AND sale_date >= (CURDATE() - INTERVAL ? DAY) GROUP BY DATE(sale_date) ORDER BY d ASC");
         $stmt->bind_param("i", $days);
         $stmt->execute();
         $result = $stmt->get_result();
@@ -1189,7 +1197,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'ask') {
 
     function cb_get_product_daily_qty_series($conn, $productId, $days = 60) {
         $series = [];
-        $stmt = $conn->prepare("SELECT DATE(s.sale_date) AS d, COALESCE(SUM(si.quantity), 0) AS qty FROM sale_items si INNER JOIN sales s ON si.sale_id = s.id WHERE si.product_id = ? AND s.sale_date >= (CURDATE() - INTERVAL ? DAY) GROUP BY DATE(s.sale_date) ORDER BY d ASC");
+        $stmt = $conn->prepare("SELECT DATE(s.sale_date) AS d, COALESCE(SUM(si.quantity), 0) AS qty FROM sale_items si INNER JOIN sales s ON si.sale_id = s.id INNER JOIN products p ON si.product_id = p.id WHERE s.business_id = " . cb_business_id() . " AND p.business_id = " . cb_business_id() . " AND si.product_id = ? AND s.sale_date >= (CURDATE() - INTERVAL ? DAY) GROUP BY DATE(s.sale_date) ORDER BY d ASC");
         $stmt->bind_param("ii", $productId, $days);
         $stmt->execute();
         $result = $stmt->get_result();

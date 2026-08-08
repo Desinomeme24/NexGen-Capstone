@@ -1,126 +1,74 @@
-const sidebar = document.getElementById("sidebar");
-const openSidebar = document.getElementById("openSidebar");
-const closeSidebar = document.getElementById("closeSidebar");
-const overlay = document.getElementById("overlay");
+/* ============================================================
+   NexGen Dashboard — dashboard-only interactions
+   IMPORTANT:
+   Shared sidebar, dropdown, profile, popup and theme behavior
+   now belongs ONLY to /NexGen/CODE/JS/header.js.
+   ============================================================ */
 
-const categoryToggle = document.getElementById("categoryToggle");
-const categoryMenu = document.getElementById("categoryMenu");
-const dropdownArrow = document.getElementById("dropdownArrow");
+/* CIRCUIT PULSE BACKGROUND */
+(function () {
+  const container = document.querySelector(".hero-bg-circuit");
+  const layer = document.getElementById("circuitPulses");
+  if (!container || !layer) return;
 
-/* SIDEBAR */
-function openSidebarMenu() {
-  if (sidebar && overlay) {
-    sidebar.classList.add("active");
-    overlay.classList.add("show");
-    document.body.style.overflow = "hidden";
-  }
-}
+  const GRID = 48;
 
-function closeSidebarMenu() {
-  if (sidebar && overlay) {
-    sidebar.classList.remove("active");
-    overlay.classList.remove("show");
-    document.body.style.overflow = "";
-  }
-}
+  function spawnPulse() {
+    const width = container.offsetWidth || window.innerWidth;
+    const height = container.offsetHeight || window.innerHeight;
+    const cols = Math.ceil(width / GRID);
+    const rows = Math.ceil(height / GRID);
 
-if (openSidebar) {
-  openSidebar.addEventListener("click", openSidebarMenu);
+    const dot = document.createElement("div");
+    dot.className = "circuit-pulse";
 
-  openSidebar.addEventListener("keydown", (e) => {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      openSidebarMenu();
+    const horizontal = Math.random() < 0.5;
+    const steps = 3 + Math.floor(Math.random() * 5);
+    let x, y, dx, dy;
+
+    if (horizontal) {
+      y = Math.floor(Math.random() * rows) * GRID;
+      x = Math.floor(Math.random() * Math.max(1, cols - steps)) * GRID;
+      dx = steps * GRID;
+      dy = 0;
+    } else {
+      x = Math.floor(Math.random() * cols) * GRID;
+      y = Math.floor(Math.random() * Math.max(1, rows - steps)) * GRID;
+      dx = 0;
+      dy = steps * GRID;
     }
-  });
-}
 
-if (closeSidebar) {
-  closeSidebar.addEventListener("click", closeSidebarMenu);
-}
+    dot.style.left = `${x}px`;
+    dot.style.top = `${y}px`;
 
-if (overlay) {
-  overlay.addEventListener("click", closeSidebarMenu);
-}
+    const duration = steps * 0.6;
+    dot.style.animationDuration = `${duration}s`;
+    layer.appendChild(dot);
 
-/* DROPDOWN */
-if (categoryToggle && categoryMenu) {
-  categoryToggle.addEventListener("click", () => {
-    categoryMenu.classList.toggle("show");
-
-    if (dropdownArrow) {
-      dropdownArrow.style.transform = categoryMenu.classList.contains("show")
-        ? "rotate(180deg)"
-        : "rotate(0deg)";
+    if (dot.animate) {
+      dot.animate(
+        [
+          { transform: "translate(0,0)" },
+          { transform: `translate(${dx}px,${dy}px)` },
+        ],
+        { duration: duration * 1000, easing: "linear" },
+      );
     }
-  });
-}
 
-/* POPUP */
-const popupOverlay = document.getElementById("popupOverlay");
-const popupBox = document.getElementById("popupBox");
-
-function closePopup() {
-  if (popupOverlay && popupBox) {
-    popupBox.classList.add("popup-hide");
-    popupOverlay.classList.add("popup-overlay-hide");
-
-    setTimeout(() => {
-      popupOverlay.remove();
-    }, 600);
+    setTimeout(() => dot.remove(), duration * 1000);
   }
-}
 
-if (popupOverlay && popupBox) {
-  setTimeout(() => {
-    closePopup();
-  }, 7000);
+  const reduceMotion =
+    window.matchMedia &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  popupOverlay.addEventListener("click", () => {
-    closePopup();
-  });
+  if (reduceMotion) return;
 
-  popupBox.addEventListener("click", (e) => {
-    e.stopPropagation();
-  });
-}
-
-/* PROFILE IMAGE AUTO SUBMIT */
-const profileInput = document.getElementById("new_profile_image");
-const submitProfileBtn = document.getElementById("submitProfileBtn");
-
-if (profileInput && submitProfileBtn) {
-  profileInput.addEventListener("change", function () {
-    if (this.files.length > 0) {
-      submitProfileBtn.click();
-    }
-  });
-}
-
-/* FLOATING PARTICLES */
-(function createFloatingElements() {
-  const container = document.querySelector(".animated-bg");
-  if (!container) return;
-
-  const particleCount = 25;
-  for (let i = 0; i < particleCount; i++) {
-    const particle = document.createElement("div");
-    particle.classList.add("floating-particle");
-    const size = Math.random() * 6 + 2;
-    const left = Math.random() * 100;
-    const delay = Math.random() * 15;
-    const duration = Math.random() * 10 + 15;
-    const opacity = Math.random() * 0.4 + 0.1;
-    particle.style.cssText = `
-      width: ${size}px;
-      height: ${size}px;
-      left: ${left}%;
-      animation-delay: ${delay}s;
-      animation-duration: ${duration}s;
-      opacity: ${opacity};
-    `;
-    container.appendChild(particle);
+  for (let i = 0; i < 14; i++) {
+    setTimeout(spawnPulse, i * 150);
   }
+
+  setInterval(spawnPulse, 350);
 })();
 
 /* HERO BUTTON SCROLL */

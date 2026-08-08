@@ -91,12 +91,14 @@ if (isset($_SESSION['error'])) {
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<?php include __DIR__ . '/theme_init.php'; ?>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NexGen — Where The Expertise Creates Excellence</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-icons/1.11.3/font/bootstrap-icons.min.css">
 <style>
   /* ========== CSS VARIABLES ========== */
   :root {
@@ -301,6 +303,26 @@ if (isset($_SESSION['error'])) {
   .dropdown-menu a::after { display: none !important; }
 
   .nav-cta { display: flex; align-items: center; gap: 18px; }
+
+.landing-theme-toggle {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--line-bright);
+  background: rgba(200, 205, 210, 0.06);
+  color: var(--text-main);
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+.landing-theme-toggle:hover {
+  background: var(--accent);
+  color: #0A1128;
+  border-color: var(--accent);
+}
 
   .nav-toggle {
     display: none;
@@ -1488,7 +1510,6 @@ if (isset($_SESSION['error'])) {
     gap: 48px;
     margin-bottom: 60px;
   }
-  .footer-grid > div { min-width: 0; }
   .footer-brand .logo {
     margin-bottom: 16px;
   }
@@ -1586,17 +1607,49 @@ if (isset($_SESSION['error'])) {
     transform: translateX(4px);
   }
 
-  .footer-bottom {
+  .footer-contact {
+    gap: 16px;
+  }
+  .footer-contact li {
     display: flex;
-    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .footer-contact .contact-icon {
+    width: 34px;
+    height: 34px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: rgba(200, 205, 210, 0.05);
+    border: 1px solid var(--line);
+    display: flex;
     align-items: center;
     justify-content: center;
-    text-align: center;
+    font-size: 13px;
+    color: var(--accent);
+  }
+  .footer-contact li span:last-child {
+    font-size: 14px;
+    color: var(--text-muted);
+    line-height: 1.6;
+    padding-top: 6px;
+  }
+  .footer-contact li a {
+    color: var(--text-muted);
+  }
+  .footer-contact li a:hover {
+    color: var(--accent);
+    transform: none;
+  }
+
+  .footer-bottom {
+    display: flex;
+    align-items: center;
+    justify-content: center;
     padding-top: 30px;
     border-top: 1px solid var(--line);
     font-size: 13px;
     color: var(--text-faint);
-    width: 100%;
   }
 
   /* ========== SCROLL ANIMATIONS ========== */
@@ -2726,8 +2779,59 @@ if (isset($_SESSION['error'])) {
   /* Signup Grid */
   .signup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .signup-grid .full-width { grid-column: span 2; }
-  .signup-form-panel label { font-size: 12px; margin-bottom: 4px; display: block; font-weight: 600; color: #666; }
-  .signup-form-panel input, .signup-form-panel select { background: #f4f7f6; border: 1px solid #eee; border-radius: 8px; padding: 8px 12px; width: 100%; font-size: 13px; margin-bottom: 8px; }
+  .signup-form-panel label { font-size: 12px; margin-bottom: 4px; display: block; font-weight: 600; color: #555; }
+
+  .signup-form-panel input,
+  .signup-form-panel select,
+  .signup-form-panel textarea {
+    background: #f4f7f6;
+    border: 1px solid #d9dee3;
+    border-radius: 8px;
+    padding: 9px 12px;
+    width: 100%;
+    font-size: 13px;
+    margin-bottom: 8px;
+    color: #222 !important;
+    caret-color: #222;
+    font-family: var(--font-body);
+    outline: none;
+  }
+
+  .signup-form-panel input::placeholder,
+  .signup-form-panel textarea::placeholder { color: #777 !important; opacity: 1; }
+  .signup-form-panel select, .signup-form-panel select option { color: #222 !important; background-color: #fff; }
+  .signup-form-panel input:focus,
+  .signup-form-panel select:focus,
+  .signup-form-panel textarea:focus {
+    border-color: #3554b8;
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba(53, 84, 184, 0.12);
+  }
+  .signup-form-panel input:-webkit-autofill,
+  .signup-form-panel input:-webkit-autofill:hover,
+  .signup-form-panel input:-webkit-autofill:focus {
+    -webkit-text-fill-color: #222 !important;
+    caret-color: #222;
+    box-shadow: 0 0 0 1000px #f4f7f6 inset !important;
+  }
+  .role-section-heading {
+    margin: 8px 0 2px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: rgba(36, 56, 189, 0.08);
+    border-left: 4px solid #2438bd;
+    color: #24315f;
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .field-help { display:block; margin-top:-3px; margin-bottom:8px; color:#777; font-size:11px; line-height:1.4; }
+  .signup-form-panel input[type="file"] { color:#333 !important; padding:8px; }
+  .signup-form-panel input[type="file"]::file-selector-button {
+    margin-right:10px; padding:7px 12px; border:0; border-radius:6px;
+    background:#2438bd; color:#fff; font-weight:600; cursor:pointer;
+  }
+  .signup-form-panel input[type="file"]::file-selector-button:hover { background:#1f4068; }
+  .role-fields[hidden] { display:none !important; }
 
   @media (max-width: 768px) {
     .modal-box.login-modern-box, .modal-box.signup-modern-box { flex-direction: column; max-width: 450px; margin: 0 auto; }
@@ -2735,6 +2839,492 @@ if (isset($_SESSION['error'])) {
     .signup-grid { grid-template-columns: 1fr; }
     .signup-grid .full-width { grid-column: span 1; }
   }
+
+/* =========================================================
+   REFERENCE DARK LOGIN / SIGNUP SKIN
+   Visual-only override. Current form markup + logical sequence remain unchanged.
+   ========================================================= */
+/* ========== MODERN SPLIT-PANEL LOGIN & SIGNUP ==========
+     Dark by default now (matches the rest of the site's default theme);
+     a light-mode override further down restores the original white-card
+     look for html[data-theme="light"]. */
+  .modal-box.login-modern-box, .modal-box.signup-modern-box {
+    max-width: 900px;
+    padding: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: row;
+    background: var(--bg-mid);
+    border: 1px solid var(--line-bright);
+    box-shadow: 0 15px 45px rgba(0,0,0,0.45);
+    border-radius: 28px;
+  }
+  .modal-box.login-modern-box { min-height: 500px; }
+  .modal-box.signup-modern-box { max-width: 950px; }
+
+  /* Panel transition for switching between login and signup */
+  .login-info-panel, .signup-info-panel,
+  .login-form-panel, .signup-form-panel {
+    transition: transform 0.45s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.35s ease;
+  }
+
+  .modal-switch-enter-left {
+    transform: translateX(-40px);
+    opacity: 0;
+  }
+  .modal-switch-enter-right {
+    transform: translateX(40px);
+    opacity: 0;
+  }
+  .modal-switch-exit-left {
+    transform: translateX(-40px);
+    opacity: 0;
+    position: absolute;
+    pointer-events: none;
+  }
+  .modal-switch-exit-right {
+    transform: translateX(40px);
+    opacity: 0;
+    position: absolute;
+    pointer-events: none;
+  }
+
+  /* Shared Panel Styles */
+  .login-form-panel, .signup-form-panel {
+    flex: 1.2;
+    padding: 30px 40px;
+    background: var(--bg-mid);
+    color: var(--text-main);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  .signup-form-panel { flex: 1.3; max-height: 85vh; overflow-y: auto; padding: 25px 35px; }
+
+  .login-info-panel, .signup-info-panel {
+    flex: 0.8;
+    background: linear-gradient(150deg, #141c3f 0%, #05060d 100%);
+    color: #fff;
+    padding: 30px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    position: relative;
+  }
+  .signup-info-panel { flex: 0.7; }
+
+  .login-info-panel::before, .signup-info-panel::before {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background:
+      radial-gradient(circle at top right, rgba(247, 202, 132, 0.18), transparent 60%),
+      radial-gradient(circle at bottom left, rgba(36, 56, 189, 0.35), transparent 55%);
+  }
+
+  /* Specific Element Styles */
+  .login-form-panel h2, .signup-form-panel h2 { font-size: 26px; margin-bottom: 15px; font-family: var(--font-display); font-weight: 800; color: var(--text-main); }
+  .login-info-panel h2, .signup-info-panel h2 { font-size: 26px; margin-bottom: 12px; color: #fff; font-family: var(--font-display); }
+  .login-info-panel p, .signup-info-panel p { font-size: 13px; line-height: 20px; margin: 0 0 20px; opacity: 0.9; }
+
+  /* Reuse existing helper classes */
+  .glass-field { background: rgba(255, 255, 255, 0.05); border-radius: 12px; margin-bottom: 12px; display: flex; align-items: center; border: 1px solid var(--line-bright); }
+  .glass-field-icon { padding-left: 15px; color: var(--text-faint); display: flex; align-items: center; }
+  .glass-field-icon svg { width: 18px; height: 18px; fill: var(--text-faint); }
+  .glass-field input { background: transparent !important; margin: 0 !important; color: var(--text-main) !important; padding: 12px 15px !important; border: none !important; width: 100% !important; font-size: 14px !important; box-shadow: none !important; }
+  .glass-field input::placeholder { color: var(--text-faint); opacity: 1; }
+  .glass-login-btn, .silver-btn { background: var(--bg-panel); color: #fff; border-radius: 25px; border: none; padding: 12px 45px; font-size: 13px; font-weight: 700; text-transform: uppercase; cursor: pointer; width: 100%; transition: all 0.3s ease; font-family: var(--font-display); }
+  .glass-login-btn:hover, .silver-btn:hover { background: var(--bg-panel-light); transform: translateY(-2px); box-shadow: 0 5px 15px rgba(36, 56, 189, 0.3); }
+  .btn-outline { position: relative; z-index: 1; background-color: transparent; border: 2px solid var(--accent); color: var(--accent); border-radius: 25px; padding: 12px 40px; font-size: 13px; font-weight: 700; text-transform: uppercase; cursor: pointer; transition: all 0.3s ease; font-family: var(--font-display); }
+  .btn-outline:hover { background-color: var(--accent); color: #141c3f; box-shadow: 0 10px 24px rgba(247, 202, 132, 0.35); }
+
+  /* Signup Grid */
+  .signup-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .signup-grid .full-width { grid-column: span 2; }
+  .signup-form-panel label { font-size: 12px; margin-bottom: 4px; display: block; font-weight: 600; color: var(--text-muted); }
+  .signup-form-panel input, .signup-form-panel select { background: rgba(255, 255, 255, 0.05); border: 1px solid var(--line-bright); border-radius: 8px; padding: 8px 12px; width: 100%; font-size: 13px; margin-bottom: 8px; color: var(--text-main); }
+  .signup-form-panel input::placeholder { color: var(--text-faint); opacity: 1; }
+  .signup-form-panel select option { background: var(--bg-mid); color: var(--text-main); }
+  .signup-form-panel input[type="file"] { color: var(--text-muted); }
+
+  /* Inline-styled bits in the modal markup (close button, dividers, the
+     password eye toggle, the manual-captcha card, the privacy-consent
+     label, "Forgot Your Password?") were all hand-set to light-mode
+     colors in the HTML itself. !important here beats those inline
+     styles so they follow the theme too; the light-mode block further
+     down re-asserts the original values for html[data-theme="light"]. */
+  .login-modern-box .close-modal,
+  .signup-modern-box .close-modal {
+    color: var(--text-main) !important;
+  }
+  .login-modern-box .or-divider {
+    color: var(--text-faint) !important;
+  }
+  .login-modern-box .password-toggle-btn {
+    color: var(--text-faint) !important;
+  }
+  .login-modern-box .password-toggle-btn svg,
+  .signup-modern-box .password-toggle-btn svg {
+    fill: var(--text-faint) !important;
+  }
+  .login-modern-box .captcha-checkbox-card,
+  .signup-modern-box .captcha-checkbox-card {
+    background: rgba(255, 255, 255, 0.05) !important;
+    border: 1px solid var(--line-bright) !important;
+  }
+  .login-modern-box .captcha-checkbox-left label,
+  .signup-modern-box .captcha-checkbox-left label {
+    color: var(--text-muted) !important;
+  }
+  .login-modern-box .captcha-checkbox-right,
+  .signup-modern-box .captcha-checkbox-right {
+    color: var(--text-faint) !important;
+  }
+  .signup-modern-box .privacy-consent-wrap label {
+    color: var(--text-muted) !important;
+  }
+  .login-modern-box [href*="forgot_password"] {
+    color: var(--text-faint) !important;
+  }
+
+  @media (max-width: 768px) {
+    .modal-box.login-modern-box, .modal-box.signup-modern-box { flex-direction: column; max-width: 450px; margin: 0 auto; }
+    .login-info-panel, .signup-info-panel { display: none; }
+    .signup-grid { grid-template-columns: 1fr; }
+    .signup-grid .full-width { grid-column: span 1; }
+  }
+
+  
+
+/* =========================================================
+     LIGHT MODE
+     This landing page was built dark-only. This section makes it
+     react to the same "nexgen-theme" toggle as the rest of the app
+     (set by header.css's topbar toggle / Settings > Personalization,
+     read here via theme_init.php).
+
+     Scope: the scrollable marketing page (nav, hero, marquee, stats,
+     flip cards, features, about, testimonials, CTA, footer) gets the
+     full treatment. The login/signup split-panel modal is dark by
+     default now too (see the "MODERN SPLIT-PANEL LOGIN & SIGNUP"
+     block above) — its light-mode override lives near the bottom of
+     this section, restoring the original white-card look. The captcha/
+     cookie/notice popups stay in their current dark styling on
+     purpose — they're transient overlays, same call as the toast
+     notifications on the other pages.
+  ========================= */
+  html[data-theme="light"] {
+    --bg-deep: #eaf4ff;
+    --bg-mid: #d1e8fc;
+    --text-main: #0b1f73;
+    --text-muted: #2d4570;
+  --text-faint: #425577;
+    --line: rgba(11, 31, 115, 0.12);
+    --line-bright: rgba(11, 31, 115, 0.2);
+  }
+
+  html[data-theme="light"] header.scrolled {
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 4px 30px rgba(10, 20, 64, 0.08);
+  }
+
+  html[data-theme="light"] .hero h1 .highlight,
+  html[data-theme="light"] .gradient-text {
+    background: linear-gradient(135deg, #9a6a12, #0057cc);
+    -webkit-background-clip: text;
+    background-clip: text;
+  }
+
+  /* Cards read as layered "frosted glass on sky" surfaces instead of a
+     flat fill: pale gradient base, soft blue ambient shadow, a thin
+     glass-edge border, and — on the pieces that already had a hover
+     mechanism for it — a gold-to-blue accent bar that sweeps in,
+     echoing the same accent-bar signature the dashboard pages use. */
+  html[data-theme="light"] .analytics-card {
+    background: linear-gradient(160deg, #ffffff 0%, #eaf1fc 100%);
+    border-color: rgba(57, 88, 134, 0.16);
+    box-shadow: 0 20px 44px rgba(57, 88, 134, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  }
+  html[data-theme="light"] .marquee-section {
+    background: linear-gradient(90deg, #d5deef 0%, #b1c9ef 50%, #d5deef 100%);
+  }
+  html[data-theme="light"] .stat-card,
+  html[data-theme="light"] .value-item,
+  html[data-theme="light"] .about-card,
+  html[data-theme="light"] .testimonial-card {
+    background: linear-gradient(160deg, #ffffff 0%, #eaf1fc 100%);
+    border: 1px solid rgba(57, 88, 134, 0.14);
+    box-shadow: 0 14px 30px rgba(57, 88, 134, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  }
+  html[data-theme="light"] .stat-card:hover,
+  html[data-theme="light"] .testimonial-card:hover {
+    border-color: rgba(154, 106, 18, 0.4);
+    box-shadow: 0 22px 44px rgba(57, 88, 134, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  }
+  html[data-theme="light"] .stat-card::before {
+    background: linear-gradient(90deg, #9a6a12, #3b82f6, #9a6a12);
+  }
+  html[data-theme="light"] .stat-card .stat-icon {
+    background: radial-gradient(circle at 30% 30%, rgba(154, 106, 18, 0.2), rgba(59, 130, 246, 0.12));
+    box-shadow: inset 0 0 0 1px rgba(154, 106, 18, 0.2);
+  }
+  html[data-theme="light"] footer {
+    background: linear-gradient(180deg, #f0f3fa 0%, #d5deef 100%);
+  }
+
+  html[data-theme="light"] .flip-front,
+  html[data-theme="light"] .flip-back {
+    border: 1px solid rgba(57, 88, 134, 0.16);
+  }
+  html[data-theme="light"] .flip-front {
+    background: linear-gradient(160deg, #ffffff 0%, #eaf1fc 100%);
+    box-shadow: 0 14px 30px rgba(57, 88, 134, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  }
+  html[data-theme="light"] .flip-front::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 18px;
+    right: 18px;
+    height: 3px;
+    border-radius: 0 0 4px 4px;
+    background: linear-gradient(90deg, #9a6a12, #3b82f6);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.35s ease;
+  }
+  html[data-theme="light"] .flip-card:hover .flip-front::after {
+    transform: scaleX(1);
+  }
+  html[data-theme="light"] .flip-back {
+    background: linear-gradient(160deg, #dce8fb 0%, #b1c9ef 100%);
+    border-color: rgba(57, 88, 134, 0.3);
+    box-shadow: 0 16px 34px rgba(57, 88, 134, 0.16);
+  }
+  html[data-theme="light"] .flip-icon {
+    background: radial-gradient(circle at 30% 30%, rgba(154, 106, 18, 0.22), rgba(59, 130, 246, 0.12));
+    box-shadow: 0 6px 14px rgba(57, 88, 134, 0.18), inset 0 0 0 1px rgba(154, 106, 18, 0.2);
+  }
+  html[data-theme="light"] .flip-card:hover .flip-icon {
+    box-shadow: 0 8px 18px rgba(154, 106, 18, 0.28), inset 0 0 0 1px rgba(154, 106, 18, 0.35);
+  }
+
+  html[data-theme="light"] .testimonials::before {
+    background: linear-gradient(180deg, transparent, rgba(57, 88, 134, 0.08), transparent);
+  }
+
+  /* small "silvery line" accents scattered through hero/footer/buttons */
+  html[data-theme="light"] .play-circle {
+    background: rgba(11, 31, 115, 0.04);
+  }
+  html[data-theme="light"] .about-card-bar {
+    background: rgba(11, 31, 115, 0.08);
+  }
+  html[data-theme="light"] .btn-ghost:hover {
+    background: rgba(11, 31, 115, 0.06);
+    border-color: rgba(11, 31, 115, 0.2);
+  }
+  html[data-theme="light"] .footer-social a {
+    background: rgba(11, 31, 115, 0.05);
+  }
+  html[data-theme="light"] .footer-contact .contact-icon {
+    background: rgba(11, 31, 115, 0.05);
+  }
+
+  html[data-theme="light"] .btn-ghost {
+    color: var(--text-main);
+  }
+  html[data-theme="light"] .play-link {
+    color: var(--text-main);
+  }
+  html[data-theme="light"] .nav-toggle {
+    color: var(--text-main);
+  }
+html[data-theme="light"] .cta-box {
+  background: linear-gradient(135deg, #3b82f6 0%, #0033ff 60%, #0b1f73 100%);
+  border-color: rgba(255, 221, 85, 0.4);
+  box-shadow: 0 24px 50px rgba(10, 20, 64, 0.18);
+}
+html[data-theme="light"] .cta-box h2 {
+  color: #ffffff;
+}
+html[data-theme="light"] .cta-box p {
+  color: rgba(255, 255, 255, 0.85);
+}
+html[data-theme="light"] .cta-box .btn-ghost {
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.4);
+}
+html[data-theme="light"] .cta-box .btn-ghost:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+html[data-theme="light"] .avatar-placeholder {
+  color: rgba(255, 255, 255, 0.7);
+}
+html[data-theme="light"] {
+  --accent-ink: #9a6a12;
+}
+
+/* accent text/icons on light or white backgrounds need the darker ink,
+   not the pastel gold that was tuned for dark backgrounds */
+html[data-theme="light"] .eyebrow,
+html[data-theme="light"] .hero-eyebrow,
+html[data-theme="light"] .stats-header .eyebrow,
+html[data-theme="light"] .how-header-full .eyebrow,
+html[data-theme="light"] .stat-card .stat-icon,
+html[data-theme="light"] .stat-card .stat-number .suffix,
+html[data-theme="light"] .flip-icon,
+html[data-theme="light"] .flip-hint,
+html[data-theme="light"] .flip-hint-back,
+html[data-theme="light"] .phone-screen-tag,
+html[data-theme="light"] .phone-amount,
+html[data-theme="light"] .value-item:nth-child(1) .value-icon,
+html[data-theme="light"] .testimonial-card .stars {
+  color: var(--accent-ink);
+}
+html[data-theme="light"] .eyebrow::before,
+html[data-theme="light"] .hero-eyebrow .line {
+  background: var(--accent-ink);
+}
+
+/* stat-badge keeps its fixed dark-navy panel in both themes —
+   its label text needs to stay light, not follow the page's text color */
+html[data-theme="light"] .stat-badge .label {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+html[data-theme="light"] .wave-back {
+  fill: rgba(11, 31, 115, 0.18);
+}
+html[data-theme="light"] .wave-mid {
+  fill: rgba(11, 31, 115, 0.38);
+}
+html[data-theme="light"] .wave-crest {
+  stroke: rgba(11, 31, 115, 0.7);
+  stroke-width: 3;
+  filter: drop-shadow(0 0 6px rgba(11, 31, 115, 0.35));
+}
+
+/* ---- LOGIN / SIGNUP MODAL — light mode ----
+   Restores the original white-card design pixel-for-pixel, including
+   the inline-styled bits the !important rules above target. */
+html[data-theme="light"] .modal-box.login-modern-box,
+html[data-theme="light"] .modal-box.signup-modern-box {
+  background: #fff;
+  border: none;
+  box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+}
+html[data-theme="light"] .login-form-panel,
+html[data-theme="light"] .signup-form-panel {
+  background: #fff;
+  color: #333;
+}
+html[data-theme="light"] .login-form-panel h2,
+html[data-theme="light"] .signup-form-panel h2 {
+  color: #333;
+}
+html[data-theme="light"] .glass-field {
+  background: #f4f7f6;
+  border-color: #eee;
+}
+html[data-theme="light"] .glass-field-icon {
+  color: #777;
+}
+html[data-theme="light"] .glass-field-icon svg {
+  fill: #777;
+}
+html[data-theme="light"] .glass-field input {
+  color: #333 !important;
+}
+html[data-theme="light"] .glass-field input::placeholder {
+  color: #999;
+}
+html[data-theme="light"] .signup-form-panel label {
+  color: #666;
+}
+html[data-theme="light"] .signup-form-panel input,
+html[data-theme="light"] .signup-form-panel select {
+  background: #f4f7f6;
+  border-color: #eee;
+  color: #333;
+}
+html[data-theme="light"] .signup-form-panel input::placeholder {
+  color: #999;
+}
+html[data-theme="light"] .signup-form-panel select option {
+  background: #fff;
+  color: #333;
+}
+html[data-theme="light"] .signup-form-panel input[type="file"] {
+  color: #666;
+}
+html[data-theme="light"] .login-modern-box .close-modal,
+html[data-theme="light"] .signup-modern-box .close-modal {
+  color: #333 !important;
+}
+html[data-theme="light"] .login-modern-box .or-divider {
+  color: #777 !important;
+}
+html[data-theme="light"] .login-modern-box .password-toggle-btn {
+  color: #777 !important;
+}
+html[data-theme="light"] .login-modern-box .password-toggle-btn svg,
+html[data-theme="light"] .signup-modern-box .password-toggle-btn svg {
+  fill: #777 !important;
+}
+html[data-theme="light"] .login-modern-box .captcha-checkbox-card,
+html[data-theme="light"] .signup-modern-box .captcha-checkbox-card {
+  background: #f9f9f9 !important;
+  border: 1px solid #eee !important;
+}
+html[data-theme="light"] .login-modern-box .captcha-checkbox-left label,
+html[data-theme="light"] .signup-modern-box .captcha-checkbox-left label {
+  color: #555 !important;
+}
+html[data-theme="light"] .login-modern-box .captcha-checkbox-right,
+html[data-theme="light"] .signup-modern-box .captcha-checkbox-right {
+  color: #999 !important;
+}
+html[data-theme="light"] .signup-modern-box .privacy-consent-wrap label {
+  color: #666 !important;
+}
+html[data-theme="light"] .login-modern-box [href*="forgot_password"] {
+  color: #777 !important;
+}
+html[data-theme="light"] .login-info-panel,
+html[data-theme="light"] .signup-info-panel {
+  background: linear-gradient(135deg, var(--bg-panel), var(--bg-panel-light));
+}
+html[data-theme="light"] .login-info-panel::before,
+html[data-theme="light"] .signup-info-panel::before {
+  background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.1), transparent);
+}
+html[data-theme="light"] .btn-outline {
+  border-color: #fff;
+  color: #fff;
+}
+html[data-theme="light"] .btn-outline:hover {
+  background-color: #fff;
+  color: var(--bg-panel);
+  box-shadow: none;
+}
+
+
+/* Current index(3) keeps Trust & Security; make it follow the reference light theme too. */
+html[data-theme="light"] .trust-security::before {
+  background: linear-gradient(180deg, transparent, rgba(255,255,255,.58), transparent);
+}
+html[data-theme="light"] .trust-card {
+  background: rgba(255,255,255,.72);
+  border-color: rgba(11,31,115,.12);
+  box-shadow: 0 16px 34px rgba(49,93,154,.08);
+}
+html[data-theme="light"] .trust-card .trust-title { color: #0b1f73; }
+html[data-theme="light"] .trust-card .trust-desc { color: #2d4570; }
+
 </style>
 </head>
 <body>
@@ -2805,16 +3395,107 @@ if (isset($_SESSION['error'])) {
                 <form action="/NexGen/CODE/PHP/signup_process.php" method="POST" enctype="multipart/form-data" id="signupForm">
                     <input type="hidden" name="csrf_token" value="<?php echo e($signupCsrfToken); ?>">
                     <div class="signup-grid">
-                        <div><label>Employee Number</label><input type="text" name="employee_no" required placeholder="EMP-0000"></div>
-                        <div><label>User Name</label><input type="text" name="signup_username" required placeholder="username"></div>
-                        <div class="full-width"><label>Full Name</label><input type="text" name="fullname" required placeholder="John Doe"></div>
-                        <div class="full-width"><label>Email Account</label><input type="email" name="email" required placeholder="john@example.com"></div>
-                        <div><label>Phone Number</label><input type="text" name="phone" required placeholder="09123456789"></div>
-                        <div><label>Requested Role</label><select name="requested_role" required><option value="">Select Role</option><option value="employee">Employee</option><option value="owner">Owner</option></select></div>
-                        <div class="full-width"><label>Address</label><input type="text" name="address" required placeholder="City, Country"></div>
-                        <div><label>Password</label><div class="password-field-wrap"><input type="password" name="signup_password" id="signupPassword" required placeholder="********"><button type="button" class="password-toggle-btn" data-target="signupPassword"><span class="eye-icon eye-open"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6Z"></path><circle cx="12" cy="12" r="3.2"></circle></svg></span><span class="eye-icon eye-closed" style="display:none;"><svg viewBox="0 0 24 24"><path d="M3 3l18 18"></path><path d="M10.6 6.3A11.2 11.2 0 0 1 12 6c6.4 0 10 6 10 6a17.6 17.6 0 0 1-3.1 3.8"></path><path d="M6.7 6.8C4.1 8.5 2 12 2 12a17.3 17.3 0 0 0 10 6c1.4 0 2.7-.2 3.8-.7"></path><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"></path></svg></span></button></div></div>
-                        <div><label>Confirm Password</label><div class="password-field-wrap"><input type="password" name="confirm_password" id="signupConfirmPassword" required placeholder="********"><button type="button" class="password-toggle-btn" data-target="signupConfirmPassword"><span class="eye-icon eye-open"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6Z"></path><circle cx="12" cy="12" r="3.2"></circle></svg></span><span class="eye-icon eye-closed" style="display:none;"><svg viewBox="0 0 24 24"><path d="M3 3l18 18"></path><path d="M10.6 6.3A11.2 11.2 0 0 1 12 6c6.4 0 10 6 10 6a17.6 17.6 0 0 1-3.1 3.8"></path><path d="M6.7 6.8C4.1 8.5 2 12 2 12a17.3 17.3 0 0 0 10 6c1.4 0 2.7-.2 3.8-.7"></path><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"></path></svg></span></button></div></div>
-                        <div class="full-width"><label>Valid ID</label><input type="file" name="valid_id" accept="image/*,.pdf" required></div>
+                        <div>
+                            <label for="signupUsername">Username</label>
+                            <input type="text" name="signup_username" id="signupUsername" required placeholder="Choose a username" autocomplete="username">
+                        </div>
+
+                        <div>
+                            <label for="requestedRole">Requested Role</label>
+                            <select name="requested_role" id="requestedRole" required>
+                                <option value="">Select role</option>
+                                <option value="owner">SME Owner</option>
+                                <option value="employee">Employee / Staff</option>
+                            </select>
+                        </div>
+
+                        <div class="full-width">
+                            <label for="fullName">Full Name</label>
+                            <input type="text" name="fullname" id="fullName" required placeholder="Enter your complete name" autocomplete="name">
+                        </div>
+
+                        <div>
+                            <label for="signupEmail">Email Address</label>
+                            <input type="email" name="email" id="signupEmail" required placeholder="example@email.com" autocomplete="email">
+                        </div>
+
+                        <div>
+                            <label for="signupPhone">Phone Number</label>
+                            <input type="tel" name="phone" id="signupPhone" required placeholder="09XXXXXXXXX" autocomplete="tel" maxlength="20">
+                        </div>
+
+                        <div class="full-width">
+                            <label for="homeAddress">Personal Address</label>
+                            <input type="text" name="address" id="homeAddress" required placeholder="Enter your residential address" autocomplete="street-address">
+                        </div>
+
+                        <div class="full-width role-fields owner-fields" hidden>
+                            <div class="role-section-heading">SME Business Information</div>
+                        </div>
+
+                        <div class="full-width role-fields owner-fields" hidden>
+                            <label for="businessName">Business Name</label>
+                            <input type="text" name="business_name" id="businessName" placeholder="Enter the business name">
+                        </div>
+
+                        <div class="role-fields owner-fields" hidden>
+                            <label for="businessType">Business Type</label>
+                            <select name="business_type" id="businessType">
+                                <option value="">Select business type</option>
+                                <option value="Sari-Sari Store">Sari-Sari Store</option>
+                                <option value="Mini Grocery">Mini Grocery</option>
+                                <option value="Mini Market">Mini Market</option>
+                                <option value="Retail Store">Retail Store</option>
+                                <option value="Other SME">Other SME</option>
+                            </select>
+                        </div>
+
+                        <div class="role-fields owner-fields" hidden>
+                            <label for="businessAddress">Business Address</label>
+                            <input type="text" name="business_address" id="businessAddress" placeholder="Enter the complete business address">
+                        </div>
+
+                        <div class="full-width role-fields employee-fields" hidden>
+                            <div class="role-section-heading">SME Employment Information</div>
+                        </div>
+
+                        <div class="role-fields employee-fields" hidden>
+                            <label for="businessCode">SME Business Code</label>
+                            <input type="text" name="business_code" id="businessCode" placeholder="Code provided by the SME owner" maxlength="20">
+                        </div>
+
+                        <div class="role-fields employee-fields" hidden>
+                            <label for="employeeNumber">Employee Number</label>
+                            <input type="text" name="employee_no" id="employeeNumber" placeholder="Enter your employee number" maxlength="50">
+                        </div>
+
+                        <div>
+                            <label for="signupPassword">Password</label>
+                            <div class="password-field-wrap">
+                                <input type="password" name="signup_password" id="signupPassword" required placeholder="Enter password" autocomplete="new-password">
+                                <button type="button" class="password-toggle-btn" data-target="signupPassword" aria-label="Show or hide password">
+                                    <span class="eye-icon eye-open"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6Z"></path><circle cx="12" cy="12" r="3.2"></circle></svg></span>
+                                    <span class="eye-icon eye-closed" style="display:none;"><svg viewBox="0 0 24 24"><path d="M3 3l18 18"></path><path d="M10.6 6.3A11.2 11.2 0 0 1 12 6c6.4 0 10 6 10 6a17.6 17.6 0 0 1-3.1 3.8"></path><path d="M6.7 6.8C4.1 8.5 2 12 2 12a17.3 17.3 0 0 0 10 6c1.4 0 2.7-.2 3.8-.7"></path><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"></path></svg></span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label for="signupConfirmPassword">Confirm Password</label>
+                            <div class="password-field-wrap">
+                                <input type="password" name="confirm_password" id="signupConfirmPassword" required placeholder="Repeat password" autocomplete="new-password">
+                                <button type="button" class="password-toggle-btn" data-target="signupConfirmPassword" aria-label="Show or hide password">
+                                    <span class="eye-icon eye-open"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6Z"></path><circle cx="12" cy="12" r="3.2"></circle></svg></span>
+                                    <span class="eye-icon eye-closed" style="display:none;"><svg viewBox="0 0 24 24"><path d="M3 3l18 18"></path><path d="M10.6 6.3A11.2 11.2 0 0 1 12 6c6.4 0 10 6 10 6a17.6 17.6 0 0 1-3.1 3.8"></path><path d="M6.7 6.8C4.1 8.5 2 12 2 12a17.3 17.3 0 0 0 10 6c1.4 0 2.7-.2 3.8-.7"></path><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"></path></svg></span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="full-width">
+                            <label for="validId">Valid ID or Proof of Employment</label>
+                            <input type="file" name="valid_id" id="validId" accept=".jpg,.jpeg,.png,.gif,.webp,.pdf" required>
+                            <small class="field-help">Accepted: JPG, PNG, GIF, WEBP, or PDF. Maximum size: 5 MB.</small>
+                        </div>
                     </div>
                     <div class="privacy-consent-wrap" style="display:flex; align-items:flex-start; gap:10px; margin:10px 0;"><input type="checkbox" name="privacy_consent" id="privacy_consent" required style="width:auto; margin-top:4px;"><label for="privacy_consent" style="font-size:12px; line-height:1.4; color:#666;">I agree to the <a href="/NexGen/CODE/PHP/privacy_policy.php?return_to=signup">Privacy Policy</a></label></div>
                     <div class="captcha-checkbox-wrap" style="margin:10px 0;"><div class="captcha-checkbox-card" style="background:#f9f9f9; border:1px solid #eee; padding:8px 12px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;"><div class="captcha-checkbox-left" style="display:flex; align-items:center; gap:8px;"><input type="checkbox" id="signupRobotCheck"><label for="signupRobotCheck" style="color:#555; font-size:13px; margin:0;">I'm not a robot</label></div><div class="captcha-checkbox-right" style="font-size:10px; color:#999; text-align:right;"><img src="/NexGen/IMAGES/NGlogo.png" style="width:25px; margin:0 auto 2px;">Manual<br>Captcha</div></div><div class="captcha-verified-text" id="signupVerifiedText" style="color:#28a745; font-size:12px; margin-top:5px; display:none;">Captcha verified.</div></div>
@@ -2992,6 +3673,9 @@ if (isset($_SESSION['error'])) {
       <li><a href="#footer">Contact Us</a></li>
     </ul>
     <div class="nav-cta">
+      <button type="button" id="landingThemeToggle" class="landing-theme-toggle" aria-label="Switch to light mode" aria-pressed="false">
+        <i class="bi bi-moon-stars-fill" id="landingThemeIcon"></i>
+      </button>
       <button type="button" id="openLoginBtn" class="btn btn-primary magnetic-btn">Log In</button>
       <button class="nav-toggle" id="navToggle" aria-label="Open menu" aria-controls="navLinks" aria-expanded="false">☰</button>
     </div>
@@ -3520,40 +4204,46 @@ if (isset($_SESSION['error'])) {
         </div>
         <p>Bringing inventory, sales, analytics, and receivables together in one connected system for smarter business operations.</p>
         <div class="footer-social">
-          <a href="https://www.facebook.com/profile.php?id=61587577520854"><i class="fab fa-facebook-f"></i></a>
-          <a href="#"><i class="fab fa-instagram"></i></a>
-          <a href="#"><i class="fab fa-x-twitter"></i></a>
-          <a href="#"><i class="fab fa-tiktok"></i></a>
+          <a href="https://www.facebook.com/share/1CuKN9qY3g/" target="_blank" rel="noopener"><i class="fab fa-facebook-f"></i></a>
+          <a href="https://www.instagram.com/nexgen.enterprises26?igsh=MTB5bDNod3lubjhjdw==" target="_blank" rel="noopener"><i class="fab fa-instagram"></i></a>
+          <a href="https://x.com/NexGenX2026" target="_blank" rel="noopener"><i class="fab fa-x-twitter"></i></a>
+          <a href="https://www.tiktok.com/@nexgen.enterprise4?_r=1&_t=ZS-98Vx2jSAL3q" target="_blank" rel="noopener"><i class="fab fa-tiktok"></i></a>
         </div>
       </div>
       <div class="footer-col">
-        <h4>Product</h4>
+        <h4>Menu</h4>
+        <ul>
+          <li><a href="#home">Home</a></li>
+          <li><a href="#about">About Us</a></li>
+          <li><a href="#">Services</a></li>
+          <li><a href="#">Pages</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h4>Modules</h4>
         <ul>
           <li><a href="#">Inventory</a></li>
           <li><a href="#">Sales</a></li>
           <li><a href="#">Analytics</a></li>
           <li><a href="#">Receivables</a></li>
-          <li><a href="#">Integrations</a></li>
+
         </ul>
       </div>
       <div class="footer-col">
-        <h4>Company</h4>
-        <ul>
-          <li><a href="#">About Us</a></li>
-          <li><a href="#">Careers</a></li>
-          <li><a href="#">Blog</a></li>
-          <li><a href="#">Press</a></li>
-          <li><a href="#">Partners</a></li>
-        </ul>
-      </div>
-      <div class="footer-col">
-        <h4>Support</h4>
-        <ul>
-          <li><a href="#">Help Center</a></li>
-          <li><a href="#">Documentation</a></li>
-          <li><a href="#">Status</a></li>
-          <li><a href="#">Contact</a></li>
-          <li><a href="#">Privacy Policy</a></li>
+        <h4>Contact Us</h4>
+        <ul class="footer-contact">
+          <li>
+            <span class="contact-icon"><i class="fas fa-envelope"></i></span>
+            <span><a href="mailto:nexgeneration2026@gmail.com">nexgeneration2026@gmail.com</a></span>
+          </li>
+          <li>
+            <span class="contact-icon"><i class="fas fa-phone"></i></span>
+            <span><a href="tel:09094399525">0909 439 9525</a></span>
+          </li>
+          <li>
+            <span class="contact-icon"><i class="fas fa-location-dot"></i></span>
+            <span>Cainta, Rizal</span>
+          </li>
         </ul>
       </div>
     </div>
@@ -4976,5 +5666,157 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 });
 </script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const roleSelect = document.getElementById('requestedRole');
+    const ownerFields = document.querySelectorAll('.owner-fields');
+    const employeeFields = document.querySelectorAll('.employee-fields');
+    const businessName = document.getElementById('businessName');
+    const businessType = document.getElementById('businessType');
+    const businessAddress = document.getElementById('businessAddress');
+    const businessCode = document.getElementById('businessCode');
+    const employeeNumber = document.getElementById('employeeNumber');
+
+    function toggleGroup(fields, show) {
+        fields.forEach(function (field) { field.hidden = !show; });
+    }
+
+    function setRequired(input, required) {
+        if (!input) return;
+        input.required = required;
+        if (!required) input.value = '';
+    }
+
+    function updateSignupRoleFields() {
+        const role = roleSelect ? roleSelect.value : '';
+        const isOwner = role === 'owner';
+        const isEmployee = role === 'employee';
+
+        toggleGroup(ownerFields, isOwner);
+        toggleGroup(employeeFields, isEmployee);
+        setRequired(businessName, isOwner);
+        setRequired(businessType, isOwner);
+        setRequired(businessAddress, isOwner);
+        setRequired(businessCode, isEmployee);
+        setRequired(employeeNumber, isEmployee);
+    }
+
+    if (roleSelect) {
+        roleSelect.addEventListener('change', updateSignupRoleFields);
+        updateSignupRoleFields();
+    }
+});
+</script>
+
+
+
+<script>
+/* ============================================================
+   NEXGEN LANDING PAGE THEME
+   Works for guests — no login/session required.
+   Shares "nexgen-theme" with Settings and authenticated pages.
+   ============================================================ */
+(function () {
+    "use strict";
+
+    const THEME_KEY = "nexgen-theme";
+
+    function normalizeTheme(theme) {
+        return theme === "light" ? "light" : "dark";
+    }
+
+    function getCurrentTheme() {
+        return normalizeTheme(
+            document.documentElement.getAttribute("data-theme")
+        );
+    }
+
+    function updateLandingThemeControl(theme) {
+        const button = document.getElementById("landingThemeToggle");
+        const icon = document.getElementById("landingThemeIcon");
+        const isLight = normalizeTheme(theme) === "light";
+
+        if (icon) {
+            icon.className = isLight
+                ? "bi bi-sun-fill"
+                : "bi bi-moon-stars-fill";
+        }
+
+        if (button) {
+            button.setAttribute(
+                "aria-label",
+                isLight ? "Switch to dark mode" : "Switch to light mode"
+            );
+            button.setAttribute(
+                "aria-pressed",
+                isLight ? "true" : "false"
+            );
+        }
+    }
+
+    function setLandingTheme(theme, savePreference = true) {
+        const nextTheme = normalizeTheme(theme);
+
+        document.documentElement.setAttribute(
+            "data-theme",
+            nextTheme
+        );
+
+        if (savePreference) {
+            try {
+                localStorage.setItem(THEME_KEY, nextTheme);
+            } catch (error) {
+                /* Theme still changes for this page even if storage is unavailable. */
+            }
+        }
+
+        updateLandingThemeControl(nextTheme);
+    }
+
+    function initializeLandingThemeToggle() {
+        const button = document.getElementById("landingThemeToggle");
+
+        updateLandingThemeControl(getCurrentTheme());
+
+        if (!button || button.dataset.themeBound === "true") {
+            return;
+        }
+
+        button.dataset.themeBound = "true";
+
+        button.addEventListener("click", function (event) {
+            event.preventDefault();
+            event.stopPropagation();
+
+            const nextTheme =
+                getCurrentTheme() === "light" ? "dark" : "light";
+
+            setLandingTheme(nextTheme, true);
+        });
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener(
+            "DOMContentLoaded",
+            initializeLandingThemeToggle,
+            { once: true }
+        );
+    } else {
+        initializeLandingThemeToggle();
+    }
+
+    /* Keep another open tab synchronized too. */
+    window.addEventListener("storage", function (event) {
+        if (
+            event.key === THEME_KEY &&
+            (event.newValue === "light" || event.newValue === "dark")
+        ) {
+            setLandingTheme(event.newValue, false);
+        }
+    });
+})();
+</script>
+
 </body>
 </html>

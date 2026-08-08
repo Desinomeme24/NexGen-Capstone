@@ -14,6 +14,7 @@ $profileImage = !empty($_SESSION['profile_image']) ? $_SESSION['profile_image'] 
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <?php include __DIR__ . '/theme_init.php'; ?>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>About Us - NexGen</title>
     <link rel="stylesheet" href="/NexGen/CODE/STYLE/about_us.css">
@@ -23,6 +24,10 @@ $profileImage = !empty($_SESSION['profile_image']) ? $_SESSION['profile_image'] 
 <body>
 
 <div class="about-page">
+
+    <div class="about-particles" aria-hidden="true">
+        <span></span><span></span><span></span><span></span><span></span><span></span>
+    </div>
 
     <?php include 'header.php'; ?>
 
@@ -37,18 +42,14 @@ $profileImage = !empty($_SESSION['profile_image']) ? $_SESSION['profile_image'] 
                 <span class="section-label">WHO WE ARE</span>
                 <h2>About NexGen</h2>
                 <p>
-                    NexGen is a web-based management system designed to help micro-enterprises manage
-                    inventory, sales transactions, and analytic reporting in a more efficient and intelligent way.
+                    NexGen is a web-based management system developed to help Small and Medium Enterprises (SMEs) efficiently 
+                    manage inventory, sales transactions, accounts receivable, and sales analytic reporting through one centralized platform.
                 </p>
                 <p>
-                    Our platform centralizes business data into one secure system, reducing manual work
-                    and improving data accuracy. It simplifies daily operations by integrating inventory monitoring,
-                    sales analytics, and a chatbot assistant that allows users to access information quickly
-                    through conversational commands.
+                    The system integrates inventory monitoring, sales analytics, accounts receivable management, and an AI-powered chatbot assistant that enables users to retrieve business information quickly using conversational commands.
                 </p>
                 <p>
-                    NexGen supports small businesses in transitioning from traditional methods to a smarter,
-                    faster, and more reliable digital management system.
+                    Designed to support the digital transformation of SMEs, NexGen simplifies business operations, improves data accuracy, strengthens inventory control, and assists business owners in making informed decisions through modern web technologies.
                 </p>
             </div>
         </div>
@@ -62,8 +63,7 @@ $profileImage = !empty($_SESSION['profile_image']) ? $_SESSION['profile_image'] 
                 <span class="section-label">OUR FUTURE</span>
                 <h2>Vision</h2>
                 <p>
-                    Our vision is to empower small businesses to grow and succeed by transforming traditional
-                    management methods into smart, reliable, and technology-driven solutions.
+                   Our vision is to empower Small and Medium Enterprises (SMEs) by transforming traditional business operations into intelligent, reliable, and technology-driven management solutions that promote operational efficiency, data accuracy, and sustainable business growth.
                 </p>
             </div>
         </div>
@@ -77,12 +77,10 @@ $profileImage = !empty($_SESSION['profile_image']) ? $_SESSION['profile_image'] 
                 <span class="section-label">OUR GOAL</span>
                 <h2>Mission</h2>
                 <p>
-                    NexGen aims to provide micro-enterprise owners with an efficient web-based management
-                    system that simplifies inventory tracking, sales monitoring, and business analytics.
+                   NexGen aims to provide Small and Medium Enterprises (SMEs) with a secure, efficient, and user-friendly web-based management system that streamlines inventory management, sales transactions, accounts receivable monitoring, sales analytic reporting, and business information retrieval.
                 </p>
                 <p>
-                    Through intelligent tools and a chatbot assistant, the system helps businesses make faster
-                    decisions, improve operational efficiency, and enhance overall productivity.
+                   Through integrated management tools and an AI-powered chatbot assistant, the system enables businesses to improve operational efficiency, support data-driven decision-making, enhance productivity, and embrace digital transformation.
                 </p>
             </div>
         </div>
@@ -92,7 +90,7 @@ $profileImage = !empty($_SESSION['profile_image']) ? $_SESSION['profile_image'] 
     <footer class="footer-section" id="footer-section">
         <div class="footer-top-line"></div>
         <p>
-            Copyright © 2026 NexGen Micro-Enterprise |
+            &copy; 2026 NexGen. All rights reserved. |
             <a href="/NexGen/CODE/PHP/privacy_policy.php" style="color:#f7d98b; text-decoration:none; font-weight:700;">
                 Privacy Policy
             </a>
@@ -105,6 +103,7 @@ $profileImage = !empty($_SESSION['profile_image']) ? $_SESSION['profile_image'] 
 
     <?php include 'chatbot.php'; ?>
 
+<script src="/NexGen/CODE/JS/header.js"></script>
 <script src="/NexGen/CODE/JS/about_us.js"></script>
 </body>
 </html>

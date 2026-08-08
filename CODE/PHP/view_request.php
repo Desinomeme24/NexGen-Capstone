@@ -35,19 +35,6 @@ if (!$request) {
     exit();
 }
 
-$employeeMatched = false;
-$employeeData = null;
-
-$stmt = $conn->prepare("SELECT * FROM accounts_masterlist WHERE employee_no = ? LIMIT 1");
-$stmt->bind_param("s", $request['employee_no']);
-$stmt->execute();
-$res = $stmt->get_result();
-if ($res && $res->num_rows > 0) {
-    $employeeMatched = true;
-    $employeeData = $res->fetch_assoc();
-}
-$stmt->close();
-
 $flash = $_SESSION['flash'] ?? null;
 unset($_SESSION['flash']);
 
@@ -63,7 +50,20 @@ $isPdf = ($ext === 'pdf');
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>View Request - NextGen</title>
+    <script>
+        /* THEME: apply saved preference before first paint to avoid a flash */
+        (function () {
+            try {
+                var saved = localStorage.getItem('nexgen-theme');
+                if (saved === 'light' || saved === 'dark') {
+                    document.documentElement.setAttribute('data-theme', saved);
+                }
+            } catch (e) {}
+        })();
+    </script>
     <link rel="stylesheet" href="/NexGen/CODE/STYLE/admin_module.css">
+        
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <style>
         .custom-confirm-overlay {
             position: fixed;
@@ -91,15 +91,20 @@ $isPdf = ($ext === 'pdf');
         .custom-confirm-box {
             width: 100%;
             max-width: 380px;
-            background: linear-gradient(180deg, #1f3c88 0%, #1a3578 100%);
+            background: linear-gradient(180deg, rgba(59, 130, 246, 0.16) 0%, rgba(5, 11, 36, 0.96) 100%);
             border-radius: 20px;
             padding: 26px 22px;
             box-shadow: 0 20px 45px rgba(0, 0, 0, 0.30);
             text-align: center;
-            color: #fff;
-            border: 1px solid rgba(255, 255, 255, 0.10);
+            color: var(--text);
+            border: 1px solid rgba(125, 211, 252, 0.28);
             transform: translateY(15px) scale(0.96);
             transition: 0.25s ease;
+        }
+
+        html[data-theme="light"] .custom-confirm-box {
+            background: linear-gradient(180deg, #ffffff 0%, #eaf4ff 100%);
+            border-color: rgba(59, 130, 246, 0.25);
         }
 
         .custom-confirm-overlay.show .custom-confirm-box {
@@ -111,25 +116,25 @@ $isPdf = ($ext === 'pdf');
             height: 62px;
             margin: 0 auto 14px;
             border-radius: 50%;
-            background: rgba(255, 255, 255, 0.12);
+            background: var(--gold-soft);
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 26px;
-            color: #f7d98b;
+            color: var(--gold);
         }
 
         .custom-confirm-box h3 {
             margin: 0 0 8px;
             font-size: 25px;
             font-weight: 800;
-            color: #fff;
+            color: var(--text);
         }
 
         .custom-confirm-box p {
             margin: 0 0 22px;
             font-size: 15px;
-            color: rgba(255, 255, 255, 0.88);
+            color: var(--muted);
             line-height: 1.5;
         }
 
@@ -153,12 +158,12 @@ $isPdf = ($ext === 'pdf');
         }
 
         .custom-btn-cancel {
-            background: rgba(255, 255, 255, 0.14);
-            color: #fff;
+            background: var(--card);
+            color: var(--text);
         }
 
         .custom-btn-cancel:hover {
-            background: rgba(255, 255, 255, 0.22);
+            background: var(--card-hover);
         }
 
         .custom-btn-confirm {
@@ -197,7 +202,7 @@ $isPdf = ($ext === 'pdf');
             gap: 10px;
             margin: 18px 0 12px;
             padding-top: 14px;
-            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            border-top: 1px solid var(--line);
         }
 
         .section-divider span {
@@ -205,7 +210,7 @@ $isPdf = ($ext === 'pdf');
             font-weight: 800;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            color: rgba(255, 255, 255, 0.55);
+            color: var(--muted);
             white-space: nowrap;
         }
 
@@ -221,14 +226,14 @@ $isPdf = ($ext === 'pdf');
             border: none;
             border-radius: 0;
             padding: 9px 0;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            border-bottom: 1px solid var(--line);
         }
 
         .kv-item label {
             font-size: 10.5px;
             text-transform: uppercase;
             letter-spacing: 0.4px;
-            color: rgba(255, 255, 255, 0.5);
+            color: var(--muted);
             margin-bottom: 3px;
             font-weight: 700;
         }
@@ -265,8 +270,8 @@ $isPdf = ($ext === 'pdf');
             display: inline-flex;
             align-items: center;
             gap: 10px;
-            background: rgba(255, 255, 255, 0.06);
-            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: var(--card);
+            border: 1px solid var(--line);
             border-radius: 12px;
             padding: 9px 14px;
             text-decoration: none;
@@ -275,7 +280,7 @@ $isPdf = ($ext === 'pdf');
         }
 
         .attachment-chip:hover {
-            background: rgba(255, 255, 255, 0.12);
+            background: var(--card-hover);
             transform: translateY(-1px);
         }
 
@@ -284,7 +289,7 @@ $isPdf = ($ext === 'pdf');
             height: 34px;
             flex: 0 0 34px;
             border-radius: 9px;
-            background: rgba(247, 217, 139, 0.18);
+            background: var(--gold-soft);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -300,7 +305,7 @@ $isPdf = ($ext === 'pdf');
         .attachment-name {
             font-size: 13px;
             font-weight: 700;
-            color: #fff;
+            color: var(--text);
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -309,7 +314,7 @@ $isPdf = ($ext === 'pdf');
 
         .attachment-sub {
             font-size: 11px;
-            color: rgba(255, 255, 255, 0.55);
+            color: var(--muted);
         }
 
         .attachment-action {
@@ -318,7 +323,7 @@ $isPdf = ($ext === 'pdf');
             font-weight: 800;
             text-transform: uppercase;
             letter-spacing: 0.4px;
-            color: #f7d98b;
+            color: var(--gold-dim);
             white-space: nowrap;
         }
 
@@ -349,7 +354,7 @@ $isPdf = ($ext === 'pdf');
             font-size: 10px;
             text-transform: uppercase;
             letter-spacing: 0.4px;
-            color: rgba(255, 255, 255, 0.5);
+            color: var(--muted);
             font-weight: 700;
             margin-bottom: 5px;
         }
@@ -365,8 +370,8 @@ $isPdf = ($ext === 'pdf');
             top: 50%;
             width: 7px;
             height: 7px;
-            border-right: 2px solid rgba(255, 255, 255, 0.55);
-            border-bottom: 2px solid rgba(255, 255, 255, 0.55);
+            border-right: 2px solid var(--muted);
+            border-bottom: 2px solid var(--muted);
             transform: translateY(-65%) rotate(45deg);
             pointer-events: none;
         }
@@ -375,10 +380,10 @@ $isPdf = ($ext === 'pdf');
             appearance: none;
             -webkit-appearance: none;
             width: 100%;
-            background: rgba(255, 255, 255, 0.06);
-            border: 1px solid rgba(255, 255, 255, 0.14);
+            background: var(--card);
+            border: 1px solid var(--line);
             border-radius: 10px;
-            color: #fff;
+            color: var(--text);
             font-size: 12.5px;
             font-weight: 600;
             padding: 8px 30px 8px 11px;
@@ -387,18 +392,18 @@ $isPdf = ($ext === 'pdf');
         }
 
         .modern-select-shell select:hover {
-            background: rgba(255, 255, 255, 0.1);
+            background: var(--card-hover);
         }
 
         .modern-select-shell select:focus {
             outline: none;
-            border-color: #f7d98b;
-            box-shadow: 0 0 0 3px rgba(247, 217, 139, 0.18);
+            border-color: var(--gold);
+            box-shadow: 0 0 0 3px var(--gold-soft);
         }
 
         .modern-select-shell select option {
-            background: #16255c;
-            color: #fff;
+            background: var(--panel-2);
+            color: var(--text);
         }
 
         #remarksWrapper {
@@ -416,10 +421,10 @@ $isPdf = ($ext === 'pdf');
 
         .modern-textarea {
             width: 100%;
-            background: rgba(255, 255, 255, 0.06);
-            border: 1px solid rgba(255, 255, 255, 0.14);
+            background: var(--card);
+            border: 1px solid var(--line);
             border-radius: 10px;
-            color: #fff;
+            color: var(--text);
             font-size: 12.5px;
             font-family: inherit;
             padding: 9px 11px;
@@ -429,13 +434,13 @@ $isPdf = ($ext === 'pdf');
         }
 
         .modern-textarea::placeholder {
-            color: rgba(255, 255, 255, 0.4);
+            color: var(--faint);
         }
 
         .modern-textarea:focus {
             outline: none;
-            border-color: #f7d98b;
-            box-shadow: 0 0 0 3px rgba(247, 217, 139, 0.18);
+            border-color: var(--gold);
+            box-shadow: 0 0 0 3px var(--gold-soft);
         }
 
         .modern-submit-btn {
@@ -446,7 +451,7 @@ $isPdf = ($ext === 'pdf');
             font-size: 12.5px;
             font-weight: 700;
             color: #17306b;
-            background: #f7d98b;
+            background: var(--gold);
             cursor: pointer;
             transition: 0.18s ease;
         }
@@ -457,8 +462,8 @@ $isPdf = ($ext === 'pdf');
         }
 
         .modern-submit-btn:disabled {
-            background: rgba(255, 255, 255, 0.1);
-            color: rgba(255, 255, 255, 0.35);
+            background: var(--card);
+            color: var(--faint);
             cursor: not-allowed;
         }
 
@@ -503,7 +508,6 @@ $isPdf = ($ext === 'pdf');
             </div>
             <div class="panel-body">
                 <div class="kv-grid">
-                    <div class="kv-item"><label>Employee Number</label><div class="value"><?php echo e($request['employee_no']); ?></div></div>
                     <div class="kv-item"><label>Full Name</label><div class="value"><?php echo e($request['full_name']); ?></div></div>
                     <div class="kv-item"><label>Username</label><div class="value"><?php echo e($request['username']); ?></div></div>
                     <div class="kv-item"><label>Email</label><div class="value"><?php echo e($request['email']); ?></div></div>
@@ -512,7 +516,6 @@ $isPdf = ($ext === 'pdf');
                     <div class="kv-item"><label>Requested Role</label><div class="value"><?php echo e(ucwords(str_replace('_', ' ', $request['requested_role']))); ?></div></div>
                     <div class="kv-item"><label>Status</label><div class="value"><span class="badge badge-<?php echo e($request['request_status']); ?>"><?php echo e(ucfirst($request['request_status'])); ?></span></div></div>
                     <div class="kv-item"><label>Submitted At</label><div class="value"><?php echo e(date('M d, Y h:i A', strtotime($request['created_at']))); ?></div></div>
-                    <div class="kv-item"><label>Masterlist Match</label><div class="value"><?php echo $employeeMatched ? 'Matched' : 'Not Found'; ?></div></div>
                     <div class="kv-item" style="grid-column: 1 / -1;">
                         <label>Valid ID</label>
                         <div class="value">
@@ -532,20 +535,6 @@ $isPdf = ($ext === 'pdf');
                     </div>
                 </div>
 
-                <div class="section-divider"><span>Employee Masterlist Check</span></div>
-
-                <?php if ($employeeMatched && $employeeData): ?>
-                    <div class="kv-grid">
-                        <div class="kv-item"><label>Masterlist Full Name</label><div class="value"><?php echo e($employeeData['full_name']); ?></div></div>
-                        <div class="kv-item"><label>Department</label><div class="value"><?php echo e($employeeData['department']); ?></div></div>
-                        <div class="kv-item"><label>Position</label><div class="value"><?php echo e($employeeData['position']); ?></div></div>
-                        <div class="kv-item"><label>Employment Status</label><div class="value"><?php echo e(ucfirst($employeeData['employment_status'])); ?></div></div>
-                    </div>
-                <?php else: ?>
-                    <div class="notice notice-warning">
-                        This employee number was not found in the employee masterlist. Manual admin approval is still allowed based on the submitted valid ID and applicant details.
-                    </div>
-                <?php endif; ?>
             </div>
         </section>
 
@@ -580,6 +569,7 @@ $isPdf = ($ext === 'pdf');
                 </form>
             </div>
         </section>
+            
     </main>
 </div>
 

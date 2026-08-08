@@ -2,6 +2,7 @@
 session_start();
 header('Content-Type: application/json; charset=UTF-8');
 require_once("config.php");
+require_once __DIR__ . '/tenant_helper.php';
 
 if (!isset($_SESSION['user_id'])) {
     echo json_encode([
@@ -28,6 +29,22 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 $user_id = (int) ($_SESSION['user_id'] ?? 0);
+$businessId = (int)($_SESSION['business_id'] ?? 0);
+if ($businessId <= 0) {
+    $businessStmt = $conn->prepare("SELECT business_id FROM users WHERE id = ? LIMIT 1");
+    if ($businessStmt) {
+        $businessStmt->bind_param("i", $user_id);
+        $businessStmt->execute();
+        $businessRow = $businessStmt->get_result()->fetch_assoc();
+        $businessStmt->close();
+        $businessId = (int)($businessRow['business_id'] ?? 0);
+        if ($businessId > 0) $_SESSION['business_id'] = $businessId;
+    }
+}
+if ($businessId <= 0) {
+    echo json_encode(['success' => false, 'message' => 'Your account is not connected to an SME business.']);
+    exit();
+}
 $sales_no = trim($_POST['sales_no'] ?? '');
 $customer_id = (int) ($_POST['customer_id'] ?? 0);
 $payment_status = trim($_POST['payment_status'] ?? '');
@@ -132,7 +149,7 @@ try {
     $productCheckStmt = $conn->prepare("
         SELECT id, product_name, stock_quantity
         FROM products
-        WHERE id = ? AND is_active = 1
+        WHERE id = ? AND business_id = ? AND is_active = 1
         FOR UPDATE
     ");
 
@@ -143,7 +160,7 @@ try {
     $productNames = [];
 
     foreach ($requiredByProduct as $product_id => $requiredQty) {
-        $productCheckStmt->bind_param("i", $product_id);
+        $productCheckStmt->bind_param("ii", $product_id, $businessId);
         $productCheckStmt->execute();
         $productResult = $productCheckStmt->get_result();
 
@@ -191,8 +208,19 @@ try {
 
     $customerParam = $customer_id > 0 ? $customer_id : null;
 
+    if ($customerParam !== null) {
+        $customerCheck = $conn->prepare("SELECT id FROM customers WHERE id = ? AND business_id = ? AND status = 1 LIMIT 1");
+        if (!$customerCheck) throw new Exception('Failed to validate customer.');
+        $customerCheck->bind_param("ii", $customerParam, $businessId);
+        $customerCheck->execute();
+        $customerExists = $customerCheck->get_result()->fetch_assoc();
+        $customerCheck->close();
+        if (!$customerExists) throw new Exception('Selected customer does not belong to your business.');
+    }
+
     $saleStmt = $conn->prepare("
         INSERT INTO sales (
+            business_id,
             sales_no,
             salesperson_id,
             customer_id,
@@ -200,7 +228,7 @@ try {
             payment_status,
             payment_method,
             order_status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     ");
 
     if (!$saleStmt) {
@@ -208,7 +236,8 @@ try {
     }
 
     $saleStmt->bind_param(
-        "siidsss",
+        "isiidsss",
+        $businessId,
         $sales_no,
         $user_id,
         $customerParam,
@@ -253,14 +282,14 @@ try {
         $stockStmt = $conn->prepare("
             UPDATE products
             SET stock_quantity = stock_quantity - ?
-            WHERE id = ?
+            WHERE id = ? AND business_id = ?
         ");
 
         if (!$stockStmt) {
             throw new Exception('Failed to prepare stock update query.');
         }
 
-        $stockStmt->bind_param("ii", $item['quantity'], $item['product_id']);
+        $stockStmt->bind_param("iii", $item['quantity'], $item['product_id'], $businessId);
 
         if (!$stockStmt->execute()) {
             throw new Exception('Failed to deduct product stock.');
@@ -271,8 +300,8 @@ try {
         $remarks = "Sale recorded: " . $sales_no;
 
         $movementStmt = $conn->prepare("
-            INSERT INTO stock_movements (product_id, movement_type, quantity, remarks, created_by)
-            VALUES (?, 'stock_out', ?, ?, ?)
+            INSERT INTO stock_movements (business_id, product_id, movement_type, quantity, remarks, created_by)
+            VALUES (?, ?, 'stock_out', ?, ?, ?)
         ");
 
         if (!$movementStmt) {
@@ -280,7 +309,8 @@ try {
         }
 
         $movementStmt->bind_param(
-            "iisi",
+            "iiisi",
+            $businessId,
             $item['product_id'],
             $item['quantity'],
             $remarks,
@@ -308,8 +338,8 @@ try {
 
         $arStmt = $conn->prepare("
             INSERT INTO accounts_receivable
-            (sale_id, customer_id, total_amount, amount_paid, balance_due, due_date, status, created_by)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            (business_id, sale_id, customer_id, total_amount, amount_paid, balance_due, due_date, status, created_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
 
         if (!$arStmt) {
@@ -317,7 +347,8 @@ try {
         }
 
         $arStmt->bind_param(
-            "iidddssi",
+            "iiidddssi",
+            $businessId,
             $sale_id,
             $customer_id,
             $total_amount,

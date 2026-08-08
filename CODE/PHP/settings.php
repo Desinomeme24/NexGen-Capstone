@@ -9,7 +9,7 @@ if (!isset($_SESSION['user_id'])) {
 
 $user_id = $_SESSION['user_id'];
 
-$sql = "SELECT username, full_name, email, phone, address, profile_image FROM users WHERE id = ?";
+$sql = "SELECT username, full_name, email, phone, address, profile_image, business_id FROM users WHERE id = ?";
 $stmt = $conn->prepare($sql);
 $stmt->bind_param("i", $user_id);
 $stmt->execute();
@@ -52,10 +52,11 @@ $verifyOtpCsrfToken = generateCsrfToken('verify_password_otp_form');
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Settings - NextGen</title>
+    <?php include("theme_init.php"); ?>
     <link rel="stylesheet" href="/NexGen/CODE/STYLE/settings.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 </head>
-<body>
+<body class="settings-body">
 
 <?php if (!empty($popupMessage)): ?>
     <div class="popup-overlay" id="popupOverlay">
@@ -89,6 +90,7 @@ $verifyOtpCsrfToken = generateCsrfToken('verify_password_otp_form');
 
         <nav class="settings-nav">
             <button class="nav-item active" data-target="account-panel" type="button"><i class="bi bi-person"></i><span>Account</span></button>
+            <button class="nav-item" data-target="personalization-panel" type="button"><i class="bi bi-palette"></i><span>Personalization</span></button>
             <button class="nav-item" data-target="security-panel" type="button"><i class="bi bi-shield-lock"></i><span>Security &amp; Access</span></button>
         </nav>
 
@@ -149,6 +151,34 @@ $verifyOtpCsrfToken = generateCsrfToken('verify_password_otp_form');
                     <div class="info-chip"><i class="bi bi-envelope-check"></i> Email only</div>
                 </div>
             </form>
+        </section>
+
+        <section class="settings-panel" id="personalization-panel">
+            <div class="panel-header panel-header-accent">
+                <h2>Personalization</h2>
+                <span class="panel-accent-bar"></span>
+                <p class="panel-subtitle">Choose how NexGen looks.</p>
+            </div>
+
+            <div class="theme-card-group" id="themeChoiceGroup">
+                <button type="button" class="theme-card" data-theme-choice="dark">
+                    <div class="theme-preview-row">
+                        <span class="theme-swatch theme-swatch-dark"></span>
+                        <span class="theme-swatch theme-swatch-gold"></span>
+                        <span class="theme-preview-strip theme-preview-strip-dark"></span>
+                    </div>
+                    <div class="theme-card-label"><i class="bi bi-moon-stars-fill"></i> Dark</div>
+                </button>
+
+                <button type="button" class="theme-card" data-theme-choice="light">
+                    <div class="theme-preview-row">
+                        <span class="theme-swatch theme-swatch-light"></span>
+                        <span class="theme-swatch theme-swatch-gold"></span>
+                        <span class="theme-preview-strip theme-preview-strip-light"></span>
+                    </div>
+                    <div class="theme-card-label"><i class="bi bi-sun-fill"></i> Light</div>
+                </button>
+            </div>
         </section>
 
         <section class="settings-panel" id="security-panel">
@@ -271,164 +301,5 @@ $verifyOtpCsrfToken = generateCsrfToken('verify_password_otp_form');
 </div>
 
 <script src="/NexGen/CODE/JS/settings.js"></script>
-
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-    const navItems = document.querySelectorAll(".settings-nav .nav-item");
-    const panels = document.querySelectorAll(".settings-panel");
-    const segmentedBtns = document.querySelectorAll(".segmented-btn");
-    const securityMethods = document.querySelectorAll(".security-method");
-
-    const accountForm = document.getElementById("accountForm");
-    const directPasswordForm = document.getElementById("directPasswordForm");
-    const otpRequestForm = document.getElementById("otpRequestForm");
-    const otpVerifyForm = document.getElementById("otpVerifyForm");
-
-    const profileInput = document.getElementById("new_profile_image");
-    const profileForm = document.getElementById("profileImageForm");
-
-    function openPanel(panelId) {
-        navItems.forEach(item => {
-            item.classList.toggle("active", item.dataset.target === panelId);
-        });
-
-        panels.forEach(panel => {
-            panel.classList.toggle("active-panel", panel.id === panelId);
-        });
-
-        localStorage.setItem("settingsActivePanel", panelId);
-    }
-
-    function openSecurityMethod(methodId) {
-        securityMethods.forEach(method => {
-            method.classList.remove("active-method");
-        });
-
-        segmentedBtns.forEach(btn => {
-            btn.classList.toggle("active", btn.dataset.method === methodId);
-        });
-
-        if (methodId) {
-            const selectedMethod = document.getElementById(methodId);
-            if (selectedMethod) {
-                selectedMethod.classList.add("active-method");
-                localStorage.setItem("settingsSecurityMethod", methodId);
-            }
-        }
-    }
-
-    navItems.forEach(item => {
-        item.addEventListener("click", function () {
-            openPanel(this.dataset.target);
-        });
-    });
-
-    segmentedBtns.forEach(btn => {
-        btn.addEventListener("click", function () {
-            openSecurityMethod(this.dataset.method);
-            openPanel("security-panel");
-        });
-    });
-
-    if (accountForm) {
-        accountForm.addEventListener("submit", function () {
-            localStorage.setItem("settingsActivePanel", "account-panel");
-        });
-    }
-
-    if (directPasswordForm) {
-        directPasswordForm.addEventListener("submit", function () {
-            localStorage.setItem("settingsActivePanel", "security-panel");
-            localStorage.setItem("settingsSecurityMethod", "current-password-method");
-        });
-    }
-
-    if (otpRequestForm) {
-        otpRequestForm.addEventListener("submit", function () {
-            localStorage.setItem("settingsActivePanel", "security-panel");
-            localStorage.setItem("settingsSecurityMethod", "otp-method");
-        });
-    }
-
-    if (otpVerifyForm) {
-        otpVerifyForm.addEventListener("submit", function () {
-            localStorage.setItem("settingsActivePanel", "security-panel");
-            localStorage.setItem("settingsSecurityMethod", "otp-method");
-        });
-    }
-
-    const savedPanel = localStorage.getItem("settingsActivePanel") || "account-panel";
-    const savedMethod = localStorage.getItem("settingsSecurityMethod") || "";
-
-    openPanel(savedPanel);
-
-    if (savedPanel === "security-panel" && savedMethod) {
-        openSecurityMethod(savedMethod);
-    }
-
-    if (profileInput && profileForm) {
-        profileInput.addEventListener("change", function () {
-            if (this.files && this.files.length > 0) {
-                profileForm.submit();
-            }
-        });
-    }
-});
-</script>
-
-<script>
-document.addEventListener("DOMContentLoaded", function () {
-    const otpRequestForm = document.getElementById("otpRequestForm");
-    const otpVerifyForm = document.getElementById("otpVerifyForm");
-    const otpNewPassword = document.getElementById("otpNewPassword");
-    const otpConfirmPassword = document.getElementById("otpConfirmPassword");
-
-    const popupBox = document.getElementById("popupBox");
-    const popupText = popupBox ? popupBox.textContent.toLowerCase() : "";
-
-    if (otpNewPassword) {
-        const savedNewPassword = sessionStorage.getItem("otp_new_password") || "";
-        otpNewPassword.value = savedNewPassword;
-
-        otpNewPassword.addEventListener("input", function () {
-            sessionStorage.setItem("otp_new_password", otpNewPassword.value);
-        });
-    }
-
-    if (otpConfirmPassword) {
-        const savedConfirmPassword = sessionStorage.getItem("otp_confirm_password") || "";
-        otpConfirmPassword.value = savedConfirmPassword;
-
-        otpConfirmPassword.addEventListener("input", function () {
-            sessionStorage.setItem("otp_confirm_password", otpConfirmPassword.value);
-        });
-    }
-
-    if (otpRequestForm) {
-        otpRequestForm.addEventListener("submit", function () {
-            if (otpNewPassword) {
-                sessionStorage.setItem("otp_new_password", otpNewPassword.value);
-            }
-            if (otpConfirmPassword) {
-                sessionStorage.setItem("otp_confirm_password", otpConfirmPassword.value);
-            }
-            localStorage.setItem("settingsActivePanel", "security-panel");
-            localStorage.setItem("settingsSecurityMethod", "otp-method");
-        });
-    }
-
-    if (otpVerifyForm) {
-        otpVerifyForm.addEventListener("submit", function () {
-            localStorage.setItem("settingsActivePanel", "security-panel");
-            localStorage.setItem("settingsSecurityMethod", "otp-method");
-        });
-    }
-
-    if (popupText.includes("password changed successfully")) {
-        sessionStorage.removeItem("otp_new_password");
-        sessionStorage.removeItem("otp_confirm_password");
-    }
-});
-</script>
 </body>
 </html>

@@ -16,7 +16,7 @@ if (session_status() === PHP_SESSION_NONE) {
 
 /* DATABASE CONNECTION */
 $host = "localhost";
-$dbname = "nextgen_db";
+$dbname = "nexgen_db";
 $dbuser = "root";
 $dbpass = "";
 
@@ -497,7 +497,7 @@ if (!function_exists('logActivity')) {
                     actor_role,
                     event_type,
                     target_type,
-                    target_id,12
+                    target_id,
                     details,
                     ip_address,
                     user_agent

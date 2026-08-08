@@ -281,7 +281,7 @@ if ($user['account_status'] !== 'active') {
 $_SESSION['user_id'] = $user['id'];
 $_SESSION['username'] = $user['username'];
 $_SESSION['full_name'] = $user['full_name'];
-$_SESSION['profile_image'] = !empty($user['profile_image']) ? $user['profile_image'] : 'uploads/default.png';
+$_SESSION['profile_image'] = !empty($user['profile_image']) ? $user['profile_image'] : '/NexGen/uploads/default.png';
 $_SESSION['role'] = $user['role'];
 $_SESSION['account_status'] = $user['account_status'];
 $_SESSION['can_inventory'] = (int)($user['can_inventory'] ?? 0);
@@ -324,276 +324,662 @@ if ($user['role'] === 'system_admin') {
 }
 
 $displayName  = !empty($user['full_name'])     ? $user['full_name']     : $user['username'];
-$profileImage = !empty($user['profile_image']) ? $user['profile_image'] : 'uploads/default.png';
+$profileImage = !empty($user['profile_image']) ? $user['profile_image'] : '/NexGen/uploads/default.png';
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login Success – NextGen</title>
-    <meta http-equiv="refresh" content="2.5;url=<?php echo htmlspecialchars($redirectUrl, ENT_QUOTES, 'UTF-8'); ?>">
-    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@700;800&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+    <title>Login Successful - NexGen</title>
+    <meta http-equiv="refresh" content="5;url=<?php echo htmlspecialchars($redirectUrl, ENT_QUOTES, 'UTF-8'); ?>">
+    <?php include 'theme_init.php'; ?>
+
+    <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+
     <style>
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
 
-        html, body {
-            width: 100%; height: 100%;
+        :root {
+            --bg-1: #07133e;
+            --bg-2: #020719;
+            --grid-line: rgba(79, 133, 235, 0.10);
+            --pulse: #4d89ff;
+            --star: #74a9ff;
+
+            --card-top: rgba(54, 82, 146, 0.74);
+            --card-bottom: rgba(17, 43, 105, 0.78);
+            --card-border: rgba(179, 203, 255, 0.30);
+            --card-shadow: 0 28px 70px rgba(0, 0, 0, 0.42);
+
+            --text: #ffffff;
+            --muted: rgba(232, 239, 252, 0.72);
+            --accent: #5590ff;
+            --accent-soft: #7aa7ff;
+            --dot-off: rgba(91, 143, 238, 0.32);
+            --gold: #f7ca84;
+        }
+
+        html[data-theme="light"] {
+            --bg-1: #eef7ff;
+            --bg-2: #dbeeff;
+            --grid-line: rgba(56, 112, 183, 0.075);
+            --pulse: #3b82f6;
+            --star: #4b8bf4;
+
+            --card-top: rgba(191, 224, 255, 0.84);
+            --card-bottom: rgba(163, 210, 255, 0.66);
+            --card-border: rgba(72, 133, 205, 0.50);
+            --card-shadow: 0 28px 70px rgba(56, 115, 180, 0.20);
+
+            --text: #102b5e;
+            --muted: rgba(35, 76, 123, 0.70);
+            --accent: #426ff3;
+            --accent-soft: #71a1ff;
+            --dot-off: rgba(66, 111, 243, 0.22);
+            --gold: #c58a2f;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
             overflow: hidden;
-            font-family: 'DM Sans', sans-serif;
-            background: #0a1220;
+            font-family: "DM Sans", Arial, sans-serif;
+            background: var(--bg-2);
         }
 
-        /* ── Same videos as dashboard ── */
-        .bg-video-wrap {
-            position: fixed; inset: 0; z-index: 0; overflow: hidden;
-        }
-        .bg-video {
-            position: absolute; inset: 0;
-            width: 100%; height: 100%;
-            object-fit: cover;
-            opacity: 0;
-            transition: opacity 1.2s ease-in-out;
-        }
-        .bg-video.active { opacity: 1; }
-
-        /* ── Dim so content stays readable ── */
-        .overlay {
-            position: fixed; inset: 0; z-index: 1;
-            background: rgba(5, 12, 35, 0.42);
-            backdrop-filter: blur(3px);
-            -webkit-backdrop-filter: blur(3px);
+        body {
+            color: var(--text);
         }
 
-        /* ── Center stage ── */
-        .stage {
-            position: fixed; inset: 0; z-index: 2;
-            display: flex; align-items: center; justify-content: center;
-        }
-
-        /* ── Glassmorphic content card ── */
-        .content {
-            position: relative;
-            text-align: center;
-            width: min(88vw, 360px);
-            padding: 44px 36px 36px;
-            border-radius: 28px;
-            background: linear-gradient(
-                165deg,
-                rgba(255, 255, 255, 0.16) 0%,
-                rgba(255, 255, 255, 0.06) 100%
-            );
-            border: 1px solid rgba(255, 255, 255, 0.28);
-            box-shadow:
-                0 24px 60px rgba(0, 0, 0, 0.45),
-                inset 0 1px 0 rgba(255, 255, 255, 0.35),
-                inset 0 0 0 1px rgba(255, 255, 255, 0.04);
-            backdrop-filter: blur(22px) saturate(160%);
-            -webkit-backdrop-filter: blur(22px) saturate(160%);
-            animation: floatIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
-            opacity: 0;
-            transform: translateY(28px);
+        /* =========================================================
+           ANIMATED BACKGROUND
+           ========================================================= */
+        .success-bg {
+            position: fixed;
+            inset: 0;
             overflow: hidden;
+            z-index: 0;
+            background:
+                radial-gradient(circle at 12% 18%, rgba(45, 117, 255, 0.13), transparent 30%),
+                radial-gradient(circle at 87% 82%, rgba(74, 144, 255, 0.10), transparent 34%),
+                linear-gradient(155deg, var(--bg-1), var(--bg-2));
         }
-        /* subtle top sheen for extra glass feel */
-        .content::before {
-            content: '';
+
+        .success-grid {
             position: absolute;
-            top: 0; left: 0; right: 0;
-            height: 50%;
-            background: linear-gradient(
-                180deg,
-                rgba(255, 255, 255, 0.14) 0%,
-                rgba(255, 255, 255, 0) 100%
-            );
+            inset: -8%;
+            background-image:
+                linear-gradient(var(--grid-line) 1px, transparent 1px),
+                linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+            background-size: 54px 54px;
+            animation: gridDrift 18s linear infinite;
+        }
+
+        @keyframes gridDrift {
+            from { transform: translate3d(0, 0, 0); }
+            to   { transform: translate3d(54px, 54px, 0); }
+        }
+
+        .success-bg::before,
+        .success-bg::after {
+            content: "";
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(4px);
+            opacity: 0.7;
             pointer-events: none;
         }
-        @keyframes floatIn {
-            to { opacity: 1; transform: translateY(0); }
+
+        .success-bg::before {
+            width: 520px;
+            height: 520px;
+            left: -180px;
+            top: -180px;
+            background: radial-gradient(circle, rgba(76, 135, 255, 0.16), transparent 68%);
+            animation: glowFloatA 12s ease-in-out infinite alternate;
         }
 
-        /* ── ID Badge ── */
-        .badge-wrap {
-            position: relative;
-            width: 136px;
-            margin: 0 auto 32px;
+        .success-bg::after {
+            width: 620px;
+            height: 620px;
+            right: -220px;
+            bottom: -260px;
+            background: radial-gradient(circle, rgba(44, 119, 255, 0.13), transparent 68%);
+            animation: glowFloatB 15s ease-in-out infinite alternate;
         }
-        .badge-clip {
-            width: 40px; height: 28px;
-            background: linear-gradient(160deg, #7aaeff 0%, #3b6ef8 100%);
-            border-radius: 8px 8px 0 0;
-            margin: 0 auto -10px;
-            position: relative; z-index: 2;
-            box-shadow: 0 -4px 10px rgba(59,110,248,0.4);
+
+        @keyframes glowFloatA {
+            to { transform: translate(90px, 70px) scale(1.08); }
         }
-        .badge-clip::after {
-            content: '';
+
+        @keyframes glowFloatB {
+            to { transform: translate(-90px, -60px) scale(1.10); }
+        }
+
+        .signal-layer {
             position: absolute;
-            top: 9px; left: 50%; transform: translateX(-50%);
-            width: 14px; height: 7px;
-            background: rgba(0,0,0,0.25); border-radius: 20px;
-        }
-        .badge-body {
-            background: linear-gradient(170deg, #e8f0fc 0%, #cfddf5 100%);
-            border-radius: 16px;
-            width: 100%; height: 148px;
-            position: relative; z-index: 1;
-            display: flex; flex-direction: column; align-items: center;
-            box-shadow: 0 14px 40px rgba(0,0,0,0.45), 0 1px 0 rgba(255,255,255,0.6) inset;
+            inset: 0;
             overflow: hidden;
         }
+
+        .signal-dot {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background: var(--pulse);
+            box-shadow: 0 0 10px 2px var(--pulse);
+            opacity: 0;
+            animation: signalFade linear forwards;
+        }
+
+        @keyframes signalFade {
+            0%   { opacity: 0; }
+            12%  { opacity: 0.9; }
+            80%  { opacity: 0.85; }
+            100% { opacity: 0; }
+        }
+
+        .ambient-star {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background: var(--star);
+            box-shadow: 0 0 10px var(--star);
+            opacity: 0.18;
+            animation: starBlink 4.8s ease-in-out infinite;
+        }
+
+        .ambient-star:nth-child(1) { left: 9%; top: 17%; animation-delay: .2s; }
+        .ambient-star:nth-child(2) { left: 79%; top: 21%; animation-delay: 1.1s; }
+        .ambient-star:nth-child(3) { left: 18%; top: 83%; animation-delay: 2.2s; }
+        .ambient-star:nth-child(4) { left: 88%; top: 70%; animation-delay: 3.0s; }
+        .ambient-star:nth-child(5) { left: 56%; top: 12%; animation-delay: 1.8s; }
+        .ambient-star:nth-child(6) { left: 64%; top: 89%; animation-delay: .8s; }
+
+        @keyframes starBlink {
+            0%, 100% { opacity: .12; transform: scale(.75); }
+            50%      { opacity: .75; transform: scale(1.35); }
+        }
+
+        .success-scrim {
+            position: fixed;
+            inset: 0;
+            z-index: 1;
+            background: rgba(5, 11, 33, 0.14);
+            backdrop-filter: blur(1.5px);
+        }
+
+        html[data-theme="light"] .success-scrim {
+            background: rgba(255, 255, 255, 0.10);
+        }
+
+        /* =========================================================
+           CENTER CARD
+           ========================================================= */
+        .success-stage {
+            position: fixed;
+            inset: 0;
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 22px;
+        }
+
+        .success-card {
+            position: relative;
+            width: min(90vw, 350px);
+            min-height: 0;
+            height: auto;
+            padding: 32px 28px 28px;
+            border-radius: 28px;
+            text-align: center;
+
+            background:
+                radial-gradient(circle at 50% 0%, rgba(255,255,255,.11), transparent 38%),
+                linear-gradient(165deg, var(--card-top), var(--card-bottom));
+
+            border: 1px solid var(--card-border);
+
+            box-shadow:
+                var(--card-shadow),
+                inset 0 1px 0 rgba(255,255,255,.20);
+
+            backdrop-filter: blur(22px) saturate(145%);
+            -webkit-backdrop-filter: blur(22px) saturate(145%);
+
+            overflow: hidden;
+            opacity: 0;
+            transform: translateY(24px) scale(.985);
+            animation: cardEnter .72s cubic-bezier(.22, 1, .36, 1) forwards;
+        }
+
+        .success-card::before {
+            content: "";
+            position: absolute;
+            inset: 0 0 auto 0;
+            height: 38%;
+            background: linear-gradient(180deg, rgba(255,255,255,.12), transparent);
+            pointer-events: none;
+        }
+
+        .success-card::after {
+            content: "";
+            position: absolute;
+            width: 180px;
+            height: 180px;
+            right: -80px;
+            bottom: -90px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(77, 137, 255, .14), transparent 70%);
+            pointer-events: none;
+        }
+
+        @keyframes cardEnter {
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        /* =========================================================
+           ID BADGE
+           ========================================================= */
+        .id-badge {
+            position: relative;
+            width: 150px;
+            margin: 0 auto 24px;
+            z-index: 2;
+        }
+
+        .badge-clip {
+            width: 46px;
+            height: 38px;
+            margin: 0 auto -12px;
+            border-radius: 9px 9px 0 0;
+            background: linear-gradient(180deg, #5ca1ff, #2f72e9);
+            box-shadow: 0 -8px 18px rgba(44, 121, 255, .28);
+            position: relative;
+            z-index: 2;
+        }
+
+        .badge-clip::after {
+            content: "";
+            position: absolute;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: rgba(25, 57, 111, .72);
+            left: 50%;
+            top: 11px;
+            transform: translateX(-50%);
+        }
+
+        .badge-shell {
+            position: relative;
+            height: 160px;
+            border-radius: 21px 21px 20px 20px;
+            background: linear-gradient(180deg, #f8fbff 0%, #dce8f9 66%, #183977 66%, #183977 100%);
+            border: 1px solid rgba(255,255,255,.75);
+            box-shadow: 0 14px 32px rgba(0,0,0,.27);
+            overflow: visible;
+        }
+
+        .profile-ring {
+            position: absolute;
+            left: 50%;
+            top: 23px;
+            transform: translateX(-50%);
+            width: 88px;
+            height: 88px;
+            border-radius: 50%;
+            padding: 6px;
+            background: rgba(255,255,255,.98);
+            box-shadow: 0 7px 18px rgba(0,0,0,.20);
+        }
+
         .profile-img {
-            width: 70px; height: 70px;
-            border-radius: 50%; object-fit: cover;
-            margin-top: 22px;
-            border: 3px solid #fff;
-            box-shadow: 0 6px 16px rgba(0,0,0,0.2);
-            animation: avatarPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.25s both;
-        }
-        @keyframes avatarPop {
-            from { transform: scale(0.5); opacity: 0; }
-            to   { transform: scale(1);   opacity: 1; }
-        }
-        .badge-footer {
-            background: #1a3a7a; width: 100%; height: 34px;
-            margin-top: auto;
-            display: flex; align-items: center; justify-content: center;
-            gap: 3px; padding: 0 14px;
-        }
-        .bar { display: block; height: 16px; background: rgba(255,255,255,0.88); border-radius: 1px; }
-        .bar:nth-child(1){width:2px} .bar:nth-child(2){width:4px}
-        .bar:nth-child(3){width:1px} .bar:nth-child(4){width:3px}
-        .bar:nth-child(5){width:5px} .bar:nth-child(6){width:2px}
-        .bar:nth-child(7){width:3px} .bar:nth-child(8){width:1px}
-        .bar:nth-child(9){width:4px} .bar:nth-child(10){width:2px}
-
-        /* ── Verified hex badge ── */
-        .verified-badge {
-            position: absolute; bottom: 10px; right: -14px; z-index: 3;
-            animation: badgePop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) 0.5s both;
-        }
-        @keyframes badgePop {
-            from { transform: scale(0) rotate(-30deg); opacity: 0; }
-            to   { transform: scale(1) rotate(0deg);   opacity: 1; }
-        }
-        .verified-outer {
-            width: 52px; height: 52px; background: #fff;
-            clip-path: polygon(50% 0%,93% 25%,93% 75%,50% 100%,7% 75%,7% 25%);
-            display: flex; align-items: center; justify-content: center;
-            box-shadow: 0 6px 20px rgba(59,110,248,0.45);
-        }
-        .verified-inner {
-            width: 40px; height: 40px;
-            background: linear-gradient(135deg, #6a95ff 0%, #3b6ef8 100%);
-            clip-path: polygon(50% 0%,93% 25%,93% 75%,50% 100%,7% 75%,7% 25%);
-            display: flex; align-items: center; justify-content: center;
-        }
-        .verified-inner svg {
-            width: 18px; height: 18px;
-            stroke: #fff; stroke-width: 3;
-            stroke-linecap: round; stroke-linejoin: round; fill: none;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 50%;
+            display: block;
+            background: #dce8f9;
         }
 
-        /* ── Text ── */
-        .label-success {
-            font-family: 'Sora', sans-serif;
-            font-size: 12px; font-weight: 700;
-            letter-spacing: 2.5px; text-transform: uppercase;
-            color: #6a95ff; margin-bottom: 8px;
-        }
-        .user-name {
-            font-family: 'Sora', sans-serif;
-            font-size: 28px; font-weight: 800;
-            color: #ffffff; letter-spacing: -0.3px;
-            margin-bottom: 6px;
-            text-shadow: 0 2px 20px rgba(0,0,0,0.5);
-        }
-        .label-redirect {
-            font-size: 13px; color: rgba(255,255,255,0.6);
-            margin-bottom: 24px;
+        .barcode {
+            position: absolute;
+            bottom: 17px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: flex-end;
+            gap: 3px;
         }
 
-        /* ── Progress bar ── */
-        .progress-wrap { width: 180px; margin: 0 auto; }
-        .progress-track {
-            height: 4px; background: rgba(255,255,255,0.18);
-            border-radius: 99px; overflow: hidden;
+        .barcode span {
+            display: block;
+            width: 4px;
+            background: #fff;
+            border-radius: 1px;
         }
-        .progress-fill {
-            height: 100%; width: 0%; border-radius: 99px;
-            background: linear-gradient(90deg, #3b6ef8 0%, #6a95ff 100%);
-            box-shadow: 0 0 10px rgba(106,149,255,0.7);
-            animation: fillBar 2.5s cubic-bezier(0.4,0,0.2,1) forwards;
+
+        .barcode span:nth-child(1) { height: 20px; }
+        .barcode span:nth-child(2) { height: 27px; }
+        .barcode span:nth-child(3) { height: 22px; }
+        .barcode span:nth-child(4) { height: 28px; }
+        .barcode span:nth-child(5) { height: 23px; }
+        .barcode span:nth-child(6) { height: 27px; }
+
+        .verify-badge {
+            position: absolute;
+            right: -17px;
+            bottom: 4px;
+            width: 66px;
+            height: 66px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f6f9ff;
+            box-shadow: 0 9px 21px rgba(0,0,0,.20);
+            animation: verifyPop .55s cubic-bezier(.34,1.56,.64,1) .38s both;
         }
-        @keyframes fillBar { 0%{width:0%} 100%{width:100%} }
+
+        .verify-badge::before {
+            content: "";
+            position: absolute;
+            inset: 8px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #4d91ff, #2f70e6);
+        }
+
+        .verify-badge svg {
+            position: relative;
+            z-index: 2;
+            width: 33px;
+            height: 33px;
+            fill: none;
+            stroke: #fff;
+            stroke-width: 2.7;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        @keyframes verifyPop {
+            from { opacity: 0; transform: scale(.25) rotate(-22deg); }
+            to   { opacity: 1; transform: scale(1) rotate(0); }
+        }
+
+        /* =========================================================
+           TEXT + LOADING
+           ========================================================= */
+        .success-name {
+            position: relative;
+            z-index: 2;
+            margin-bottom: 5px;
+            font-family: "Sora", Arial, sans-serif;
+            font-size: 29px;
+            line-height: 1.15;
+            font-weight: 800;
+            color: var(--text);
+            letter-spacing: -0.04em;
+            text-shadow: 0 3px 20px rgba(0,0,0,.15);
+        }
+
+        .success-title {
+            position: relative;
+            z-index: 2;
+            margin-bottom: 7px;
+            font-family: "Sora", Arial, sans-serif;
+            font-size: 15px;
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .workspace-message,
+        .redirect-message {
+            position: relative;
+            z-index: 2;
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .workspace-message {
+            margin-bottom: 2px;
+        }
+
+        .redirect-message {
+            margin-bottom: 13px;
+            font-size: 12px;
+            opacity: .9;
+        }
+
+        .loading-dots {
+            position: relative;
+            z-index: 2;
+            height: 18px;
+            margin-bottom: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 11px;
+        }
+
+        .loading-dots span {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: var(--dot-off);
+            animation: dotPulse 1.15s ease-in-out infinite;
+        }
+
+        .loading-dots span:nth-child(2) {
+            animation-delay: .16s;
+        }
+
+        .loading-dots span:nth-child(3) {
+            animation-delay: .32s;
+        }
+
+        @keyframes dotPulse {
+            0%, 100% {
+                opacity: .35;
+                transform: scale(.85);
+                box-shadow: none;
+            }
+            50% {
+                opacity: 1;
+                transform: scale(1.12);
+                background: var(--accent);
+                box-shadow: 0 0 14px rgba(80, 143, 255, .55);
+            }
+        }
+@media (max-width: 520px) {
+            .success-card {
+                width: min(91vw, 340px);
+                padding: 28px 24px 25px;
+                border-radius: 25px;
+            }
+
+            .success-name {
+                font-size: 27px;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .success-grid,
+            .success-bg::before,
+            .success-bg::after,
+            .ambient-star,
+            .loading-dots span {
+                animation: none !important;
+            }
+        }
     </style>
 </head>
 <body>
 
-<div class="bg-video-wrap">
-    <video class="bg-video active" autoplay muted loop playsinline>
-        <source src="/NexGen/VIDEOS/storevideo1.mp4" type="video/mp4">
-    </video>
-    <video class="bg-video" autoplay muted loop playsinline>
-        <source src="/NexGen/VIDEOS/storevideo2.mp4" type="video/mp4">
-    </video>
-    <video class="bg-video" autoplay muted loop playsinline>
-        <source src="/NexGen/VIDEOS/storevideo3.mp4" type="video/mp4">
-    </video>
+<?php
+    $isSmeWorkspace = in_array($user['role'], ['owner', 'employee'], true);
+
+    if ($isSmeWorkspace) {
+        $workspaceMessage = 'Preparing your workspace...';
+        $redirectMessage = 'Redirecting to your dashboard...';
+    } else {
+        $workspaceMessage = 'Preparing your administrator workspace...';
+        $redirectMessage = 'Redirecting to your admin dashboard...';
+    }
+?>
+
+<div class="success-bg" aria-hidden="true">
+    <div class="success-grid"></div>
+    <div class="signal-layer" id="signalLayer"></div>
+
+    <span class="ambient-star"></span>
+    <span class="ambient-star"></span>
+    <span class="ambient-star"></span>
+    <span class="ambient-star"></span>
+    <span class="ambient-star"></span>
+    <span class="ambient-star"></span>
 </div>
 
-<div class="overlay"></div>
+<div class="success-scrim" aria-hidden="true"></div>
 
-<div class="stage">
-    <div class="content">
+<main class="success-stage">
+    <section class="success-card" aria-live="polite">
 
-        <div class="badge-wrap">
+        <div class="id-badge" aria-hidden="true">
             <div class="badge-clip"></div>
-            <div class="badge-body">
-                <img class="profile-img"
-                     src="<?php echo htmlspecialchars($profileImage, ENT_QUOTES, 'UTF-8'); ?>"
-                     alt="Profile"
-                     onerror="this.src='uploads/default.png'">
-                <div class="badge-footer">
-                    <span class="bar"></span><span class="bar"></span>
-                    <span class="bar"></span><span class="bar"></span>
-                    <span class="bar"></span><span class="bar"></span>
-                    <span class="bar"></span><span class="bar"></span>
-                    <span class="bar"></span><span class="bar"></span>
+
+            <div class="badge-shell">
+                <div class="profile-ring">
+                    <img
+                        class="profile-img"
+                        src="<?php echo htmlspecialchars($profileImage, ENT_QUOTES, 'UTF-8'); ?>"
+                        alt=""
+                        onerror="this.src='/NexGen/uploads/default.png'"
+                    >
+                </div>
+
+                <div class="barcode">
+                    <span></span><span></span><span></span>
+                    <span></span><span></span><span></span>
                 </div>
             </div>
-            <div class="verified-badge">
-                <div class="verified-outer">
-                    <div class="verified-inner">
-                        <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                    </div>
-                </div>
+
+            <div class="verify-badge">
+                <svg viewBox="0 0 24 24">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
             </div>
         </div>
 
-        <div class="label-success">Login Successful</div>
-        <div class="user-name"><?php echo htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8'); ?></div>
-        <div class="label-redirect">Redirecting to your dashboard…</div>
+        <h1 class="success-name">
+            <?php echo htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8'); ?>
+        </h1>
 
-        <div class="progress-wrap">
-            <div class="progress-track">
-                <div class="progress-fill"></div>
-            </div>
+        <div class="success-title">Login successful!</div>
+
+        <p class="workspace-message">
+            <?php echo htmlspecialchars($workspaceMessage, ENT_QUOTES, 'UTF-8'); ?>
+        </p>
+
+        <p class="redirect-message">
+            <?php echo htmlspecialchars($redirectMessage, ENT_QUOTES, 'UTF-8'); ?>
+        </p>
+
+        <div class="loading-dots" aria-label="Loading">
+            <span></span>
+            <span></span>
+            <span></span>
         </div>
-
-    </div>
-</div>
+</section>
+</main>
 
 <script>
-(function(){
-    var videos = document.querySelectorAll('.bg-video');
-    var i = 0;
-    setInterval(function(){
-        videos[i].classList.remove('active');
-        i = (i + 1) % videos.length;
-        videos[i].classList.add('active');
-    }, 6000);
+(function () {
+    const layer = document.getElementById("signalLayer");
+    if (!layer) return;
+
+    const GRID = 54;
+
+    function spawnSignal() {
+        const dot = document.createElement("span");
+        dot.className = "signal-dot";
+
+        const cols = Math.ceil(window.innerWidth / GRID);
+        const rows = Math.ceil(window.innerHeight / GRID);
+
+        const horizontal = Math.random() < 0.5;
+        const steps = 3 + Math.floor(Math.random() * 6);
+
+        let x;
+        let y;
+        let dx;
+        let dy;
+
+        if (horizontal) {
+            y = Math.floor(Math.random() * rows) * GRID;
+            x = Math.floor(Math.random() * Math.max(1, cols - steps)) * GRID;
+            dx = steps * GRID;
+            dy = 0;
+        } else {
+            x = Math.floor(Math.random() * cols) * GRID;
+            y = Math.floor(Math.random() * Math.max(1, rows - steps)) * GRID;
+            dx = 0;
+            dy = steps * GRID;
+        }
+
+        dot.style.left = x + "px";
+        dot.style.top = y + "px";
+
+        const duration = Math.max(1500, steps * 430);
+
+        dot.style.animationDuration = duration + "ms";
+        layer.appendChild(dot);
+
+        if (dot.animate) {
+            dot.animate(
+                [
+                    { transform: "translate3d(0,0,0)" },
+                    { transform: "translate3d(" + dx + "px," + dy + "px,0)" }
+                ],
+                {
+                    duration: duration,
+                    easing: "linear"
+                }
+            );
+        }
+
+        window.setTimeout(function () {
+            dot.remove();
+        }, duration + 100);
+    }
+
+    for (let i = 0; i < 12; i++) {
+        window.setTimeout(spawnSignal, i * 130);
+    }
+
+    window.setInterval(spawnSignal, 420);
 })();
+
+/* Reliable redirect in addition to the meta-refresh fallback. */
+window.setTimeout(function () {
+    window.location.replace(
+        "<?php echo htmlspecialchars($redirectUrl, ENT_QUOTES, 'UTF-8'); ?>"
+    );
+}, 5000);
 </script>
+
 </body>
 </html>

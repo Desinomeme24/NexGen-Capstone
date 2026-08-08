@@ -13,6 +13,8 @@ if ((int)($_SESSION['can_sales'] ?? 0) !== 1) {
 }
 
 include 'config.php';
+require_once __DIR__ . '/tenant_helper.php';
+$businessId = nxRequireBusinessId($conn);
 
 
 
@@ -105,7 +107,7 @@ try {
     $checkStmt = $conn->prepare("
         SELECT id, product_name, stock_quantity
         FROM products
-        WHERE id = ?
+        WHERE id = ? AND business_id = ?
         FOR UPDATE
     ");
 
@@ -114,7 +116,7 @@ try {
     }
 
     foreach ($requiredByProduct as $product_id => $requiredQty) {
-        $checkStmt->bind_param("i", $product_id);
+        $checkStmt->bind_param("ii", $product_id, $businessId);
         $checkStmt->execute();
         $checkResult = $checkStmt->get_result();
 
@@ -160,17 +162,31 @@ try {
 
     $customerParam = $customer_id > 0 ? $customer_id : null;
 
+    if ($customerParam !== null) {
+        $customerCheck = $conn->prepare("SELECT id FROM customers WHERE id = ? AND business_id = ? AND status = 1 LIMIT 1");
+        if (!$customerCheck) {
+            throw new Exception('Failed to validate customer.');
+        }
+        $customerCheck->bind_param("ii", $customerParam, $businessId);
+        $customerCheck->execute();
+        $customerExists = $customerCheck->get_result()->fetch_assoc();
+        $customerCheck->close();
+        if (!$customerExists) {
+            throw new Exception('Selected customer does not belong to your business.');
+        }
+    }
+
     $saleStmt = $conn->prepare("
         INSERT INTO sales (
-            sales_no, salesperson_id, customer_id, total_amount, payment_status, payment_method, order_status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            business_id, sales_no, salesperson_id, customer_id, total_amount, payment_status, payment_method, order_status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     ");
 
     if (!$saleStmt) {
         throw new Exception("Failed to prepare sales insert query.");
     }
 
-    $saleStmt->bind_param("siidsss", $sales_no, $user_id, $customerParam, $total_amount, $payment_status, $payment_method, $order_status);
+    $saleStmt->bind_param("isiidsss", $businessId, $sales_no, $user_id, $customerParam, $total_amount, $payment_status, $payment_method, $order_status);
 
     if (!$saleStmt->execute()) {
         throw new Exception("Failed to save sale record.");
@@ -200,14 +216,14 @@ try {
         $updateStock = $conn->prepare("
             UPDATE products
             SET stock_quantity = stock_quantity - ?
-            WHERE id = ?
+            WHERE id = ? AND business_id = ?
         ");
 
         if (!$updateStock) {
             throw new Exception("Failed to prepare stock update query.");
         }
 
-        $updateStock->bind_param("ii", $item['quantity'], $item['product_id']);
+        $updateStock->bind_param("iii", $item['quantity'], $item['product_id'], $businessId);
 
         if (!$updateStock->execute()) {
             throw new Exception("Failed to deduct stock.");
@@ -218,15 +234,15 @@ try {
         $remarks = "Sale recorded: " . $sales_no;
 
         $stockStmt = $conn->prepare("
-            INSERT INTO stock_movements (product_id, movement_type, quantity, remarks, created_by)
-            VALUES (?, 'stock_out', ?, ?, ?)
+            INSERT INTO stock_movements (business_id, product_id, movement_type, quantity, remarks, created_by)
+            VALUES (?, ?, 'stock_out', ?, ?, ?)
         ");
 
         if (!$stockStmt) {
             throw new Exception("Failed to prepare stock movement query.");
         }
 
-        $stockStmt->bind_param("iisi", $item['product_id'], $item['quantity'], $remarks, $user_id);
+        $stockStmt->bind_param("iiisi", $businessId, $item['product_id'], $item['quantity'], $remarks, $user_id);
 
         if (!$stockStmt->execute()) {
             throw new Exception("Failed to save stock movement.");
@@ -249,8 +265,8 @@ try {
 
         $stmtAr = $conn->prepare("
             INSERT INTO accounts_receivable (
-                sale_id, customer_id, total_amount, amount_paid, balance_due, due_date, status, created_by
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                business_id, sale_id, customer_id, total_amount, amount_paid, balance_due, due_date, status, created_by
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
 
         if (!$stmtAr) {
@@ -258,7 +274,8 @@ try {
         }
 
         $stmtAr->bind_param(
-            "iidddssi",
+            "iiidddssi",
+            $businessId,
             $sale_id,
             $customer_id,
             $total_amount,

@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once("config.php");
+require_once("tenant_helper.php");
 
 if (!isset($_SESSION['user_id'])) {
     header("Location: /NexGen/CODE/PHP/index.php");
@@ -13,6 +14,7 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'owner') {
     exit();
 }
 
+$businessId = nxRequireBusinessId($conn);
 $id = intval($_GET['id'] ?? 0);
 
 if ($id <= 0) {
@@ -24,10 +26,10 @@ if ($id <= 0) {
 $productStmt = $conn->prepare("
     SELECT id, product_name, is_active
     FROM products
-    WHERE id = ?
+    WHERE id = ? AND business_id = ?
     LIMIT 1
 ");
-$productStmt->bind_param("i", $id);
+$productStmt->bind_param("ii", $id, $businessId);
 $productStmt->execute();
 $productResult = $productStmt->get_result();
 $product = $productResult ? $productResult->fetch_assoc() : null;
@@ -48,9 +50,9 @@ if ((int)$product['is_active'] === 1) {
 $stmt = $conn->prepare("
     UPDATE products
     SET is_active = 1
-    WHERE id = ?
+    WHERE id = ? AND business_id = ?
 ");
-$stmt->bind_param("i", $id);
+$stmt->bind_param("ii", $id, $businessId);
 
 if ($stmt->execute()) {
     $_SESSION['inventory_success'] = "Product restored successfully.";

@@ -107,7 +107,7 @@ $showCategoryOpen = in_array(
             <span>Settings</span>
         </a>
 
-        <a href="#" class="menu-item" onclick="openLogoutModal(event)">
+        <a href="#" class="menu-item" onclick="event.preventDefault(); openLogoutModal(event)">
             <i class="bi bi-box-arrow-right"></i>
             <span>Log Out</span>
         </a>
@@ -117,12 +117,21 @@ $showCategoryOpen = in_array(
 <div class="overlay" id="overlay"></div>
 
 <header class="topbar">
-    <div class="menu-btn" id="openSidebar" role="button" tabindex="0" aria-label="Open sidebar" onclick="openSidebarMenu()">
-        <span></span>
-        <span></span>
-        <span></span>
+    <div class="topbar-left">
+        <div class="menu-btn" id="openSidebar" role="button" tabindex="0" aria-label="Open sidebar" onclick="openSidebarMenu()">
+            <span></span>
+            <span></span>
+            <span></span>
+        </div>
     </div>
 
+    <div class="topbar-right">
+        <button class="theme-toggle" id="themeToggle" type="button" aria-label="Switch to light mode" aria-pressed="false">
+            <span class="theme-toggle-thumb">
+                <i class="bi bi-moon-stars-fill" id="themeIcon"></i>
+            </span>
+        </button>
+    </div>
 </header>
 
 <div class="logout-modal-overlay" id="logoutModal">

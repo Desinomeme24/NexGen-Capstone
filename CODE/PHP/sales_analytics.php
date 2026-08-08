@@ -1,9 +1,11 @@
 <?php
 session_start();
 require_once("config.php");
+require_once __DIR__ . '/tenant_helper.php';
+$businessId = nxRequireBusinessId($conn);
 
 if (!isset($_SESSION['user_id'])) {
-    header("Location: /NexGen_Eval/CODE/PHP/index.php");
+    header("Location: /NexGen/CODE/PHP/index.php");
     exit();
 }
 
@@ -124,7 +126,7 @@ $stmtSummary = $conn->prepare("
         COALESCE(SUM(total_amount), 0) AS gross_revenue,
         COUNT(*) AS total_transactions
     FROM sales
-    WHERE sale_date BETWEEN ? AND ?
+    WHERE business_id = {$businessId} AND sale_date BETWEEN ? AND ?
 ");
 $stmtSummary->bind_param("ss", $startDate, $endDate);
 $stmtSummary->execute();
@@ -140,7 +142,7 @@ $stmtCogs = $conn->prepare("
     FROM sale_items si
     INNER JOIN sales s ON si.sale_id = s.id
     INNER JOIN products p ON si.product_id = p.id
-    WHERE s.sale_date BETWEEN ? AND ?
+    WHERE s.business_id = {$businessId} AND p.business_id = {$businessId} AND s.sale_date BETWEEN ? AND ?
 ");
 $stmtCogs->bind_param("ss", $startDate, $endDate);
 $stmtCogs->execute();
@@ -170,7 +172,7 @@ $previousEnd   = date('Y-m-d H:i:s', $previousEndTs);
 $stmtPrev = $conn->prepare("
     SELECT COALESCE(SUM(total_amount), 0) AS previous_revenue
     FROM sales
-    WHERE sale_date BETWEEN ? AND ?
+    WHERE business_id = {$businessId} AND sale_date BETWEEN ? AND ?
 ");
 $stmtPrev->bind_param("ss", $previousStart, $previousEnd);
 $stmtPrev->execute();
@@ -203,7 +205,7 @@ $todayEnd   = date('Y-m-d 23:59:59');
 $stmtTodayRevenue = $conn->prepare("
     SELECT COALESCE(SUM(total_amount), 0) AS gross_revenue
     FROM sales
-    WHERE sale_date BETWEEN ? AND ?
+    WHERE business_id = {$businessId} AND sale_date BETWEEN ? AND ?
 ");
 $stmtTodayRevenue->bind_param("ss", $todayStart, $todayEnd);
 $stmtTodayRevenue->execute();
@@ -215,7 +217,7 @@ $stmtTodayCogs = $conn->prepare("
     FROM sale_items si
     INNER JOIN sales s ON si.sale_id = s.id
     INNER JOIN products p ON si.product_id = p.id
-    WHERE s.sale_date BETWEEN ? AND ?
+    WHERE s.business_id = {$businessId} AND p.business_id = {$businessId} AND s.sale_date BETWEEN ? AND ?
 ");
 $stmtTodayCogs->bind_param("ss", $todayStart, $todayEnd);
 $stmtTodayCogs->execute();
@@ -238,7 +240,7 @@ $weekEnd   = $weekEndObj->format('Y-m-d 23:59:59');
 $stmtWeekRevenue = $conn->prepare("
     SELECT COALESCE(SUM(total_amount), 0) AS gross_revenue
     FROM sales
-    WHERE sale_date BETWEEN ? AND ?
+    WHERE business_id = {$businessId} AND sale_date BETWEEN ? AND ?
 ");
 $stmtWeekRevenue->bind_param("ss", $weekStart, $weekEnd);
 $stmtWeekRevenue->execute();
@@ -250,7 +252,7 @@ $stmtWeekCogs = $conn->prepare("
     FROM sale_items si
     INNER JOIN sales s ON si.sale_id = s.id
     INNER JOIN products p ON si.product_id = p.id
-    WHERE s.sale_date BETWEEN ? AND ?
+    WHERE s.business_id = {$businessId} AND p.business_id = {$businessId} AND s.sale_date BETWEEN ? AND ?
 ");
 $stmtWeekCogs->bind_param("ss", $weekStart, $weekEnd);
 $stmtWeekCogs->execute();
@@ -271,7 +273,7 @@ $monthEnd   = $monthEndObj->format('Y-m-d 23:59:59');
 $stmtMonthRevenue = $conn->prepare("
     SELECT COALESCE(SUM(total_amount), 0) AS gross_revenue
     FROM sales
-    WHERE sale_date BETWEEN ? AND ?
+    WHERE business_id = {$businessId} AND sale_date BETWEEN ? AND ?
 ");
 $stmtMonthRevenue->bind_param("ss", $monthStart, $monthEnd);
 $stmtMonthRevenue->execute();
@@ -283,7 +285,7 @@ $stmtMonthCogs = $conn->prepare("
     FROM sale_items si
     INNER JOIN sales s ON si.sale_id = s.id
     INNER JOIN products p ON si.product_id = p.id
-    WHERE s.sale_date BETWEEN ? AND ?
+    WHERE s.business_id = {$businessId} AND p.business_id = {$businessId} AND s.sale_date BETWEEN ? AND ?
 ");
 $stmtMonthCogs->bind_param("ss", $monthStart, $monthEnd);
 $stmtMonthCogs->execute();
@@ -306,7 +308,7 @@ $stmtDailyRevenue = $conn->prepare("
     SELECT DAYOFWEEK(sale_date) AS weekday_num,
            COALESCE(SUM(total_amount), 0) AS gross_revenue
     FROM sales
-    WHERE sale_date BETWEEN ? AND ?
+    WHERE business_id = {$businessId} AND sale_date BETWEEN ? AND ?
     GROUP BY DAYOFWEEK(sale_date)
 ");
 $stmtDailyRevenue->bind_param("ss", $weekStart, $weekEnd);
@@ -325,7 +327,7 @@ $stmtDailyCogs = $conn->prepare("
     FROM sale_items si
     INNER JOIN sales s ON si.sale_id = s.id
     INNER JOIN products p ON si.product_id = p.id
-    WHERE s.sale_date BETWEEN ? AND ?
+    WHERE s.business_id = {$businessId} AND p.business_id = {$businessId} AND s.sale_date BETWEEN ? AND ?
     GROUP BY DAYOFWEEK(s.sale_date)
 ");
 $stmtDailyCogs->bind_param("ss", $weekStart, $weekEnd);
@@ -368,7 +370,7 @@ $stmtMonthlyRevenue = $conn->prepare("
     SELECT MONTH(sale_date) AS sale_month,
            COALESCE(SUM(total_amount), 0) AS gross_revenue
     FROM sales
-    WHERE YEAR(sale_date) = ?
+    WHERE business_id = {$businessId} AND YEAR(sale_date) = ?
     GROUP BY MONTH(sale_date)
     ORDER BY MONTH(sale_date)
 ");
@@ -388,7 +390,7 @@ $stmtMonthlyCogs = $conn->prepare("
     FROM sale_items si
     INNER JOIN sales s ON si.sale_id = s.id
     INNER JOIN products p ON si.product_id = p.id
-    WHERE YEAR(s.sale_date) = ?
+    WHERE s.business_id = {$businessId} AND p.business_id = {$businessId} AND YEAR(s.sale_date) = ?
     GROUP BY MONTH(s.sale_date)
     ORDER BY MONTH(s.sale_date)
 ");
@@ -424,8 +426,8 @@ $stmtCategory = $conn->prepare("
     FROM sale_items si
     INNER JOIN sales s ON si.sale_id = s.id
     INNER JOIN products p ON si.product_id = p.id
-    INNER JOIN categories c ON p.category_id = c.id
-    WHERE s.sale_date BETWEEN ? AND ?
+    INNER JOIN categories c ON p.category_id = c.id AND c.business_id = {$businessId}
+    WHERE s.business_id = {$businessId} AND p.business_id = {$businessId} AND s.sale_date BETWEEN ? AND ?
     GROUP BY c.id, c.category_name
     ORDER BY units_sold DESC, c.category_name ASC
 ");
@@ -481,7 +483,7 @@ $stmtTopProducts = $conn->prepare("
     FROM sale_items si
     INNER JOIN sales s ON si.sale_id = s.id
     INNER JOIN products p ON si.product_id = p.id
-    WHERE s.sale_date BETWEEN ? AND ?
+    WHERE s.business_id = {$businessId} AND p.business_id = {$businessId} AND s.sale_date BETWEEN ? AND ?
     GROUP BY p.id, p.product_name
     ORDER BY total_sales DESC, p.product_name ASC
     LIMIT 5
@@ -510,7 +512,7 @@ $notificationCount = 0;
 $lowStockQuery = $conn->query("
     SELECT product_name, stock_quantity, reorder_level
     FROM products
-    WHERE stock_quantity > 0 AND stock_quantity <= reorder_level
+    WHERE business_id = {$businessId} AND stock_quantity > 0 AND stock_quantity <= reorder_level
     ORDER BY stock_quantity ASC
     LIMIT 5
 ");
@@ -531,7 +533,7 @@ if ($lowStockQuery) {
 $outStockQuery = $conn->query("
     SELECT product_name
     FROM products
-    WHERE stock_quantity <= 0
+    WHERE business_id = {$businessId} AND stock_quantity <= 0
     ORDER BY updated_at DESC
     LIMIT 5
 ");
@@ -552,7 +554,8 @@ if ($outStockQuery) {
 $movementStmt = $conn->prepare("
     SELECT sm.movement_type, sm.quantity, sm.created_at, p.product_name
     FROM stock_movements sm
-    INNER JOIN products p ON p.id = sm.product_id
+    INNER JOIN products p ON p.id = sm.product_id AND p.business_id = {$businessId}
+    WHERE sm.business_id = {$businessId}
     ORDER BY sm.created_at DESC
     LIMIT 6
 ");
@@ -582,6 +585,7 @@ $movementStmt->close();
 $newProductStmt = $conn->prepare("
     SELECT product_name, created_at
     FROM products
+    WHERE business_id = {$businessId}
     ORDER BY created_at DESC
     LIMIT 4
 ");
@@ -640,6 +644,7 @@ if (isset($_SESSION['success'])) {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <?php include __DIR__ . '/theme_init.php'; ?>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sales Analytics - NexGen</title>
 
@@ -647,6 +652,7 @@ if (isset($_SESSION['success'])) {
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="/NexGen/CODE/STYLE/header.css">
     <link rel="stylesheet" href="/NexGen/CODE/STYLE/sales_analytics.css?v=2">
+    <link rel="stylesheet" href="/NexGen/CODE/STYLE/module_footer.css">
 </head>
 <body>
 
@@ -988,6 +994,11 @@ if (isset($_SESSION['success'])) {
 
         </div>
     </main>
+
+    <footer class="nx-footer">
+        <div class="nx-footer-line"></div>
+        <p class="nx-footer-copy">Copyright &copy; 2026 NexGen.</p>
+    </footer>
 </div>
 
 <div class="modal fade" id="notificationsModal" tabindex="-1" aria-hidden="true">

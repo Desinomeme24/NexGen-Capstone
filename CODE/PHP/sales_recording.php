@@ -20,9 +20,9 @@ $user_id = $_SESSION['user_id'];
 $filter = isset($_GET['filter']) ? $_GET['filter'] : 'All';
 $search = isset($_GET['search']) ? trim($_GET['search']) : '';
 
-$period = isset($_GET['period']) ? $_GET['period'] : 'all';
-if (!in_array($period, ['all', 'daily', 'weekly', 'monthly', 'annual', 'range'], true)) {
-    $period = 'all';
+$period = isset($_GET['period']) ? $_GET['period'] : 'daily';
+if (!in_array($period, ['daily', 'range'], true)) {
+    $period = 'daily';
 }
 
 $refDateInput = isset($_GET['ref_date']) ? trim($_GET['ref_date']) : date('Y-m-d');
@@ -35,6 +35,8 @@ if (!$refDate) {
 $dateFromInput = isset($_GET['date_from']) ? trim($_GET['date_from']) : '';
 $dateToInput = isset($_GET['date_to']) ? trim($_GET['date_to']) : '';
 
+$cashierId = isset($_GET['cashier_id']) ? (int)$_GET['cashier_id'] : 0;
+
 $dateStart = null;
 $dateEnd = null;
 $periodLabel = 'All Time';
@@ -43,7 +45,7 @@ switch ($period) {
     case 'daily':
         $dateStart = (clone $refDate)->setTime(0, 0, 0);
         $dateEnd = (clone $refDate)->setTime(23, 59, 59);
-        $periodLabel = 'Day: ' . $dateStart->format('M d, Y');
+        $periodLabel = ($refDateInput === date('Y-m-d')) ? 'Today' : 'Day: ' . $dateStart->format('M d, Y');
         break;
     case 'weekly':
         $dateStart = (clone $refDate)->modify('monday this week')->setTime(0, 0, 0);
@@ -71,7 +73,10 @@ switch ($period) {
             $dateEnd = (clone $toObj)->setTime(23, 59, 59);
             $periodLabel = 'Range: ' . $dateStart->format('M d, Y') . ' - ' . $dateEnd->format('M d, Y');
         } else {
-            $period = 'all';
+            $period = 'daily';
+            $dateStart = (clone $refDate)->setTime(0, 0, 0);
+            $dateEnd = (clone $refDate)->setTime(23, 59, 59);
+            $periodLabel = ($refDateInput === date('Y-m-d')) ? 'Today' : 'Day: ' . $dateStart->format('M d, Y');
         }
         break;
 }
@@ -95,6 +100,12 @@ if (!empty($search)) {
     $params[] = $like;
     $params[] = $like;
     $types .= "ss";
+}
+
+if ($cashierId > 0) {
+    $where .= " AND s.salesperson_id = ? ";
+    $params[] = $cashierId;
+    $types .= "i";
 }
 
 if ($dateStart && $dateEnd) {
@@ -137,6 +148,11 @@ $result = $stmt->get_result();
 $summaryWhere = " WHERE business_id = ? ";
 $summaryParams = [$businessId];
 $summaryTypes = "i";
+if ($cashierId > 0) {
+    $summaryWhere .= " AND salesperson_id = ? ";
+    $summaryParams[] = $cashierId;
+    $summaryTypes .= "i";
+}
 if ($dateStart && $dateEnd) {
     $summaryWhere .= " AND sale_date BETWEEN ? AND ? ";
     $summaryParams[] = $dateStart->format('Y-m-d H:i:s');
@@ -206,6 +222,24 @@ if ($customerStmt) {
         $customerList[] = $row;
     }
     $customerStmt->close();
+}
+
+$cashierList = [];
+$cashierStmt = $conn->prepare("
+    SELECT DISTINCT u.id, u.full_name
+    FROM sales s
+    JOIN users u ON s.salesperson_id = u.id
+    WHERE s.business_id = ?
+    ORDER BY u.full_name ASC
+");
+if ($cashierStmt) {
+    $cashierStmt->bind_param("i", $businessId);
+    $cashierStmt->execute();
+    $cashiers = $cashierStmt->get_result();
+    while ($row = $cashiers->fetch_assoc()) {
+        $cashierList[] = $row;
+    }
+    $cashierStmt->close();
 }
 
 function generateSalesNo() {
@@ -498,59 +532,58 @@ unset($_SESSION['success'], $_SESSION['error']);
 
         <?php
             $filters = ['All', 'Paid', 'Unpaid', 'Partially Paid', 'Fulfilled', 'Pending'];
-            $periods = [
-                'all' => 'All Time',
-                'daily' => 'Daily',
-                'weekly' => 'Weekly',
-                'monthly' => 'Monthly',
-                'annual' => 'Annual',
+            $salesBaseParams = [
+                'filter' => $filter,
+                'search' => $search,
+                'period' => $period,
+                'ref_date' => $refDateInput,
+                'date_from' => $dateFromInput,
+                'date_to' => $dateToInput,
+                'cashier_id' => $cashierId,
             ];
-            function salesFilterHref($f, $search, $period, $refDateInput, $dateFromInput, $dateToInput) {
-                return '?' . http_build_query(['filter' => $f, 'search' => $search, 'period' => $period, 'ref_date' => $refDateInput, 'date_from' => $dateFromInput, 'date_to' => $dateToInput]);
-            }
-            function salesPeriodHref($p, $filter, $search, $refDateInput) {
-                return '?' . http_build_query(['filter' => $filter, 'search' => $search, 'period' => $p, 'ref_date' => $refDateInput]);
+            function salesHref($overrides, $base) {
+                return '?' . http_build_query(array_merge($base, $overrides));
             }
         ?>
 
         <!-- KPI OVERVIEW -->
         <div class="kpi-strip">
-            <a href="<?php echo salesFilterHref('All', $search, $period, $refDateInput, $dateFromInput, $dateToInput); ?>" class="kpi-tile kpi-neutral <?php echo ($filter === 'All') ? 'active' : ''; ?>">
+            <a href="<?php echo salesHref(['filter' => 'All'], $salesBaseParams); ?>" class="kpi-tile kpi-neutral <?php echo ($filter === 'All') ? 'active' : ''; ?>">
                 <i class="bi bi-receipt-cutoff"></i>
                 <div>
                     <small>Total Orders</small>
                     <strong><?php echo (int)($summary['total_orders'] ?? 0); ?></strong>
                 </div>
             </a>
-            <a href="<?php echo salesFilterHref('Paid', $search, $period, $refDateInput, $dateFromInput, $dateToInput); ?>" class="kpi-tile kpi-green <?php echo ($filter === 'Paid') ? 'active' : ''; ?>">
+            <a href="<?php echo salesHref(['filter' => 'Paid'], $salesBaseParams); ?>" class="kpi-tile kpi-green <?php echo ($filter === 'Paid') ? 'active' : ''; ?>">
                 <i class="bi bi-check-circle"></i>
                 <div>
                     <small>Paid</small>
                     <strong><?php echo (int)($summary['paid_count'] ?? 0); ?></strong>
                 </div>
             </a>
-            <a href="<?php echo salesFilterHref('Unpaid', $search, $period, $refDateInput, $dateFromInput, $dateToInput); ?>" class="kpi-tile kpi-slate <?php echo ($filter === 'Unpaid') ? 'active' : ''; ?>">
+            <a href="<?php echo salesHref(['filter' => 'Unpaid'], $salesBaseParams); ?>" class="kpi-tile kpi-slate <?php echo ($filter === 'Unpaid') ? 'active' : ''; ?>">
                 <i class="bi bi-x-circle"></i>
                 <div>
                     <small>Unpaid</small>
                     <strong><?php echo (int)($summary['unpaid_count'] ?? 0); ?></strong>
                 </div>
             </a>
-            <a href="<?php echo salesFilterHref('Partially Paid', $search, $period, $refDateInput, $dateFromInput, $dateToInput); ?>" class="kpi-tile kpi-gold <?php echo ($filter === 'Partially Paid') ? 'active' : ''; ?>">
+            <a href="<?php echo salesHref(['filter' => 'Partially Paid'], $salesBaseParams); ?>" class="kpi-tile kpi-gold <?php echo ($filter === 'Partially Paid') ? 'active' : ''; ?>">
                 <i class="bi bi-hourglass-split"></i>
                 <div>
                     <small>Partially Paid</small>
                     <strong><?php echo (int)($summary['partial_count'] ?? 0); ?></strong>
                 </div>
             </a>
-            <a href="<?php echo salesFilterHref('Fulfilled', $search, $period, $refDateInput, $dateFromInput, $dateToInput); ?>" class="kpi-tile kpi-gold <?php echo ($filter === 'Fulfilled') ? 'active' : ''; ?>">
+            <a href="<?php echo salesHref(['filter' => 'Fulfilled'], $salesBaseParams); ?>" class="kpi-tile kpi-gold <?php echo ($filter === 'Fulfilled') ? 'active' : ''; ?>">
                 <i class="bi bi-box-seam"></i>
                 <div>
                     <small>Fulfilled</small>
                     <strong><?php echo (int)($summary['fulfilled_count'] ?? 0); ?></strong>
                 </div>
             </a>
-            <a href="<?php echo salesFilterHref('Pending', $search, $period, $refDateInput, $dateFromInput, $dateToInput); ?>" class="kpi-tile kpi-blue <?php echo ($filter === 'Pending') ? 'active' : ''; ?>">
+            <a href="<?php echo salesHref(['filter' => 'Pending'], $salesBaseParams); ?>" class="kpi-tile kpi-blue <?php echo ($filter === 'Pending') ? 'active' : ''; ?>">
                 <i class="bi bi-clock-history"></i>
                 <div>
                     <small>Pending</small>
@@ -581,6 +614,7 @@ unset($_SESSION['success'], $_SESSION['error']);
                 <input type="hidden" name="ref_date" value="<?php echo htmlspecialchars($refDateInput); ?>">
                 <input type="hidden" name="date_from" value="<?php echo htmlspecialchars($dateFromInput); ?>">
                 <input type="hidden" name="date_to" value="<?php echo htmlspecialchars($dateToInput); ?>">
+                <input type="hidden" name="cashier_id" value="<?php echo (int)$cashierId; ?>">
                 <i class="bi bi-search"></i>
                 <input type="text" name="search" placeholder="Search sales no. or cashier..." value="<?php echo htmlspecialchars($search); ?>">
                 <button type="submit" class="search-btn"><i class="bi bi-arrow-right-circle"></i></button>
@@ -594,7 +628,7 @@ unset($_SESSION['success'], $_SESSION['error']);
                     <div class="icon-filter-dropdown" id="statusFilterDropdown">
                         <span class="icon-filter-dropdown-title">Filter by Status</span>
                         <?php foreach ($filters as $f): ?>
-                            <a href="<?php echo salesFilterHref($f, $search, $period, $refDateInput, $dateFromInput, $dateToInput); ?>" class="filter-pill <?php echo ($filter === $f) ? 'active' : ''; ?>">
+                            <a href="<?php echo salesHref(['filter' => $f], $salesBaseParams); ?>" class="filter-pill <?php echo ($filter === $f) ? 'active' : ''; ?>">
                                 <?php echo htmlspecialchars($f); ?>
                             </a>
                         <?php endforeach; ?>
@@ -602,30 +636,16 @@ unset($_SESSION['success'], $_SESSION['error']);
                 </div>
 
                 <div class="icon-filter-wrap">
-                    <button type="button" class="icon-filter-btn <?php echo ($period !== 'all') ? 'has-active' : ''; ?>" data-dropdown-toggle="dateFilterDropdown" aria-haspopup="true" aria-expanded="false" aria-label="Filter by date">
+                    <button type="button" class="icon-filter-btn <?php echo ($period === 'range') ? 'has-active' : ''; ?>" data-dropdown-toggle="dateFilterDropdown" aria-haspopup="true" aria-expanded="false" aria-label="Filter by date">
                         <i class="bi bi-calendar3"></i>
                     </button>
                     <div class="icon-filter-dropdown" id="dateFilterDropdown">
                         <span class="icon-filter-dropdown-title">Filter by Date</span>
-                        <div class="period-pill-grid">
-                            <?php foreach ($periods as $pKey => $pLabel): ?>
-                                <a href="<?php echo salesPeriodHref($pKey, $filter, $search, $refDateInput); ?>" class="filter-pill <?php echo ($period === $pKey) ? 'active' : ''; ?>">
-                                    <?php echo htmlspecialchars($pLabel); ?>
-                                </a>
-                            <?php endforeach; ?>
-                        </div>
-
-                        <form class="date-jump-form" method="GET" action="">
-                            <input type="hidden" name="filter" value="<?php echo htmlspecialchars($filter); ?>">
-                            <input type="hidden" name="search" value="<?php echo htmlspecialchars($search); ?>">
-                            <input type="hidden" name="period" value="<?php echo htmlspecialchars($period === 'all' ? 'daily' : $period); ?>">
-                            <label for="refDatePicker" class="date-jump-label"><i class="bi bi-calendar-event"></i> Pick any date</label>
-                            <input type="date" name="ref_date" id="refDatePicker" value="<?php echo htmlspecialchars($refDateInput); ?>" onchange="this.form.submit()">
-                        </form>
 
                         <form class="date-range-form" method="GET" action="">
                             <input type="hidden" name="filter" value="<?php echo htmlspecialchars($filter); ?>">
                             <input type="hidden" name="search" value="<?php echo htmlspecialchars($search); ?>">
+                            <input type="hidden" name="cashier_id" value="<?php echo (int)$cashierId; ?>">
                             <input type="hidden" name="ref_date" value="<?php echo htmlspecialchars($refDateInput); ?>">
                             <input type="hidden" name="period" value="range">
                             <label class="date-jump-label"><i class="bi bi-calendar-range"></i> Date range</label>
@@ -636,6 +656,32 @@ unset($_SESSION['success'], $_SESSION['error']);
                             </div>
                             <button type="submit" class="date-range-apply">Apply Range</button>
                         </form>
+
+                        <a href="<?php echo salesHref(['period' => 'daily', 'ref_date' => date('Y-m-d'), 'date_from' => '', 'date_to' => ''], $salesBaseParams); ?>" class="date-range-reset">
+                            <i class="bi bi-arrow-counterclockwise"></i> Reset to Today
+                        </a>
+                    </div>
+                </div>
+
+                <div class="icon-filter-wrap">
+                    <button type="button" class="icon-filter-btn <?php echo ($cashierId > 0) ? 'has-active' : ''; ?>" data-dropdown-toggle="cashierFilterDropdown" aria-haspopup="true" aria-expanded="false" aria-label="Filter by cashier">
+                        <i class="bi bi-person-badge"></i>
+                    </button>
+                    <div class="icon-filter-dropdown" id="cashierFilterDropdown">
+                        <span class="icon-filter-dropdown-title">Filter by Cashier</span>
+                        <div class="cashier-pill-list">
+                            <a href="<?php echo salesHref(['cashier_id' => 0], $salesBaseParams); ?>" class="filter-pill <?php echo ($cashierId === 0) ? 'active' : ''; ?>">
+                                All Cashiers
+                            </a>
+                            <?php foreach ($cashierList as $c): ?>
+                                <a href="<?php echo salesHref(['cashier_id' => (int)$c['id']], $salesBaseParams); ?>" class="filter-pill <?php echo ($cashierId === (int)$c['id']) ? 'active' : ''; ?>">
+                                    <?php echo htmlspecialchars($c['full_name']); ?>
+                                </a>
+                            <?php endforeach; ?>
+                            <?php if (empty($cashierList)): ?>
+                                <p class="cashier-pill-empty">No cashiers with recorded sales yet.</p>
+                            <?php endif; ?>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -651,8 +697,24 @@ unset($_SESSION['success'], $_SESSION['error']);
             <div class="sales-ledger-header">
                 <div>
                     <h2>Sales Ledger</h2>
-                    <?php if ($period !== 'all'): ?>
-                        <p class="sales-ledger-subtitle"><?php echo htmlspecialchars($periodLabel); ?></p>
+                    <?php
+                        $subtitleParts = [];
+                        if ($period !== 'all') {
+                            $subtitleParts[] = $periodLabel;
+                        }
+                        if ($cashierId > 0) {
+                            $cashierName = 'Selected Cashier';
+                            foreach ($cashierList as $c) {
+                                if ((int)$c['id'] === $cashierId) {
+                                    $cashierName = $c['full_name'];
+                                    break;
+                                }
+                            }
+                            $subtitleParts[] = 'Cashier: ' . $cashierName;
+                        }
+                    ?>
+                    <?php if (!empty($subtitleParts)): ?>
+                        <p class="sales-ledger-subtitle"><?php echo htmlspecialchars(implode(' · ', $subtitleParts)); ?></p>
                     <?php endif; ?>
                 </div>
                 <span class="sales-count-chip"><?php echo (int)$result->num_rows; ?> record<?php echo ($result->num_rows === 1) ? '' : 's'; ?></span>

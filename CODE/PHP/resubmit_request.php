@@ -28,15 +28,42 @@ if ($requestId <= 0 || $remarks === '') {
 
 $reviewedAt = date('Y-m-d H:i:s');
 
-// Fetch request details for the email BEFORE updating
+// Fetch the request before updating. Only a currently pending request may be
+// sent for resubmission; approved/rejected requests are final, and an existing
+// resubmit request must first be corrected by the applicant.
 $requestData = null;
-$stmtFetch = $conn->prepare("SELECT full_name, email FROM registration_requests WHERE id = ? LIMIT 1");
-if ($stmtFetch) {
-    $stmtFetch->bind_param("i", $requestId);
-    $stmtFetch->execute();
-    $resFetch = $stmtFetch->get_result();
-    $requestData = $resFetch->fetch_assoc();
-    $stmtFetch->close();
+$stmtFetch = $conn->prepare("SELECT full_name, email, request_status FROM registration_requests WHERE id = ? LIMIT 1");
+if (!$stmtFetch) {
+    $_SESSION['flash'] = [
+        'type' => 'notice-error',
+        'message' => 'Failed to read the registration request.'
+    ];
+    header("Location: pending_requests.php");
+    exit();
+}
+
+$stmtFetch->bind_param("i", $requestId);
+$stmtFetch->execute();
+$resFetch = $stmtFetch->get_result();
+$requestData = $resFetch->fetch_assoc();
+$stmtFetch->close();
+
+if (!$requestData) {
+    $_SESSION['flash'] = [
+        'type' => 'notice-error',
+        'message' => 'Registration request not found.'
+    ];
+    header("Location: pending_requests.php");
+    exit();
+}
+
+if ($requestData['request_status'] !== 'pending') {
+    $_SESSION['flash'] = [
+        'type' => 'notice-error',
+        'message' => 'Only pending requests can be sent for resubmission.'
+    ];
+    header("Location: view_request.php?id=" . $requestId);
+    exit();
 }
 
 $stmt = $conn->prepare("
@@ -46,6 +73,7 @@ $stmt = $conn->prepare("
         reviewed_by = ?,
         reviewed_at = ?
     WHERE id = ?
+      AND request_status = 'pending'
 ");
 
 if (!$stmt) {
@@ -59,7 +87,7 @@ if (!$stmt) {
 
 $stmt->bind_param("sisi", $remarks, $adminId, $reviewedAt, $requestId);
 
-if ($stmt->execute()) {
+if ($stmt->execute() && $stmt->affected_rows === 1) {
     $stmt->close();
 
     $description = "Marked request #{$requestId} for resubmission";
@@ -97,7 +125,7 @@ if ($stmt->execute()) {
 
     $_SESSION['flash'] = [
         'type'    => 'notice-error',
-        'message' => 'Failed to update the request.'
+        'message' => 'The request was not sent for resubmission. Its status may have already been changed.'
     ];
 }
 

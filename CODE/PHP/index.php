@@ -3664,10 +3664,11 @@ html[data-theme="light"] .trust-card .trust-desc { color: #2d4570; }
       <li class="has-dropdown">
         <a href="javascript:void(0)">Pages ▾</a>
         <div class="dropdown-menu">
-          <a href="#" title="Facebook"><i class="fab fa-facebook-f"></i></a>
-          <a href="#" title="Twitter"><i class="fab fa-x-twitter"></i></a>
-          <a href="#" title="Instagram"><i class="fab fa-instagram"></i></a>
-          <a href="#" title="TikTok"><i class="fab fa-tiktok"></i></a>
+          <a href="https://www.facebook.com/share/1CuKN9qY3g/" title="Facebook"><i class="fab fa-facebook-f"></i></a>
+          <a href="https://x.com/NexGenX2026" title="Twitter"><i class="fab fa-x-twitter"></i></a>
+          <a href="https://www.instagram.com/nexgen.enterprises26?igsh=MTB5bDNod3lubjhjdw==" title="Instagram"><i class="fab fa-instagram"></i></a>
+          <a href="https://www.tiktok.com/@nexgen.enterprise4?_r=1&_t=ZS-98Vx2jSAL3q
+" title="TikTok"><i class="fab fa-tiktok"></i></a>
         </div>
       </li>
       <li><a href="#footer">Contact Us</a></li>

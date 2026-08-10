@@ -43,6 +43,13 @@ $filePath = $request['valid_id_path'] ?? '';
 $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
 $isImage = in_array($ext, ['jpg','jpeg','png','gif','webp'], true);
 $isPdf = ($ext === 'pdf');
+
+// Request workflow rules:
+// pending  -> approve / reject / resubmit
+// resubmit -> approve / reject
+// approved/rejected are final and cannot be changed.
+$currentStatus = strtolower((string)($request['request_status'] ?? 'pending'));
+$isFinalized = in_array($currentStatus, ['approved', 'rejected'], true);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -543,30 +550,38 @@ $isPdf = ($ext === 'pdf');
                 <h2>Admin Actions</h2>
             </div>
             <div class="panel-body">
-                <form id="adminActionForm" method="POST" class="request-action-form modern-action-form" data-confirm-message="Are you sure you want to continue?">
-                    <input type="hidden" name="request_id" value="<?php echo (int)$request['id']; ?>">
+                <?php if ($isFinalized): ?>
+                    <div class="notice <?php echo $currentStatus === 'approved' ? 'notice-success' : 'notice-error'; ?>">
+                        This request has already been <strong><?php echo e($currentStatus); ?></strong> and is final. No further status changes are allowed.
+                    </div>
+                <?php else: ?>
+                    <form id="adminActionForm" method="POST" class="request-action-form modern-action-form" data-confirm-message="Are you sure you want to continue?">
+                        <input type="hidden" name="request_id" value="<?php echo (int)$request['id']; ?>">
 
-                    <div class="modern-field">
-                        <label>Select Action</label>
-                        <div class="modern-select-shell">
-                            <select name="action_type" id="actionSelect" required>
-                                <option value="" disabled selected>Choose an action</option>
-                                <option value="approve">Approve Request</option>
-                                <option value="reject">Reject Request</option>
-                                <option value="resubmit">Send for Resubmission</option>
-                            </select>
+                        <div class="modern-field">
+                            <label>Select Action</label>
+                            <div class="modern-select-shell">
+                                <select name="action_type" id="actionSelect" required>
+                                    <option value="" disabled selected>Choose an action</option>
+                                    <option value="approve">Approve Request</option>
+                                    <option value="reject">Reject Request</option>
+                                    <?php if ($currentStatus === 'pending'): ?>
+                                        <option value="resubmit">Send for Resubmission</option>
+                                    <?php endif; ?>
+                                </select>
+                            </div>
                         </div>
-                    </div>
 
-                    <div class="modern-field" id="remarksWrapper">
-                        <label id="remarksLabel">Remarks</label>
-                        <textarea name="remarks" id="remarksInput" class="modern-textarea" placeholder="Add remarks" rows="2"></textarea>
-                    </div>
+                        <div class="modern-field" id="remarksWrapper">
+                            <label id="remarksLabel">Remarks</label>
+                            <textarea name="remarks" id="remarksInput" class="modern-textarea" placeholder="Add remarks" rows="2"></textarea>
+                        </div>
 
-                    <div class="form-actions">
-                        <button class="modern-submit-btn" id="submitActionBtn" type="submit" disabled>Submit</button>
-                    </div>
-                </form>
+                        <div class="form-actions">
+                            <button class="modern-submit-btn" id="submitActionBtn" type="submit" disabled>Submit</button>
+                        </div>
+                    </form>
+                <?php endif; ?>
             </div>
         </section>
             

@@ -27,7 +27,7 @@ if (isset($_SESSION['success'])) {
 <?php if (!empty($popupMessage)): ?>
     <div class="popup-overlay" id="popupOverlay">
         <div class="popup-box <?php echo $popupType; ?>" id="popupBox">
-            <div class="popup-icon"><?php echo $popupType === 'success' ? '✓' : '!'; ?></div>
+            <div class="popup-icon"><?php echo $popupType === 'success' ? '��✓' : '!'; ?></div>
             <h3><?php echo $popupType === 'success' ? 'Success' : 'Error'; ?></h3>
             <p><?php echo htmlspecialchars($popupMessage); ?></p>
         </div>
@@ -39,11 +39,11 @@ if (isset($_SESSION['success'])) {
         <img src="/NexGen/IMAGES/NGlogo.png" alt="Logo" class="forgot-logo">
 
         <h1>Forgot Password</h1>
-        <p class="subtext">Enter your email to receive a 6-digit OTP.</p>
+        <p class="subtext">Enter your username or email to receive a 6-digit OTP.</p>
 
         <form action="/NexGen/CODE/PHP/send_forgot_otp.php" method="POST">
-            <label>Email Address</label>
-            <input type="email" name="email" required placeholder="Enter your email">
+            <label>Username or Email Address</label>
+            <input type="text" name="identifier" required placeholder="Enter your username or email">
 
             <button type="submit" class="main-btn">Send OTP</button>
         </form>

@@ -1,6 +1,6 @@
 <?php
 require_once 'config.php';
-require_once 'resend_config.php';
+require_once 'mailer_config.php';
 
 date_default_timezone_set('Asia/Manila');
 
@@ -14,113 +14,6 @@ function forgotPasswordRedirect(
     exit();
 }
 
-/**
- * Send email through Resend's HTTPS REST API.
- *
- * @return array{success: bool, email_id?: string, error?: string}
- */
-function sendResendEmail(
-    string $recipientEmail,
-    string $recipientName,
-    string $subject,
-    string $textContent
-): array {
-    if (!function_exists('curl_init')) {
-        return [
-            'success' => false,
-            'error' => 'PHP cURL extension is not enabled.'
-        ];
-    }
-
-    if (
-        !defined('RESEND_API_KEY') ||
-        RESEND_API_KEY === '' ||
-        RESEND_API_KEY === 'PASTE_YOUR_RESEND_API_KEY_HERE'
-    ) {
-        return [
-            'success' => false,
-            'error' => 'Resend API key has not been configured.'
-        ];
-    }
-
-    $from = RESEND_FROM_NAME . ' <' . RESEND_FROM_EMAIL . '>';
-
-    $payload = [
-        'from' => $from,
-        'to' => [$recipientEmail],
-        'subject' => $subject,
-        'text' => $textContent
-    ];
-
-    $jsonPayload = json_encode(
-        $payload,
-        JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE
-    );
-
-    if ($jsonPayload === false) {
-        return [
-            'success' => false,
-            'error' => 'Unable to encode Resend request.'
-        ];
-    }
-
-    $ch = curl_init('https://api.resend.com/emails');
-
-    curl_setopt_array($ch, [
-        CURLOPT_POST => true,
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_CONNECTTIMEOUT => 10,
-        CURLOPT_TIMEOUT => 20,
-        CURLOPT_HTTPHEADER => [
-            'Authorization: Bearer ' . RESEND_API_KEY,
-            'Content-Type: application/json'
-        ],
-        CURLOPT_POSTFIELDS => $jsonPayload
-    ]);
-
-    $response = curl_exec($ch);
-    $curlError = curl_error($ch);
-    $httpStatus = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-
-    curl_close($ch);
-
-    if ($response === false) {
-        return [
-            'success' => false,
-            'error' => 'HTTPS connection error: ' . $curlError
-        ];
-    }
-
-    $decoded = json_decode($response, true);
-
-    if ($httpStatus < 200 || $httpStatus >= 300) {
-        $apiMessage = '';
-
-        if (is_array($decoded)) {
-            $apiMessage = (string) (
-                $decoded['message']
-                ?? $decoded['error']['message']
-                ?? $decoded['name']
-                ?? ''
-            );
-        }
-
-        return [
-            'success' => false,
-            'error' => 'Resend API returned HTTP ' . $httpStatus .
-                ($apiMessage !== '' ? ': ' . $apiMessage : '')
-        ];
-    }
-
-    return [
-        'success' => true,
-        'email_id' => is_array($decoded)
-            ? (string)($decoded['id'] ?? '')
-            : ''
-    ];
-}
-
-
 /*
 |--------------------------------------------------------------------------
 | VALIDATE REQUEST
@@ -131,16 +24,11 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     forgotPasswordRedirect('Invalid request.');
 }
 
-$email = trim($_POST['email'] ?? '');
+$identifier = trim($_POST['identifier'] ?? '');
 
-if ($email === '') {
-    forgotPasswordRedirect('Please enter your email address.');
+if ($identifier === '') {
+    forgotPasswordRedirect('Please enter your username or email address.');
 }
-
-if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-    forgotPasswordRedirect('Please enter a valid email address.');
-}
-
 
 /*
 |--------------------------------------------------------------------------
@@ -151,7 +39,7 @@ if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
 $stmt = $conn->prepare(
     'SELECT id, email, full_name
      FROM users
-     WHERE email = ?
+     WHERE username = ? OR email = ?
      LIMIT 1'
 );
 
@@ -162,14 +50,14 @@ if (!$stmt) {
     );
 }
 
-$stmt->bind_param('s', $email);
+$stmt->bind_param('ss', $identifier, $identifier);
 $stmt->execute();
 
 $user = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
 if (!$user) {
-    forgotPasswordRedirect('No account found with that email.');
+    forgotPasswordRedirect('No account found with that username or email.');
 }
 
 
@@ -206,23 +94,23 @@ $emailBody =
 
 /*
 |--------------------------------------------------------------------------
-| SEND THROUGH RESEND HTTPS API
+| SEND THROUGH PHPMAILER
 |--------------------------------------------------------------------------
 */
 
-$sendResult = sendResendEmail(
-    (string)$user['email'],
-    $recipientName,
-    'NexGen Password Reset OTP',
-    $emailBody
-);
+try {
+    $mail = createMailer();
+    $mail->addAddress($user['email'], $recipientName);
+    $mail->Subject = 'NexGen Password Reset OTP';
+    $mail->Body    = $emailBody;
 
-if (!$sendResult['success']) {
+    $mail->send();
+} catch (Exception $e) {
     error_log(
-        'Forgot password Resend error for user ID ' .
+        'Forgot PHPMailer error for user ID ' .
         (int)$user['id'] .
         ': ' .
-        ($sendResult['error'] ?? 'Unknown Resend error')
+        $e->getMessage()
     );
 
     forgotPasswordRedirect(
@@ -233,7 +121,7 @@ if (!$sendResult['success']) {
 
 /*
 |--------------------------------------------------------------------------
-| STORE OTP ONLY AFTER RESEND ACCEPTS THE EMAIL
+| STORE OTP ONLY AFTER EMAIL SENT SUCCESSFULLY
 |--------------------------------------------------------------------------
 */
 

@@ -1,5 +1,5 @@
 <?php
-session_start()
+session_start();
 require_once("config.php");
 require_once("mailer_config.php");
 
@@ -25,15 +25,35 @@ if ($requestId <= 0 || $remarks === '') {
 
 $reviewedAt = date('Y-m-d H:i:s');
 
-// Fetch request details for the email BEFORE updating
+// Fetch the request before updating so we can validate its current status
+// and use the applicant details for the notification email.
 $requestData = null;
-$stmtFetch = $conn->prepare("SELECT full_name, email FROM registration_requests WHERE id = ? LIMIT 1");
-if ($stmtFetch) {
-    $stmtFetch->bind_param("i", $requestId);
-    $stmtFetch->execute();
-    $resFetch = $stmtFetch->get_result();
-    $requestData = $resFetch->fetch_assoc();
-    $stmtFetch->close();
+$stmtFetch = $conn->prepare("SELECT full_name, email, request_status FROM registration_requests WHERE id = ? LIMIT 1");
+if (!$stmtFetch) {
+    $_SESSION['flash'] = ['type' => 'notice-error', 'message' => 'Failed to read the registration request.'];
+    header("Location: pending_requests.php");
+    exit();
+}
+
+$stmtFetch->bind_param("i", $requestId);
+$stmtFetch->execute();
+$resFetch = $stmtFetch->get_result();
+$requestData = $resFetch->fetch_assoc();
+$stmtFetch->close();
+
+if (!$requestData) {
+    $_SESSION['flash'] = ['type' => 'notice-error', 'message' => 'Registration request not found.'];
+    header("Location: pending_requests.php");
+    exit();
+}
+
+if (!in_array($requestData['request_status'], ['pending', 'resubmit'], true)) {
+    $_SESSION['flash'] = [
+        'type' => 'notice-error',
+        'message' => 'This request is already finalized and can no longer be rejected.'
+    ];
+    header("Location: view_request.php?id=" . $requestId);
+    exit();
 }
 
 $stmt = $conn->prepare("
@@ -43,10 +63,18 @@ $stmt = $conn->prepare("
         reviewed_by = ?,
         reviewed_at = ?
     WHERE id = ?
+      AND request_status IN ('pending', 'resubmit')
 ");
+
+if (!$stmt) {
+    $_SESSION['flash'] = ['type' => 'notice-error', 'message' => 'Failed to prepare the rejection update.'];
+    header("Location: pending_requests.php");
+    exit();
+}
+
 $stmt->bind_param("sisi", $remarks, $adminId, $reviewedAt, $requestId);
 
-if ($stmt->execute()) {
+if ($stmt->execute() && $stmt->affected_rows === 1) {
     $stmt->close();
 
     $description = "Rejected request #{$requestId}";
@@ -76,7 +104,11 @@ if ($stmt->execute()) {
     // =========================================================================
 
 } else {
-    $_SESSION['flash'] = ['type' => 'notice-error', 'message' => 'Failed to reject the request.'];
+    $stmt->close();
+    $_SESSION['flash'] = [
+        'type' => 'notice-error',
+        'message' => 'The request was not rejected. Its status may have already been changed or finalized.'
+    ];
 }
 
 header("Location: pending_requests.php");

@@ -91,19 +91,21 @@ $types = "";
 
 if ($search !== '') {
     $where .= " AND (
-        u.full_name LIKE ?
+        u.employee_no LIKE ?
+        OR u.full_name LIKE ?
         OR u.email LIKE ?
         OR u.phone LIKE ?
         OR u.role LIKE ?
     ) ";
     $like = "%{$search}%";
-    $params = [$like, $like, $like, $like];
-    $types = "ssss";
+    $params = [$like, $like, $like, $like, $like];
+    $types = "sssss";
 }
 
 $sql = "
     SELECT
         u.id,
+        u.employee_no,
         u.full_name,
         u.email,
         u.phone,
@@ -147,43 +149,46 @@ function renderAccountsTable(array $accounts): void
         <table>
             <colgroup>
                 <col style="width: 80px;">
+                <col style="width: 150px;">
                 <col style="width: 240px;">
-                <col style="width: 280px;">
-                <col style="width: 170px;">
+                <col style="width: 270px;">
+                <col style="width: 160px;">
+                <col style="width: 160px;">
                 <col style="width: 150px;">
-                <col style="width: 150px;">
-                <col style="width: 190px;">
+                <col style="width: 180px;">
             </colgroup>
             <thead>
                 <tr>
                     <th>ID</th>
+                    <th>EMPLOYEE NO</th>
                     <th>FULL NAME</th>
                     <th>EMAIL</th>
                     <th>PHONE</th>
-                    <th class="admin-col-center">POSITION</th>
-                    <th class="admin-col-center">STATUS</th>
-                    <th class="admin-col-center">CREATED</th>
+                    <th>POSITION</th>
+                    <th>STATUS</th>
+                    <th>CREATED</th>
                 </tr>
             </thead>
             <tbody>
             <?php if (empty($accounts)): ?>
                 <tr>
-                    <td colspan="7">No account records found.</td>
+                    <td colspan="8">No account records found.</td>
                 </tr>
             <?php else: ?>
                 <?php foreach ($accounts as $acc): ?>
                     <tr>
                         <td class="id-col"><?php echo (int)$acc['id']; ?></td>
+                        <td class="empno-col"><?php echo e($acc['employee_no']); ?></td>
                         <td><?php echo e($acc['full_name']); ?></td>
                         <td><?php echo e($acc['email']); ?></td>
                         <td><?php echo e($acc['phone']); ?></td>
-                        <td class="position-col admin-col-center"><?php echo e($acc['position']); ?></td>
-                        <td class="status-col admin-col-center">
+                        <td class="position-col"><?php echo e($acc['position']); ?></td>
+                        <td class="status-col">
                             <span class="<?php echo e(statusBadgeClass((string)$acc['visibility_status'])); ?>">
                                 <?php echo e(ucfirst((string)$acc['visibility_status'])); ?>
                             </span>
                         </td>
-                        <td class="created-col admin-col-center">
+                        <td class="created-col">
                             <?php echo !empty($acc['created_at']) ? e(date('M d, Y h:i A', strtotime($acc['created_at']))) : '—'; ?>
                         </td>
                     </tr>
@@ -239,6 +244,17 @@ if (
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Accounts Masterlist - NextGen</title>
+    <script>
+        /* THEME: apply saved preference before first paint to avoid a flash */
+        (function () {
+            try {
+                var saved = localStorage.getItem('nexgen-theme');
+                if (saved === 'light' || saved === 'dark') {
+                    document.documentElement.setAttribute('data-theme', saved);
+                }
+            } catch (e) {}
+        })();
+    </script>
     <link rel="stylesheet" href="/NexGen/CODE/STYLE/admin_module.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <style>
@@ -258,7 +274,7 @@ if (
 
         .accounts-table-wrap table {
             width: 100%;
-            min-width: 1120px;
+            min-width: 1300px;
             border-collapse: separate;
             border-spacing: 0;
             table-layout: fixed;
@@ -268,7 +284,12 @@ if (
             position: sticky;
             top: 0;
             z-index: 5;
-            background: #0f245c;
+            background: rgba(8, 16, 50, 0.94);
+            backdrop-filter: blur(8px);
+        }
+
+        html[data-theme="light"] .accounts-table-wrap thead th {
+            background: rgba(214, 235, 255, 0.92);
         }
 
         .accounts-table-wrap::-webkit-scrollbar {
@@ -317,10 +338,26 @@ if (
             color: #ffb3b3;
         }
 
+        html[data-theme="light"] .badge-active-state {
+            background: rgba(16, 138, 92, 0.14);
+            color: #0f7a52;
+        }
+
+        html[data-theme="light"] .badge-inactive-state {
+            background: rgba(217, 155, 12, 0.14);
+            color: #9a6a12;
+        }
+
+        html[data-theme="light"] .badge-terminated-state {
+            background: rgba(200, 30, 77, 0.12);
+            color: #c81e4d;
+        }
+
         .created-col,
         .status-col,
         .position-col,
-        .id-col {
+        .id-col,
+        .empno-col {
             white-space: nowrap;
         }
 
@@ -378,8 +415,8 @@ if (
             padding: 16px 18px;
             margin-bottom: 12px;
             border-radius: 16px;
-            background: rgba(255, 255, 255, 0.04);
-            border: 1px solid rgba(255, 255, 255, 0.06);
+            background: var(--card);
+            border: 1px solid var(--line);
         }
 
         .account-card-index {
@@ -436,6 +473,12 @@ if (
             background: rgba(91, 141, 239, 0.14);
             color: #8fb4ff;
             border: 1px solid rgba(143, 180, 255, 0.4);
+        }
+
+        html[data-theme="light"] .position-pill {
+            background: rgba(59, 130, 246, 0.12);
+            color: #1d4ed8;
+            border-color: rgba(59, 130, 246, 0.3);
         }
 
         .account-card-meta-row {
@@ -498,7 +541,7 @@ if (
                     type="text"
                     name="search"
                     id="accountsSearchInput"
-                    placeholder="Search name, role, phone, or email..."
+                    placeholder="Search account, role, phone, or email..."
                     value="<?php echo e($search); ?>"
                     autocomplete="off"
                 >

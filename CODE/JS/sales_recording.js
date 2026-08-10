@@ -874,6 +874,20 @@ document.addEventListener("DOMContentLoaded", function () {
     "[data-dropdown-toggle]",
   );
 
+  // Move each dropdown panel to <body>. .page-shell has a backdrop-filter,
+  // which (like transform/filter/will-change) creates its own containing
+  // block for any position:fixed descendants — so left/top set from
+  // getBoundingClientRect() end up relative to .page-shell instead of the
+  // viewport, landing the panel far from its trigger button. Re-parenting
+  // to <body> keeps position:fixed anchored to the viewport as intended.
+  dropdownToggleBtns.forEach((btn) => {
+    const targetId = btn.getAttribute("data-dropdown-toggle");
+    const dropdown = document.getElementById(targetId);
+    if (dropdown && dropdown.parentElement !== document.body) {
+      document.body.appendChild(dropdown);
+    }
+  });
+
   function closeAllIconDropdowns() {
     document.querySelectorAll(".icon-filter-dropdown.show").forEach((dd) => {
       dd.classList.remove("show");
@@ -929,7 +943,10 @@ document.addEventListener("DOMContentLoaded", function () {
   window.addEventListener("scroll", closeAllIconDropdowns, true);
 
   document.addEventListener("click", function (e) {
-    if (!e.target.closest(".icon-filter-wrap")) {
+    if (
+      !e.target.closest(".icon-filter-wrap") &&
+      !e.target.closest(".icon-filter-dropdown")
+    ) {
       closeAllIconDropdowns();
     }
   });

@@ -1,12 +1,3 @@
-/* ============================================================
-   NexGen — Shared Header / Sidebar
-   Merged version:
-   - Reference sliding-pill header/sidebar design
-   - Current working sidebar/dropdown/profile behavior
-   - Clickable light/dark toggle
-   - Synced with Settings -> Personalization via "nexgen-theme"
-   ============================================================ */
-
 (function () {
   "use strict";
 
@@ -115,59 +106,138 @@
      SIDEBAR
      ========================= */
 
+  let previousBodyOverflow = "";
+  let lastFocusedElement = null;
+
+  function setSidebarState(isOpen) {
+    if (sidebar) {
+      sidebar.classList.toggle("active", isOpen);
+      sidebar.setAttribute("aria-hidden", isOpen ? "false" : "true");
+      sidebar.toggleAttribute("inert", !isOpen);
+    }
+
+    if (overlay) {
+      overlay.classList.toggle("show", isOpen);
+      overlay.setAttribute("aria-hidden", isOpen ? "false" : "true");
+    }
+
+    if (openSidebar) {
+      openSidebar.setAttribute("aria-expanded", isOpen ? "true" : "false");
+      openSidebar.setAttribute(
+        "aria-label",
+        isOpen ? "Close navigation menu" : "Open navigation menu",
+      );
+    }
+
+    if (isOpen) {
+      previousBodyOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = previousBodyOverflow;
+    }
+  }
+
   function openSidebarMenu() {
-    if (sidebar) {
-      sidebar.classList.add("active");
-    }
+    if (!sidebar || sidebar.classList.contains("active")) return;
 
-    if (overlay) {
-      overlay.classList.add("show");
-    }
+    lastFocusedElement = document.activeElement;
+    setSidebarState(true);
 
-    document.body.style.overflow = "hidden";
+    if (closeSidebar) {
+      window.requestAnimationFrame(function () {
+        closeSidebar.focus();
+      });
+    }
   }
 
-  function closeSidebarMenu() {
-    if (sidebar) {
-      sidebar.classList.remove("active");
+  function closeSidebarMenu(restoreFocus = true) {
+    if (!sidebar) return;
+
+    setSidebarState(false);
+
+    if (
+      restoreFocus &&
+      lastFocusedElement &&
+      typeof lastFocusedElement.focus === "function"
+    ) {
+      lastFocusedElement.focus();
     }
 
-    if (overlay) {
-      overlay.classList.remove("show");
-    }
-
-    document.body.style.overflow = "";
+    lastFocusedElement = null;
   }
 
-  /* header.php uses inline onclick for compatibility with existing pages. */
+  if (sidebar && !sidebar.classList.contains("active")) {
+    sidebar.setAttribute("inert", "");
+  }
+
+  /* Keep these exports for pages that may still call the functions directly. */
   window.openSidebarMenu = openSidebarMenu;
   window.closeSidebarMenu = closeSidebarMenu;
 
   if (openSidebar) {
-    openSidebar.addEventListener("click", openSidebarMenu);
-
-    openSidebar.addEventListener("keydown", function (event) {
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
+    openSidebar.addEventListener("click", function () {
+      if (sidebar && sidebar.classList.contains("active")) {
+        closeSidebarMenu();
+      } else {
         openSidebarMenu();
       }
     });
   }
 
   if (closeSidebar) {
-    closeSidebar.addEventListener("click", closeSidebarMenu);
-
-    closeSidebar.addEventListener("keydown", function (event) {
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        closeSidebarMenu();
-      }
+    closeSidebar.addEventListener("click", function () {
+      closeSidebarMenu();
     });
   }
 
   if (overlay) {
-    overlay.addEventListener("click", closeSidebarMenu);
+    overlay.addEventListener("click", function () {
+      closeSidebarMenu();
+    });
   }
+
+  if (sidebar) {
+    sidebar.addEventListener("click", function (event) {
+      const link = event.target.closest("a[href]");
+
+      if (link && link.getAttribute("href") !== "#") {
+        closeSidebarMenu(false);
+      }
+    });
+  }
+
+  document.addEventListener("keydown", function (event) {
+    if (!sidebar || !sidebar.classList.contains("active")) return;
+
+    if (event.key === "Escape") {
+      event.preventDefault();
+      closeSidebarMenu();
+      return;
+    }
+
+    if (event.key !== "Tab") return;
+
+    const focusableElements = Array.from(
+      sidebar.querySelectorAll(
+        'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ),
+    ).filter(function (element) {
+      return element.offsetParent !== null;
+    });
+
+    if (!focusableElements.length) return;
+
+    const firstFocusable = focusableElements[0];
+    const lastFocusable = focusableElements[focusableElements.length - 1];
+
+    if (event.shiftKey && document.activeElement === firstFocusable) {
+      event.preventDefault();
+      lastFocusable.focus();
+    } else if (!event.shiftKey && document.activeElement === lastFocusable) {
+      event.preventDefault();
+      firstFocusable.focus();
+    }
+  });
 
   /* =========================
      CATEGORY DROPDOWN
@@ -176,23 +246,24 @@
   if (categoryToggle && categoryMenu) {
     const hasActiveSub = categoryMenu.querySelector(".active-sub");
 
-    if (hasActiveSub) {
-      categoryMenu.classList.add("show");
+    function syncDropdownState(isOpen) {
+      categoryMenu.classList.toggle("show", isOpen);
+      categoryMenu.setAttribute("aria-hidden", isOpen ? "false" : "true");
+      categoryToggle.setAttribute("aria-expanded", isOpen ? "true" : "false");
+
+      if (dropdownArrow) {
+        dropdownArrow.style.transform = isOpen
+          ? "rotate(180deg)"
+          : "rotate(0deg)";
+      }
     }
 
-    function syncDropdownArrow() {
-      if (!dropdownArrow) return;
-
-      dropdownArrow.style.transform = categoryMenu.classList.contains("show")
-        ? "rotate(180deg)"
-        : "rotate(0deg)";
-    }
-
-    syncDropdownArrow();
+    const initiallyOpen =
+      categoryMenu.classList.contains("show") || Boolean(hasActiveSub);
+    syncDropdownState(initiallyOpen);
 
     categoryToggle.addEventListener("click", function () {
-      categoryMenu.classList.toggle("show");
-      syncDropdownArrow();
+      syncDropdownState(!categoryMenu.classList.contains("show"));
     });
   }
 

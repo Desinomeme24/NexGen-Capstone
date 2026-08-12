@@ -226,11 +226,10 @@ if ($customerStmt) {
 
 $cashierList = [];
 $cashierStmt = $conn->prepare("
-    SELECT DISTINCT u.id, u.full_name
-    FROM sales s
-    JOIN users u ON s.salesperson_id = u.id
-    WHERE s.business_id = ?
-    ORDER BY u.full_name ASC
+    SELECT id, full_name
+    FROM users
+    WHERE business_id = ? AND can_sales = 1
+    ORDER BY full_name ASC
 ");
 if ($cashierStmt) {
     $cashierStmt->bind_param("i", $businessId);
@@ -532,6 +531,14 @@ unset($_SESSION['success'], $_SESSION['error']);
 
         <?php
             $filters = ['All', 'Paid', 'Unpaid', 'Partially Paid', 'Fulfilled', 'Pending'];
+            $statusMeta = [
+                'All'             => ['class' => 'status-all',      'icon' => 'bi-asterisk'],
+                'Paid'            => ['class' => 'status-paid',     'icon' => 'bi-check-circle-fill'],
+                'Unpaid'          => ['class' => 'status-unpaid',   'icon' => 'bi-x-circle-fill'],
+                'Partially Paid'  => ['class' => 'status-partial',  'icon' => 'bi-hourglass-split'],
+                'Fulfilled'       => ['class' => 'status-fulfilled','icon' => 'bi-box-seam-fill'],
+                'Pending'         => ['class' => 'status-pending',  'icon' => 'bi-clock-fill'],
+            ];
             $salesBaseParams = [
                 'filter' => $filter,
                 'search' => $search,
@@ -623,24 +630,37 @@ unset($_SESSION['success'], $_SESSION['error']);
             <div class="toolbar-icon-filters">
                 <div class="icon-filter-wrap">
                     <button type="button" class="icon-filter-btn <?php echo ($filter !== 'All') ? 'has-active' : ''; ?>" data-dropdown-toggle="statusFilterDropdown" aria-haspopup="true" aria-expanded="false" aria-label="Filter by status">
-                        <i class="bi bi-funnel"></i>
+                        <i class="bi bi-funnel-fill"></i>
+                        <span class="icon-filter-label">Status</span>
                     </button>
                     <div class="icon-filter-dropdown" id="statusFilterDropdown">
-                        <span class="icon-filter-dropdown-title">Filter by Status</span>
-                        <?php foreach ($filters as $f): ?>
-                            <a href="<?php echo salesHref(['filter' => $f], $salesBaseParams); ?>" class="filter-pill <?php echo ($filter === $f) ? 'active' : ''; ?>">
-                                <?php echo htmlspecialchars($f); ?>
-                            </a>
-                        <?php endforeach; ?>
+                        <div class="icon-filter-dropdown-head">
+                            <span class="icon-filter-dropdown-icon status-head-icon"><i class="bi bi-funnel-fill"></i></span>
+                            <span class="icon-filter-dropdown-title">Filter by Status</span>
+                        </div>
+                        <div class="status-chip-grid">
+                            <?php foreach ($filters as $f):
+                                $meta = $statusMeta[$f] ?? ['class' => 'status-all', 'icon' => 'bi-circle-fill'];
+                            ?>
+                                <a href="<?php echo salesHref(['filter' => $f], $salesBaseParams); ?>" class="filter-pill status-chip <?php echo $meta['class']; ?> <?php echo ($filter === $f) ? 'active' : ''; ?>">
+                                    <i class="bi <?php echo $meta['icon']; ?>"></i>
+                                    <?php echo htmlspecialchars($f); ?>
+                                </a>
+                            <?php endforeach; ?>
+                        </div>
                     </div>
                 </div>
 
                 <div class="icon-filter-wrap">
                     <button type="button" class="icon-filter-btn <?php echo ($period === 'range') ? 'has-active' : ''; ?>" data-dropdown-toggle="dateFilterDropdown" aria-haspopup="true" aria-expanded="false" aria-label="Filter by date">
                         <i class="bi bi-calendar3"></i>
+                        <span class="icon-filter-label">Date</span>
                     </button>
                     <div class="icon-filter-dropdown" id="dateFilterDropdown">
-                        <span class="icon-filter-dropdown-title">Filter by Date</span>
+                        <div class="icon-filter-dropdown-head">
+                            <span class="icon-filter-dropdown-icon date-head-icon"><i class="bi bi-calendar3"></i></span>
+                            <span class="icon-filter-dropdown-title">Filter by Date</span>
+                        </div>
 
                         <form class="date-range-form" method="GET" action="">
                             <input type="hidden" name="filter" value="<?php echo htmlspecialchars($filter); ?>">
@@ -650,11 +670,17 @@ unset($_SESSION['success'], $_SESSION['error']);
                             <input type="hidden" name="period" value="range">
                             <label class="date-jump-label"><i class="bi bi-calendar-range"></i> Date range</label>
                             <div class="date-range-inputs">
-                                <input type="date" name="date_from" value="<?php echo htmlspecialchars($dateFromInput); ?>" required>
+                                <div class="date-input-wrap">
+                                    <i class="bi bi-calendar-event"></i>
+                                    <input type="date" name="date_from" value="<?php echo htmlspecialchars($dateFromInput); ?>" required>
+                                </div>
                                 <span class="date-range-sep">to</span>
-                                <input type="date" name="date_to" value="<?php echo htmlspecialchars($dateToInput); ?>" required>
+                                <div class="date-input-wrap">
+                                    <i class="bi bi-calendar-event"></i>
+                                    <input type="date" name="date_to" value="<?php echo htmlspecialchars($dateToInput); ?>" required>
+                                </div>
                             </div>
-                            <button type="submit" class="date-range-apply">Apply Range</button>
+                            <button type="submit" class="date-range-apply"><i class="bi bi-check2"></i> Apply Range</button>
                         </form>
 
                         <a href="<?php echo salesHref(['period' => 'daily', 'ref_date' => date('Y-m-d'), 'date_from' => '', 'date_to' => ''], $salesBaseParams); ?>" class="date-range-reset">
@@ -665,21 +691,29 @@ unset($_SESSION['success'], $_SESSION['error']);
 
                 <div class="icon-filter-wrap">
                     <button type="button" class="icon-filter-btn <?php echo ($cashierId > 0) ? 'has-active' : ''; ?>" data-dropdown-toggle="cashierFilterDropdown" aria-haspopup="true" aria-expanded="false" aria-label="Filter by cashier">
-                        <i class="bi bi-person-badge"></i>
+                        <i class="bi bi-person-badge-fill"></i>
+                        <span class="icon-filter-label">Cashier</span>
                     </button>
                     <div class="icon-filter-dropdown" id="cashierFilterDropdown">
-                        <span class="icon-filter-dropdown-title">Filter by Cashier</span>
+                        <div class="icon-filter-dropdown-head">
+                            <span class="icon-filter-dropdown-icon cashier-head-icon"><i class="bi bi-person-badge-fill"></i></span>
+                            <span class="icon-filter-dropdown-title">Filter by Cashier</span>
+                        </div>
                         <div class="cashier-pill-list">
-                            <a href="<?php echo salesHref(['cashier_id' => 0], $salesBaseParams); ?>" class="filter-pill <?php echo ($cashierId === 0) ? 'active' : ''; ?>">
-                                All Cashiers
+                            <a href="<?php echo salesHref(['cashier_id' => 0], $salesBaseParams); ?>" class="filter-pill cashier-chip <?php echo ($cashierId === 0) ? 'active' : ''; ?>">
+                                <span class="cashier-chip-avatar cashier-chip-avatar-all"><i class="bi bi-people-fill"></i></span>
+                                <span class="cashier-chip-name">All Cashiers</span>
                             </a>
-                            <?php foreach ($cashierList as $c): ?>
-                                <a href="<?php echo salesHref(['cashier_id' => (int)$c['id']], $salesBaseParams); ?>" class="filter-pill <?php echo ($cashierId === (int)$c['id']) ? 'active' : ''; ?>">
-                                    <?php echo htmlspecialchars($c['full_name']); ?>
+                            <?php foreach ($cashierList as $c):
+                                $cInitial = strtoupper(substr($c['full_name'], 0, 1)) ?: '?';
+                            ?>
+                                <a href="<?php echo salesHref(['cashier_id' => (int)$c['id']], $salesBaseParams); ?>" class="filter-pill cashier-chip <?php echo ($cashierId === (int)$c['id']) ? 'active' : ''; ?>">
+                                    <span class="cashier-chip-avatar"><?php echo htmlspecialchars($cInitial); ?></span>
+                                    <span class="cashier-chip-name"><?php echo htmlspecialchars($c['full_name']); ?></span>
                                 </a>
                             <?php endforeach; ?>
                             <?php if (empty($cashierList)): ?>
-                                <p class="cashier-pill-empty">No cashiers with recorded sales yet.</p>
+                                <p class="cashier-pill-empty"><i class="bi bi-info-circle"></i> No employees with Sales access yet.</p>
                             <?php endif; ?>
                         </div>
                     </div>

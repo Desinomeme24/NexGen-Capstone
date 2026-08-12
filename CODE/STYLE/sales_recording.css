@@ -371,63 +371,129 @@ body::after {
     0 12px 28px rgba(10, 20, 64, 0.3);
 }
 
-/* ============ COMPACT ICON FILTERS (status / date) ============ */
+/* ============ TOOLBAR ICON FILTERS — grouped segmented bar ============ */
 .toolbar-icon-filters {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  align-items: stretch;
+  gap: 0;
+  padding: 5px;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.05) 0%,
+    rgba(255, 255, 255, 0.02) 100%
+  );
+  border: 1px solid rgba(255, 221, 85, 0.24);
+  border-radius: 999px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 10px 24px rgba(10, 20, 64, 0.2);
 }
 
 .icon-filter-wrap {
   position: relative;
 }
 
+.icon-filter-wrap:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  top: 20%;
+  bottom: 20%;
+  right: -1px;
+  width: 1px;
+  background: linear-gradient(
+    180deg,
+    transparent,
+    rgba(255, 221, 85, 0.3),
+    transparent
+  );
+  z-index: 1;
+}
+
 .icon-filter-btn {
   position: relative;
-  width: 46px;
-  height: 46px;
-  border-radius: 14px;
-  border: 1px solid rgba(255, 221, 85, 0.3);
+  height: 42px;
+  width: 42px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-soft);
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 14px 0 13px;
+  cursor: pointer;
+  transition:
+    width var(--transition),
+    padding var(--transition),
+    background var(--transition),
+    color var(--transition),
+    box-shadow var(--transition);
+}
+
+.icon-filter-label {
+  font-family: "Poppins", "Inter", sans-serif;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.15px;
+  max-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  opacity: 0;
+  transition:
+    max-width var(--transition),
+    opacity var(--transition);
+}
+
+.icon-filter-btn:hover,
+.icon-filter-btn.open,
+.icon-filter-btn.has-active {
+  width: auto;
   background: linear-gradient(
     180deg,
     rgba(0, 51, 255, 0.96) 0%,
     rgba(11, 31, 115, 0.96) 100%
   );
   color: #eef5ff;
-  font-size: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition:
-    transform var(--transition),
-    box-shadow var(--transition),
-    border-color var(--transition);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.12),
-    0 8px 22px rgba(10, 20, 64, 0.2);
+    0 8px 20px rgba(10, 20, 64, 0.24);
 }
 
-.icon-filter-btn:hover,
-.icon-filter-btn.open {
-  transform: translateY(-2px);
-  border-color: rgba(255, 221, 85, 0.55);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.16),
-    0 12px 28px rgba(10, 20, 64, 0.26),
-    0 0 0 1px rgba(59, 130, 246, 0.16);
+.icon-filter-btn:hover .icon-filter-label,
+.icon-filter-btn.open .icon-filter-label,
+.icon-filter-btn.has-active .icon-filter-label {
+  max-width: 70px;
+  opacity: 1;
+}
+
+.icon-filter-btn.open,
+.icon-filter-btn.has-active {
+  border-color: rgba(255, 221, 85, 0.5);
 }
 
 .icon-filter-btn.has-active::after {
   content: "";
   position: absolute;
-  top: 5px;
-  right: 5px;
-  width: 9px;
-  height: 9px;
+  top: 3px;
+  right: 3px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
   background: linear-gradient(135deg, #ffdd55, #f6cb08);
-  box-shadow: 0 0 0 2px rgba(0, 51, 255, 0.95);
+  box-shadow: 0 0 0 2px rgba(11, 31, 115, 0.9);
+}
+
+@keyframes filterDropdownIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .icon-filter-dropdown {
@@ -435,32 +501,78 @@ body::after {
   top: 0;
   left: 0;
   right: auto;
-  min-width: 250px;
+  min-width: 264px;
   max-width: calc(100vw - 24px);
   display: none;
   flex-direction: column;
-  gap: 8px;
-  padding: 14px;
-  border-radius: 16px;
-  background: #ffffff;
-  border: 1px solid rgba(59, 130, 246, 0.22);
+  gap: 10px;
+  padding: 16px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(165deg, #ffffff 0%, #f3f8ff 60%, #eaf2ff 100%);
+  border: 1px solid rgba(59, 130, 246, 0.18);
   box-shadow:
-    0 24px 46px rgba(0, 3, 61, 0.32),
-    0 6px 14px rgba(0, 3, 61, 0.14);
+    0 26px 50px rgba(0, 3, 61, 0.34),
+    0 6px 16px rgba(0, 3, 61, 0.16),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
   z-index: 500;
+  overflow: hidden;
+}
+
+.icon-filter-dropdown::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--gold-2) 0%, #3b82f6 100%);
 }
 
 .icon-filter-dropdown.show {
   display: flex;
+  animation: filterDropdownIn 0.16s ease;
+}
+
+.icon-filter-dropdown-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 10px;
+  margin-bottom: 2px;
+  border-bottom: 1px solid rgba(11, 31, 115, 0.1);
+}
+
+.icon-filter-dropdown-icon {
+  flex: 0 0 30px;
+  width: 30px;
+  height: 30px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: #ffffff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+.status-head-icon {
+  background: linear-gradient(135deg, #60a5fa, #0033ff);
+}
+
+.date-head-icon {
+  background: linear-gradient(135deg, var(--gold-1), var(--gold-3));
+}
+
+.cashier-head-icon {
+  background: linear-gradient(135deg, #818cf8, #4338ca);
 }
 
 .icon-filter-dropdown-title {
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.4px;
-  text-transform: uppercase;
-  color: #3b82f6;
-  margin-bottom: 2px;
+  font-family: "Poppins", "Inter", sans-serif;
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: 0.1px;
+  color: #0b1f73;
 }
 
 .icon-filter-dropdown .filter-pill {
@@ -470,6 +582,127 @@ body::after {
   border: 1px solid rgba(59, 130, 246, 0.24);
   color: #0b1f73;
   box-shadow: none;
+}
+
+.icon-filter-dropdown .filter-pill:hover {
+  transform: translateY(-1px);
+  background: #dbeafe;
+  border-color: rgba(59, 130, 246, 0.4);
+  box-shadow: 0 6px 14px rgba(11, 31, 115, 0.12);
+}
+
+/* ---- status chips: compact 2-col grid, each tinted to its own
+   semantic color so the row reads at a glance instead of as a
+   uniform stack of identical gold/blue pills ---- */
+.status-chip-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 7px;
+}
+
+.status-chip {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 7px;
+  padding: 9px 12px;
+  font-size: 12.5px;
+  border-radius: 12px;
+}
+
+.status-chip i {
+  font-size: 12px;
+  flex: 0 0 auto;
+}
+
+.status-all {
+  color: #4338ca;
+  background: rgba(99, 102, 241, 0.1);
+  border-color: rgba(99, 102, 241, 0.28);
+}
+.status-all:hover {
+  background: rgba(99, 102, 241, 0.16);
+}
+.status-all.active {
+  background: linear-gradient(135deg, #a5b4fc, #6366f1);
+  border-color: transparent;
+  color: #ffffff;
+  box-shadow: 0 8px 18px rgba(99, 102, 241, 0.32);
+}
+
+.status-paid {
+  color: #047857;
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.28);
+}
+.status-paid:hover {
+  background: rgba(16, 185, 129, 0.16);
+}
+.status-paid.active {
+  background: linear-gradient(135deg, #6ee7b7, #059669);
+  border-color: transparent;
+  color: #ffffff;
+  box-shadow: 0 8px 18px rgba(16, 185, 129, 0.32);
+}
+
+.status-unpaid {
+  color: #be123c;
+  background: rgba(225, 29, 72, 0.09);
+  border-color: rgba(225, 29, 72, 0.26);
+}
+.status-unpaid:hover {
+  background: rgba(225, 29, 72, 0.15);
+}
+.status-unpaid.active {
+  background: linear-gradient(135deg, #fda4af, #e11d48);
+  border-color: transparent;
+  color: #ffffff;
+  box-shadow: 0 8px 18px rgba(225, 29, 72, 0.32);
+}
+
+.status-partial {
+  color: #92620a;
+  background: rgba(246, 203, 8, 0.14);
+  border-color: rgba(246, 203, 8, 0.32);
+}
+.status-partial:hover {
+  background: rgba(246, 203, 8, 0.2);
+}
+.status-partial.active {
+  background: linear-gradient(135deg, var(--gold-1), var(--gold-2));
+  border-color: transparent;
+  color: #4a3200;
+  box-shadow: 0 8px 18px rgba(246, 203, 8, 0.32);
+}
+
+.status-fulfilled {
+  color: #0369a1;
+  background: rgba(14, 165, 233, 0.1);
+  border-color: rgba(14, 165, 233, 0.28);
+}
+.status-fulfilled:hover {
+  background: rgba(14, 165, 233, 0.16);
+}
+.status-fulfilled.active {
+  background: linear-gradient(135deg, #7dd3fc, #0ea5e9);
+  border-color: transparent;
+  color: #ffffff;
+  box-shadow: 0 8px 18px rgba(14, 165, 233, 0.32);
+}
+
+.status-pending {
+  color: #475569;
+  background: rgba(100, 116, 139, 0.12);
+  border-color: rgba(100, 116, 139, 0.28);
+}
+.status-pending:hover {
+  background: rgba(100, 116, 139, 0.18);
+}
+.status-pending.active {
+  background: linear-gradient(135deg, #94a3b8, #475569);
+  border-color: transparent;
+  color: #ffffff;
+  box-shadow: 0 8px 18px rgba(71, 85, 105, 0.32);
 }
 
 .cashier-pill-list {
@@ -482,28 +715,74 @@ body::after {
 }
 
 .cashier-pill-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   margin: 4px 0 0;
   font-size: 12.5px;
   color: rgba(11, 31, 115, 0.6);
   text-align: center;
 }
 
-.icon-filter-dropdown .filter-pill:hover {
-  transform: translateY(-1px);
-  background: #dbeafe;
-  border-color: rgba(59, 130, 246, 0.4);
-  box-shadow: 0 6px 14px rgba(11, 31, 115, 0.12);
+/* ---- cashier chips: name + avatar row instead of a plain text pill,
+   with a slim gold rail on the active row rather than a full color flip ---- */
+.cashier-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  padding: 8px 12px 8px 8px;
 }
 
-.icon-filter-dropdown .filter-pill.active {
-  background: linear-gradient(135deg, var(--gold-1), var(--gold-2));
+.cashier-chip-avatar {
+  flex: 0 0 30px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #3b82f6 0%, #0033ff 100%);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 12px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+
+.cashier-chip-avatar-all {
+  background: linear-gradient(180deg, #818cf8 0%, #4338ca 100%);
+  font-size: 13px;
+}
+
+.cashier-chip-name {
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cashier-chip.active {
+  background: linear-gradient(90deg, rgba(246, 203, 8, 0.16), #dbeafe 55%);
+  border-color: rgba(246, 203, 8, 0.55);
   color: #0b1f73;
-  border-color: transparent;
-  box-shadow: 0 8px 18px rgba(246, 203, 8, 0.28);
+  box-shadow:
+    inset 3px 0 0 var(--gold-2),
+    0 6px 14px rgba(11, 31, 115, 0.12);
+}
+
+.cashier-chip.active .cashier-chip-avatar {
+  background: linear-gradient(135deg, var(--gold-1), var(--gold-2));
+  color: #4a3200;
 }
 
 .icon-filter-dropdown .date-jump-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   color: #0b1f73;
+  font-size: 12.5px;
+  font-weight: 700;
 }
 
 .icon-filter-dropdown .date-range-form {
@@ -520,14 +799,31 @@ body::after {
   gap: 6px;
 }
 
+.date-input-wrap {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+.date-input-wrap i {
+  position: absolute;
+  left: 9px;
+  font-size: 11.5px;
+  color: #3b82f6;
+  pointer-events: none;
+}
+
 .date-range-inputs input[type="date"] {
   flex: 1 1 0;
   min-width: 0;
+  width: 100%;
   background: #eef5ff;
   border: 1px solid rgba(59, 130, 246, 0.28);
   color: #0b1f73;
   border-radius: 9px;
-  padding: 7px 6px;
+  padding: 7px 6px 7px 26px;
   font-size: 12px;
 }
 
@@ -539,6 +835,10 @@ body::after {
 }
 
 .date-range-apply {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   width: 100%;
   border: none;
   border-radius: 11px;
@@ -549,6 +849,14 @@ body::after {
   background: linear-gradient(135deg, var(--gold-1), var(--gold-2));
   cursor: pointer;
   box-shadow: 0 8px 18px rgba(246, 203, 8, 0.28);
+  transition:
+    transform var(--transition),
+    box-shadow var(--transition);
+}
+
+.date-range-apply:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 22px rgba(246, 203, 8, 0.34);
 }
 
 .date-range-reset {
@@ -2733,6 +3041,15 @@ html[data-theme="light"] .menu-item.active i {
 
   .toolbar-icon-filters {
     flex: 1 1 auto;
+    justify-content: space-between;
+  }
+
+  .icon-filter-btn {
+    flex: 1 1 0;
+  }
+
+  .icon-filter-label {
+    display: none;
   }
 
   .toolbar-actions {

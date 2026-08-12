@@ -1539,6 +1539,6 @@ document.addEventListener('DOMContentLoaded', function () {
         <div class="nx-footer-line"></div>
         <p class="nx-footer-copy">Copyright &copy; 2026 NexGen.</p>
     </footer>
-
+<?php include 'chatbot.php'; ?>
 </body>
 </html>

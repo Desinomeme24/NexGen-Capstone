@@ -28,6 +28,14 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit();
 }
 
+if (!validateCsrfToken('sale_form', $_POST['csrf_token'] ?? null)) {
+    echo json_encode([
+        'success' => false,
+        'message' => 'Your session expired. Please refresh the page and try again.'
+    ]);
+    exit();
+}
+
 $user_id = (int) ($_SESSION['user_id'] ?? 0);
 $businessId = (int)($_SESSION['business_id'] ?? 0);
 if ($businessId <= 0) {
@@ -120,7 +128,7 @@ try {
 
     for ($i = 0; $i < count($product_ids); $i++) {
         $product_id = (int) ($product_ids[$i] ?? 0);
-        $quantity = (int) ($quantities[$i] ?? 0);
+        $quantity = (float) ($quantities[$i] ?? 0);
         $unit_price = (float) ($unit_prices[$i] ?? 0);
 
         if ($product_id <= 0 || $quantity <= 0 || $unit_price < 0) {
@@ -169,7 +177,7 @@ try {
         }
 
         $product = $productResult->fetch_assoc();
-        $availableStock = (int) $product['stock_quantity'];
+        $availableStock = (float) $product['stock_quantity'];
         $productNames[$product_id] = $product['product_name'];
 
         if ($requiredQty > $availableStock) {
@@ -265,7 +273,7 @@ try {
         }
 
         $itemStmt->bind_param(
-            "iiidd",
+            "iiddd",
             $sale_id,
             $item['product_id'],
             $item['quantity'],
@@ -289,7 +297,7 @@ try {
             throw new Exception('Failed to prepare stock update query.');
         }
 
-        $stockStmt->bind_param("iii", $item['quantity'], $item['product_id'], $businessId);
+        $stockStmt->bind_param("dii", $item['quantity'], $item['product_id'], $businessId);
 
         if (!$stockStmt->execute()) {
             throw new Exception('Failed to deduct product stock.');
@@ -309,7 +317,7 @@ try {
         }
 
         $movementStmt->bind_param(
-            "iiisi",
+            "iidsi",
             $businessId,
             $item['product_id'],
             $item['quantity'],

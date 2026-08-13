@@ -44,6 +44,21 @@ if (!function_exists('e')) {
     }
 }
 
+if (!function_exists('formatQty')) {
+    /* Formats a decimal(12,3) quantity for display: trims trailing zeros so a
+       whole number like 10.000 shows as "10" while a fractional quantity like
+       2.500 shows as "2.5" - keeps piece-counted products (groceries, school
+       supplies) looking like plain integers without needing per-SME-type
+       display logic. */
+    function formatQty($value): string
+    {
+        $formatted = number_format((float)$value, 3, '.', '');
+        $formatted = rtrim($formatted, '0');
+        $formatted = rtrim($formatted, '.');
+        return $formatted === '' ? '0' : $formatted;
+    }
+}
+
 if (!function_exists('isStrongPassword')) {
     function isStrongPassword(string $password): bool
     {

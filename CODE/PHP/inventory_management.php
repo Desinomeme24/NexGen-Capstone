@@ -15,6 +15,11 @@ if ((int)($_SESSION['can_inventory'] ?? 0) !== 1) {
 }
 
 $businessId = nxRequireBusinessId($conn);
+$csrfAddProduct = generateCsrfToken('inventory_add_product');
+$csrfEditProduct = generateCsrfToken('inventory_edit_product');
+$csrfStock = generateCsrfToken('inventory_stock');
+$csrfCategory = generateCsrfToken('inventory_category');
+$csrfDeleteRestore = generateCsrfToken('inventory_delete_restore');
 $displayName = $_SESSION['username'] ?? 'Client';
 $fullName = $_SESSION['full_name'] ?? 'Client';
 $userId = (int)$_SESSION['user_id'];
@@ -161,9 +166,9 @@ $popupType = isset($_SESSION['inventory_success']) ? "success" : (isset($_SESSIO
 unset($_SESSION['inventory_success'], $_SESSION['inventory_error']);
 
 function getInventoryState(array $product): array {
-    $stock = (int)$product['stock_quantity'];
-    $reorder = (int)$product['reorder_level'];
-    $onOrder = (int)($product['on_order_level'] ?? 0);
+    $stock = (float)$product['stock_quantity'];
+    $reorder = (float)$product['reorder_level'];
+    $onOrder = (float)($product['on_order_level'] ?? 0);
     $isActive = (int)$product['is_active'] === 1;
 
     if (!$isActive) {
@@ -692,11 +697,11 @@ if ($currentStatusForTab === '') {
                             <div class="summary-text">
                                 <h4><?php echo htmlspecialchars($lowStockFeature['product_name']); ?></h4>
                                 <p>Code: <?php echo htmlspecialchars($lowStockFeature['product_code']); ?></p>
-                                <p><?php echo (int)$lowStockFeature['stock_quantity']; ?> in stock</p>
-                                <p>Reorder at <?php echo (int)$lowStockFeature['reorder_level']; ?></p>
+                                <p><?php echo formatQty($lowStockFeature['stock_quantity']); ?> in stock</p>
+                                <p>Reorder at <?php echo formatQty($lowStockFeature['reorder_level']); ?></p>
 
                                 <div class="mini-pill">
-                                    <?php echo (int)($lowStockFeature['on_order_level'] ?? 0); ?> incoming
+                                    <?php echo formatQty($lowStockFeature['on_order_level'] ?? 0); ?> incoming
                                 </div>
                             </div>
                         </div>
@@ -719,10 +724,10 @@ if ($currentStatusForTab === '') {
                             <div class="summary-text">
                                 <h4><?php echo htmlspecialchars($outOfStockFeature['product_name']); ?></h4>
                                 <p>Code: <?php echo htmlspecialchars($outOfStockFeature['product_code']); ?></p>
-                                <p><?php echo (int)$outOfStockFeature['stock_quantity']; ?> in stock</p>
+                                <p><?php echo formatQty($outOfStockFeature['stock_quantity']); ?> in stock</p>
 
                                 <div class="mini-pill">
-                                    <?php echo (int)($outOfStockFeature['on_order_level'] ?? 0); ?> incoming
+                                    <?php echo formatQty($outOfStockFeature['on_order_level'] ?? 0); ?> incoming
                                 </div>
                             </div>
                         </div>
@@ -776,7 +781,7 @@ if ($currentStatusForTab === '') {
                                 <h4><?php echo htmlspecialchars($latestSoldItem['product_name']); ?></h4>
                                 <div class="history-row">
                                     <span><?php echo date("M d", strtotime($latestSoldItem['created_at'])); ?></span>
-                                    <strong>-<?php echo (int)$latestSoldItem['quantity']; ?></strong>
+                                    <strong>-<?php echo formatQty($latestSoldItem['quantity']); ?></strong>
                                 </div>
                             </div>
                         </div>
@@ -824,9 +829,9 @@ if ($currentStatusForTab === '') {
                             <?php foreach ($productsToDisplay as $product): ?>
                                 <?php
                                     $stockClass = 'stock-good';
-                                    if ((int)$product['stock_quantity'] <= 0) {
+                                    if ((float)$product['stock_quantity'] <= 0) {
                                         $stockClass = 'stock-out';
-                                    } elseif ((int)$product['stock_quantity'] <= (int)$product['reorder_level']) {
+                                    } elseif ((float)$product['stock_quantity'] <= (float)$product['reorder_level']) {
                                         $stockClass = 'stock-low';
                                     }
 
@@ -851,7 +856,7 @@ if ($currentStatusForTab === '') {
                                         </div>
                                         <div class="stock-line-row">
                                             <span class="stock-line <?php echo $stockClass; ?>">
-                                                <?php echo htmlspecialchars($invState['label']); ?> &bull; <?php echo (int)$product['stock_quantity']; ?> <?php echo (int)$product['stock_quantity'] === 1 ? 'Left' : 'in stock'; ?>
+                                                <?php echo htmlspecialchars($invState['label']); ?> &bull; <?php echo formatQty($product['stock_quantity']); ?> <?php echo (float)$product['stock_quantity'] == 1 ? 'Left' : 'in stock'; ?>
                                             </span>
                                             <?php if ($rowExpiryUrgency): ?>
                                                 <span class="expiry-pill <?php echo $rowExpiryUrgency['class']; ?>">
@@ -880,9 +885,9 @@ if ($currentStatusForTab === '') {
                                                     data-unit="<?php echo htmlspecialchars($product['unit']); ?>"
                                                     data-cost="<?php echo htmlspecialchars($product['cost_price']); ?>"
                                                     data-selling="<?php echo htmlspecialchars($product['selling_price']); ?>"
-                                                    data-stock="<?php echo (int)$product['stock_quantity']; ?>"
-                                                    data-reorder="<?php echo (int)$product['reorder_level']; ?>"
-                                                    data-onorder="<?php echo (int)($product['on_order_level'] ?? 0); ?>"
+                                                    data-stock="<?php echo htmlspecialchars($product['stock_quantity']); ?>"
+                                                    data-reorder="<?php echo htmlspecialchars($product['reorder_level']); ?>"
+                                                    data-onorder="<?php echo htmlspecialchars($product['on_order_level'] ?? 0); ?>"
                                                     data-expiry="<?php echo htmlspecialchars($product['expiry_date'] ?? ''); ?>"
                                                     data-description="<?php echo htmlspecialchars($product['description'] ?? ''); ?>"
                                                     data-active="<?php echo (int)$product['is_active']; ?>"
@@ -897,7 +902,7 @@ if ($currentStatusForTab === '') {
                                                     type="button"
                                                     data-stock-id="<?php echo (int)$product['id']; ?>"
                                                     data-stock-name="<?php echo htmlspecialchars($product['product_name']); ?>"
-                                                    data-current-onorder="<?php echo (int)($product['on_order_level'] ?? 0); ?>"
+                                                    data-current-onorder="<?php echo htmlspecialchars($product['on_order_level'] ?? 0); ?>"
                                                 >
                                                     <i class="bi bi-arrow-left-right"></i>
                                                     <span>Adjust Stock</span>
@@ -909,20 +914,20 @@ if ($currentStatusForTab === '') {
                                                         type="button"
                                                         data-order-id="<?php echo (int)$product['id']; ?>"
                                                         data-order-name="<?php echo htmlspecialchars($product['product_name']); ?>"
-                                                        data-order-current="<?php echo (int)($product['on_order_level'] ?? 0); ?>"
+                                                        data-order-current="<?php echo htmlspecialchars($product['on_order_level'] ?? 0); ?>"
                                                     >
                                                         <i class="bi bi-cart-plus"></i>
                                                         <span>Place Order</span>
                                                     </button>
                                                 <?php endif; ?>
 
-                                                <?php if ((int)($product['on_order_level'] ?? 0) > 0): ?>
+                                                <?php if ((float)($product['on_order_level'] ?? 0) > 0): ?>
                                                     <button
                                                         class="action-item receive-btn"
                                                         type="button"
                                                         data-receive-id="<?php echo (int)$product['id']; ?>"
                                                         data-receive-name="<?php echo htmlspecialchars($product['product_name']); ?>"
-                                                        data-receive-onorder="<?php echo (int)($product['on_order_level'] ?? 0); ?>"
+                                                        data-receive-onorder="<?php echo htmlspecialchars($product['on_order_level'] ?? 0); ?>"
                                                     >
                                                         <i class="bi bi-box-seam"></i>
                                                         <span>Receive Shipment</span>
@@ -931,21 +936,23 @@ if ($currentStatusForTab === '') {
 
                                                 <?php if ($isOwner): ?>
                                                     <?php if ($productIsArchived): ?>
-                                                        <a
-                                                            href="/NexGen/CODE/PHP/inventory_restore.php?id=<?php echo (int)$product['id']; ?>"
-                                                            class="action-item restore-item"
-                                                        >
-                                                            <i class="bi bi-arrow-counterclockwise"></i>
-                                                            <span>Restore Product</span>
-                                                        </a>
+                                                        <form method="POST" action="/NexGen/CODE/PHP/inventory_restore.php" style="display:contents;">
+                                                            <input type="hidden" name="id" value="<?php echo (int)$product['id']; ?>">
+                                                            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfDeleteRestore); ?>">
+                                                            <button type="submit" class="action-item restore-item">
+                                                                <i class="bi bi-arrow-counterclockwise"></i>
+                                                                <span>Restore Product</span>
+                                                            </button>
+                                                        </form>
                                                     <?php else: ?>
-                                                        <a
-                                                            href="/NexGen/CODE/PHP/inventory_delete.php?id=<?php echo (int)$product['id']; ?>"
-                                                            class="action-item delete-item"
-                                                        >
-                                                            <i class="bi bi-trash3-fill"></i>
-                                                            <span>Archive Product</span>
-                                                        </a>
+                                                        <form method="POST" action="/NexGen/CODE/PHP/inventory_delete.php" style="display:contents;">
+                                                            <input type="hidden" name="id" value="<?php echo (int)$product['id']; ?>">
+                                                            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfDeleteRestore); ?>">
+                                                            <button type="submit" class="action-item delete-item">
+                                                                <i class="bi bi-trash3-fill"></i>
+                                                                <span>Archive Product</span>
+                                                            </button>
+                                                        </form>
                                                     <?php endif; ?>
                                                 <?php endif; ?>
                                             </div>
@@ -1003,7 +1010,7 @@ if ($currentStatusForTab === '') {
                                     <strong><?php echo htmlspecialchars($order['product_name']); ?></strong>
                                     <small>SKU: <?php echo htmlspecialchars($order['product_code']); ?></small>
                                 </td>
-                                <td class="po-qty">+<?php echo (int)$order['quantity']; ?></td>
+                                <td class="po-qty">+<?php echo formatQty($order['quantity']); ?></td>
                                 <td class="po-remarks">
                                     <?php if (trim((string)($order['remarks'] ?? '')) !== ''): ?>
                                         <?php echo nl2br(htmlspecialchars($order['remarks'])); ?>
@@ -1065,6 +1072,7 @@ if ($currentStatusForTab === '') {
             </div>
 
             <form action="/NexGen/CODE/PHP/inventory_save.php" method="POST" enctype="multipart/form-data" class="product-form wizard-form" id="addProductWizardForm" novalidate>
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfAddProduct); ?>">
 
                 <!-- STEP 1: BASIC INFO -->
                 <div class="wizard-step is-active" data-step="1">
@@ -1129,7 +1137,7 @@ if ($currentStatusForTab === '') {
                     <div class="form-fields">
                         <div class="form-group">
                             <label>Stock Quantity</label>
-                            <input type="number" min="0" name="stock_quantity" required>
+                            <input type="number" min="0" step="0.001" name="stock_quantity" required>
                         </div>
 
                         <div class="form-group">
@@ -1140,12 +1148,12 @@ if ($currentStatusForTab === '') {
                         <?php if ($isOwner): ?>
                             <div class="form-group">
                                 <label>Reorder Level</label>
-                                <input type="number" min="0" name="reorder_level" value="5" required>
+                                <input type="number" min="0" step="0.001" name="reorder_level" value="5" required>
                             </div>
 
                             <div class="form-group">
                                 <label>On Order Level</label>
-                                <input type="number" min="0" name="on_order_level" value="0" required>
+                                <input type="number" min="0" step="0.001" name="on_order_level" value="0" required>
                             </div>
                         <?php endif; ?>
                     </div>
@@ -1219,6 +1227,7 @@ if ($currentStatusForTab === '') {
             </div>
 
             <form action="/NexGen/CODE/PHP/inventory_update.php" method="POST" enctype="multipart/form-data" class="product-form wizard-form" id="editProductWizardForm" novalidate>
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfEditProduct); ?>">
                 <input type="hidden" name="id" id="edit_id">
                 <input type="hidden" name="old_image" id="edit_old_image">
 
@@ -1285,7 +1294,7 @@ if ($currentStatusForTab === '') {
                     <div class="form-fields">
                         <div class="form-group">
                             <label>Stock Quantity</label>
-                            <input type="number" min="0" name="stock_quantity" id="edit_stock_quantity" required>
+                            <input type="number" min="0" step="0.001" name="stock_quantity" id="edit_stock_quantity" required>
                         </div>
 
                         <div class="form-group">
@@ -1296,12 +1305,12 @@ if ($currentStatusForTab === '') {
                         <?php if ($isOwner): ?>
                             <div class="form-group">
                                 <label>Reorder Level</label>
-                                <input type="number" min="0" name="reorder_level" id="edit_reorder_level" required>
+                                <input type="number" min="0" step="0.001" name="reorder_level" id="edit_reorder_level" required>
                             </div>
 
                             <div class="form-group">
                                 <label>On Order Level</label>
-                                <input type="number" min="0" name="on_order_level" id="edit_on_order_level" required>
+                                <input type="number" min="0" step="0.001" name="on_order_level" id="edit_on_order_level" required>
                             </div>
                         <?php endif; ?>
                     </div>
@@ -1353,6 +1362,7 @@ if ($currentStatusForTab === '') {
             </div>
 
             <form action="/NexGen/CODE/PHP/inventory_stock.php" method="POST" class="stock-form">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfStock); ?>">
                 <input type="hidden" name="product_id" id="stock_product_id">
 
                 <div class="form-group full-width">
@@ -1370,7 +1380,7 @@ if ($currentStatusForTab === '') {
 
                 <div class="form-group">
                     <label>Quantity</label>
-                    <input type="number" name="quantity" min="1" required>
+                    <input type="number" name="quantity" min="0.001" step="0.001" required>
                 </div>
 
                 <div class="form-group">
@@ -1406,6 +1416,7 @@ if ($currentStatusForTab === '') {
             </div>
 
             <form action="/NexGen/CODE/PHP/inventory_stock.php" method="POST" class="stock-form">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfStock); ?>">
                 <input type="hidden" name="product_id" id="order_product_id">
                 <input type="hidden" name="place_order" value="1">
 
@@ -1421,7 +1432,7 @@ if ($currentStatusForTab === '') {
 
                 <div class="form-group">
                     <label>Quantity to Order</label>
-                    <input type="number" name="on_order_add" id="order_quantity" min="1" required>
+                    <input type="number" name="on_order_add" id="order_quantity" min="0.001" step="0.001" required>
                 </div>
 
                 <div class="form-group full-width">
@@ -1445,6 +1456,7 @@ if ($currentStatusForTab === '') {
             </div>
 
             <form action="/NexGen/CODE/PHP/inventory_stock.php" method="POST" class="stock-form">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfStock); ?>">
                 <input type="hidden" name="product_id" id="receive_product_id">
                 <input type="hidden" name="movement_type" value="stock_in">
                 <input type="hidden" name="receive_shipment" value="1">
@@ -1462,7 +1474,7 @@ if ($currentStatusForTab === '') {
 
                 <div class="form-group">
                     <label>Quantity Received</label>
-                    <input type="number" name="quantity" id="receive_quantity" min="1" required>
+                    <input type="number" name="quantity" id="receive_quantity" min="0.001" step="0.001" required>
                 </div>
 
                 <div class="form-group full-width">
@@ -1486,6 +1498,7 @@ if ($currentStatusForTab === '') {
             </div>
 
             <form action="/NexGen/CODE/PHP/category_save.php" method="POST" class="category-form">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfCategory); ?>">
                 <div class="form-group full-width">
                     <label>New Category Name</label>
                     <input type="text" name="category_name" required>

@@ -2738,7 +2738,7 @@ if (isset($_SESSION['error'])) {
     flex-direction: column;
     justify-content: center;
   }
-  .signup-form-panel { flex: 1.3; max-height: 85vh; overflow-y: auto; padding: 25px 35px; }
+  .signup-form-panel { flex: 1.3; max-height: 85vh; overflow-y: auto; padding: 25px 35px; justify-content: flex-start; }
 
   .login-info-panel, .signup-info-panel {
     flex: 0.8;
@@ -2899,7 +2899,7 @@ if (isset($_SESSION['error'])) {
     flex-direction: column;
     justify-content: center;
   }
-  .signup-form-panel { flex: 1.3; max-height: 85vh; overflow-y: auto; padding: 25px 35px; }
+  .signup-form-panel { flex: 1.3; max-height: 85vh; overflow-y: auto; padding: 25px 35px; justify-content: flex-start; }
 
   .login-info-panel, .signup-info-panel {
     flex: 0.8;
@@ -3442,11 +3442,10 @@ html[data-theme="light"] .trust-card .trust-desc { color: #2d4570; }
                             <label for="businessType">Business Type</label>
                             <select name="business_type" id="businessType">
                                 <option value="">Select business type</option>
-                                <option value="Sari-Sari Store">Sari-Sari Store</option>
-                                <option value="Mini Grocery">Mini Grocery</option>
-                                <option value="Mini Market">Mini Market</option>
-                                <option value="Retail Store">Retail Store</option>
-                                <option value="Other SME">Other SME</option>
+                                <option value="Hardware / Construction Supplies">Hardware / Construction Supplies</option>
+                                <option value="Mini Grocery / Sari-Sari Store">Mini Grocery / Sari-Sari Store</option>
+                                <option value="Pharmacy / Drugstore">Pharmacy / Drugstore</option>
+                                <option value="School / Office Supplies">School / Office Supplies</option>
                             </select>
                         </div>
 

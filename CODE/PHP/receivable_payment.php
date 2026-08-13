@@ -12,8 +12,8 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['owner', 'employee'], true)) {
-    $_SESSION['error'] = 'Unauthorized access.';
+if ((int)($_SESSION['can_accounts_receivable'] ?? 0) !== 1) {
+    $_SESSION['error'] = 'You do not have access to Accounts Receivable.';
     header("Location: /NexGen/CODE/PHP/dashboard.php");
     exit();
 }
@@ -27,6 +27,12 @@ if ($id <= 0) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!validateCsrfToken('receivable_payment_form', $_POST['csrf_token'] ?? null)) {
+        $_SESSION['error'] = 'Your session expired. Please try again.';
+        header("Location: /NexGen/CODE/PHP/receivable_payment.php?id=" . $id);
+        exit();
+    }
+
     $additional_payment = (float)($_POST['additional_payment'] ?? 0);
     $notes = trim($_POST['notes'] ?? '');
 
@@ -609,6 +615,7 @@ if (!$data) {
 <body>
     <form method="POST" class="card">
         <input type="hidden" name="id" value="<?php echo (int)$data['id']; ?>">
+        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(generateCsrfToken('receivable_payment_form')); ?>">
 
         <div class="card-header">
             <div class="icon-wrap"><i class="bi bi-cash-stack"></i></div>

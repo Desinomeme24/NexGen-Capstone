@@ -14,6 +14,8 @@ if ((int)($_SESSION['can_sales'] ?? 0) !== 1) {
 include 'config.php';
 require_once __DIR__ . '/tenant_helper.php';
 $businessId = nxRequireBusinessId($conn);
+$csrfSaleForm = generateCsrfToken('sale_form');
+$csrfCustomerForm = generateCsrfToken('customer_form');
 
 $user_id = $_SESSION['user_id'];
 
@@ -771,7 +773,7 @@ unset($_SESSION['success'], $_SESSION['error']);
                         data-date="<?php echo htmlspecialchars($dateFmt); ?>"
                         data-cashier="<?php echo htmlspecialchars($cashierName); ?>"
                         data-items="<?php echo htmlspecialchars($items); ?>"
-                        data-qty="<?php echo (int)$row['total_qty']; ?>"
+                        data-qty="<?php echo htmlspecialchars($row['total_qty']); ?>"
                         data-amount="<?php echo number_format($row['total_amount'], 2); ?>"
                         data-payment-status="<?php echo htmlspecialchars($row['payment_status']); ?>"
                         data-payment-method="<?php echo htmlspecialchars($row['payment_method']); ?>"
@@ -800,7 +802,7 @@ unset($_SESSION['success'], $_SESSION['error']);
                             </div>
                             <div class="sale-card-qty">
                                 <small>Qty</small>
-                                <strong><?php echo (int)$row['total_qty']; ?></strong>
+                                <strong><?php echo formatQty($row['total_qty']); ?></strong>
                             </div>
                         </div>
 
@@ -904,6 +906,7 @@ unset($_SESSION['success'], $_SESSION['error']);
         </div>
 
         <form id="saleForm" method="POST" action="/NexGen/CODE/PHP/process_sale_ajax.php" novalidate>
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfSaleForm); ?>">
 
             <!-- STEP 1: SALE INFO -->
             <div class="wizard-step active" data-step="1">
@@ -1045,6 +1048,7 @@ unset($_SESSION['success'], $_SESSION['error']);
         <div class="modal-title">Add Customer</div>
 
         <form id="customerForm" method="POST" action="/NexGen/CODE/PHP/customer_save.php" novalidate>
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfCustomerForm); ?>">
             <input type="hidden" name="payment_status_context" id="paymentStatusContext" value="Paid">
 
             <div class="form-grid">

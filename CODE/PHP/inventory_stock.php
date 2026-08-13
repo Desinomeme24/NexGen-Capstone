@@ -10,7 +10,19 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
+if ((int)($_SESSION['can_inventory'] ?? 0) !== 1) {
+    $_SESSION['inventory_error'] = 'You do not have access to Inventory Management.';
+    header("Location: /NexGen/CODE/PHP/dashboard.php");
+    exit();
+}
+
 if ($_SERVER["REQUEST_METHOD"] !== "POST") {
+    header("Location: /NexGen/CODE/PHP/inventory_management.php");
+    exit();
+}
+
+if (!validateCsrfToken('inventory_stock', $_POST['csrf_token'] ?? null)) {
+    $_SESSION['inventory_error'] = 'Your session expired. Please try again.';
     header("Location: /NexGen/CODE/PHP/inventory_management.php");
     exit();
 }
@@ -35,7 +47,7 @@ if ($product_id <= 0) {
 $placeOrder = $isOwner && isset($_POST['place_order']) && $_POST['place_order'] === '1';
 
 if ($placeOrder) {
-    $orderQty = max(0, intval($_POST['on_order_add'] ?? 0));
+    $orderQty = max(0, (float)($_POST['on_order_add'] ?? 0));
     $orderRemarks = trim($_POST['remarks'] ?? '');
 
     if ($orderQty <= 0) {
@@ -69,7 +81,7 @@ if ($placeOrder) {
         }
 
         $productName = $product['product_name'] ?? 'Product';
-        $newOnOrder = (int)($product['on_order_level'] ?? 0) + $orderQty;
+        $newOnOrder = (float)($product['on_order_level'] ?? 0) + $orderQty;
 
         $updateStmt = $conn->prepare("
             UPDATE products
@@ -81,7 +93,7 @@ if ($placeOrder) {
             throw new Exception("Failed to prepare on-order update query.");
         }
 
-        $updateStmt->bind_param("iii", $newOnOrder, $product_id, $businessId);
+        $updateStmt->bind_param("dii", $newOnOrder, $product_id, $businessId);
 
         if (!$updateStmt->execute()) {
             throw new Exception("Failed to update on-order level.");
@@ -100,7 +112,7 @@ if ($placeOrder) {
         }
 
         $orderHistoryStmt->bind_param(
-            "iiisi",
+            "iidsi",
             $businessId,
             $product_id,
             $orderQty,
@@ -115,7 +127,7 @@ if ($placeOrder) {
         $orderHistoryStmt->close();
         $conn->commit();
 
-        $_SESSION['inventory_success'] = "Order placed: {$orderQty} unit(s) added to on-order for {$productName}.";
+        $_SESSION['inventory_success'] = "Order placed: " . formatQty($orderQty) . " unit(s) added to on-order for {$productName}.";
     } catch (Exception $e) {
         $conn->rollback();
         $_SESSION['inventory_error'] = $e->getMessage();
@@ -131,7 +143,7 @@ if ($placeOrder) {
 $receiveShipment = isset($_POST['receive_shipment']) && $_POST['receive_shipment'] === '1';
 
 $movement_type = $receiveShipment ? 'stock_in' : trim($_POST['movement_type'] ?? '');
-$quantity = intval($_POST['quantity'] ?? 0);
+$quantity = (float)($_POST['quantity'] ?? 0);
 $remarks = trim($_POST['remarks'] ?? '');
 
 // Placing a NEW purchase order is handled above (place_order branch), so by
@@ -179,8 +191,8 @@ try {
         throw new Exception("Invalid product.");
     }
 
-    $currentStock = (int)($product['stock_quantity'] ?? 0);
-    $currentOnOrder = (int)($product['on_order_level'] ?? 0);
+    $currentStock = (float)($product['stock_quantity'] ?? 0);
+    $currentOnOrder = (float)($product['on_order_level'] ?? 0);
     $productName = $product['product_name'] ?? 'Product';
 
     $newStock = $currentStock;
@@ -199,7 +211,7 @@ try {
             // remarks instead of silently losing the discrepancy.
             if ($receiveShipment && $quantity > $currentOnOrder) {
                 $overage = $quantity - $currentOnOrder;
-                $remarks = trim($remarks . " [Note: received {$overage} more than was on order.]");
+                $remarks = trim($remarks . " [Note: received " . formatQty($overage) . " more than was on order.]");
             }
         }
     } else {
@@ -221,7 +233,7 @@ try {
         throw new Exception("Failed to prepare stock update query.");
     }
 
-    $updateStmt->bind_param("iiii", $newStock, $newOnOrder, $product_id, $businessId);
+    $updateStmt->bind_param("ddii", $newStock, $newOnOrder, $product_id, $businessId);
 
     if (!$updateStmt->execute()) {
         throw new Exception("Failed to update product stock.");
@@ -238,7 +250,7 @@ try {
         throw new Exception("Failed to prepare stock movement history query.");
     }
 
-    $movementStmt->bind_param("iisisi", $businessId, $product_id, $movement_type, $quantity, $remarks, $user_id);
+    $movementStmt->bind_param("iisdsi", $businessId, $product_id, $movement_type, $quantity, $remarks, $user_id);
 
     if (!$movementStmt->execute()) {
         throw new Exception("Failed to save stock movement history.");
@@ -249,7 +261,7 @@ try {
     $conn->commit();
 
     if ($receiveShipment) {
-        $_SESSION['inventory_success'] = "Shipment received: {$quantity} unit(s) added to stock for {$productName}.";
+        $_SESSION['inventory_success'] = "Shipment received: " . formatQty($quantity) . " unit(s) added to stock for {$productName}.";
     } else {
         $_SESSION['inventory_success'] = "Stock movement saved successfully for {$productName}.";
     }

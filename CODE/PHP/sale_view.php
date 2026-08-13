@@ -6,6 +6,14 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 include 'config.php';
+require_once __DIR__ . '/tenant_helper.php';
+$businessId = nxRequireBusinessId($conn);
+
+if ((int)($_SESSION['can_sales'] ?? 0) !== 1) {
+    $_SESSION['error'] = 'You do not have access to Sales.';
+    header("Location: /NexGen/CODE/PHP/dashboard.php");
+    exit();
+}
 
 if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
     die("Invalid sale ID.");
@@ -31,6 +39,12 @@ function badgeClassOrder($status) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_payment'])) {
+    if (!validateCsrfToken('sale_view_payment_form', $_POST['csrf_token'] ?? null)) {
+        $_SESSION['error'] = 'Your session expired. Please try again.';
+        header("Location: sale_view.php?id=" . $sale_id);
+        exit();
+    }
+
     $additional_payment = (float)($_POST['additional_payment'] ?? 0);
     $due_date = trim($_POST['due_date'] ?? '');
 
@@ -46,10 +60,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_payment'])) {
         $saleCheckStmt = $conn->prepare("
             SELECT id, customer_id, total_amount, payment_status, order_status
             FROM sales
-            WHERE id = ?
+            WHERE id = ? AND business_id = ?
             LIMIT 1
         ");
-        $saleCheckStmt->bind_param("i", $sale_id);
+        $saleCheckStmt->bind_param("ii", $sale_id, $businessId);
         $saleCheckStmt->execute();
         $saleCheckResult = $saleCheckStmt->get_result();
 
@@ -67,11 +81,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_payment'])) {
         $arStmt = $conn->prepare("
             SELECT id, total_amount, amount_paid, balance_due, due_date, status
             FROM accounts_receivable
-            WHERE sale_id = ?
+            WHERE sale_id = ? AND business_id = ?
             ORDER BY id DESC
             LIMIT 1
         ");
-        $arStmt->bind_param("i", $sale_id);
+        $arStmt->bind_param("ii", $sale_id, $businessId);
         $arStmt->execute();
         $arResult = $arStmt->get_result();
 
@@ -122,15 +136,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_payment'])) {
         $updateAr = $conn->prepare("
             UPDATE accounts_receivable
             SET amount_paid = ?, balance_due = ?, due_date = ?, status = ?
-            WHERE id = ?
+            WHERE id = ? AND business_id = ?
         ");
         $updateAr->bind_param(
-            "ddssi",
+            "ddssii",
             $newAmountPaid,
             $newBalance,
             $finalDueDate,
             $newArStatus,
-            $receivable['id']
+            $receivable['id'],
+            $businessId
         );
         $updateAr->execute();
         $updateAr->close();
@@ -138,9 +153,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_payment'])) {
         $updateSale = $conn->prepare("
             UPDATE sales
             SET payment_status = ?, order_status = ?
-            WHERE id = ?
+            WHERE id = ? AND business_id = ?
         ");
-        $updateSale->bind_param("ssi", $newPaymentStatus, $newOrderStatus, $sale_id);
+        $updateSale->bind_param("ssii", $newPaymentStatus, $newOrderStatus, $sale_id, $businessId);
         $updateSale->execute();
         $updateSale->close();
 
@@ -165,9 +180,9 @@ $saleStmt = $conn->prepare("
     FROM sales s
     LEFT JOIN users u ON s.salesperson_id = u.id
     LEFT JOIN customers c ON s.customer_id = c.id
-    WHERE s.id = ?
+    WHERE s.id = ? AND s.business_id = ?
 ");
-$saleStmt->bind_param("i", $sale_id);
+$saleStmt->bind_param("ii", $sale_id, $businessId);
 $saleStmt->execute();
 $saleResult = $saleStmt->get_result();
 
@@ -196,11 +211,11 @@ $arInfo = null;
 $arStmt = $conn->prepare("
     SELECT id, total_amount, amount_paid, balance_due, due_date, status
     FROM accounts_receivable
-    WHERE sale_id = ?
+    WHERE sale_id = ? AND business_id = ?
     ORDER BY id DESC
     LIMIT 1
 ");
-$arStmt->bind_param("i", $sale_id);
+$arStmt->bind_param("ii", $sale_id, $businessId);
 $arStmt->execute();
 $arResult = $arStmt->get_result();
 if ($arResult->num_rows > 0) {
@@ -896,6 +911,7 @@ unset($_SESSION['success'], $_SESSION['error']);
 
                     <form method="POST" class="payment-form">
                         <input type="hidden" name="update_payment" value="1">
+                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(generateCsrfToken('sale_view_payment_form')); ?>">
 
                         <div class="form-group">
                             <label>Additional Payment</label>
@@ -940,7 +956,7 @@ unset($_SESSION['success'], $_SESSION['error']);
                             <?php while ($item = $itemResult->fetch_assoc()): ?>
                                 <tr>
                                     <td><?php echo htmlspecialchars($item['product_name']); ?></td>
-                                    <td><?php echo (int)$item['quantity']; ?></td>
+                                    <td><?php echo formatQty($item['quantity']); ?></td>
                                     <td>₱<?php echo number_format($item['unit_price'], 2); ?></td>
                                     <td>₱<?php echo number_format($item['subtotal'], 2); ?></td>
                                 </tr>

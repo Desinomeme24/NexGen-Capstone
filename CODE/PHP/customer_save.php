@@ -37,12 +37,12 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['owner', 'employee'], true)) {
+if ((int)($_SESSION['can_sales'] ?? 0) !== 1) {
     if (isAjaxRequest()) {
-        sendJson(false, 'Unauthorized access.');
+        sendJson(false, 'You do not have access to Sales.');
     }
 
-    $_SESSION['error'] = 'Unauthorized access.';
+    $_SESSION['error'] = 'You do not have access to Sales.';
     header("Location: /NexGen/CODE/PHP/dashboard.php");
     exit();
 }
@@ -52,6 +52,16 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
         sendJson(false, 'Invalid request method.');
     }
 
+    header("Location: /NexGen/CODE/PHP/sales_recording.php");
+    exit();
+}
+
+if (!validateCsrfToken('customer_form', $_POST['csrf_token'] ?? null)) {
+    if (isAjaxRequest()) {
+        sendJson(false, 'Your session expired. Please refresh the page and try again.');
+    }
+
+    $_SESSION['error'] = 'Your session expired. Please try again.';
     header("Location: /NexGen/CODE/PHP/sales_recording.php");
     exit();
 }

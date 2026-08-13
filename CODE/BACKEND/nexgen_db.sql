@@ -218,9 +218,9 @@ CREATE TABLE `products` (
   `unit` varchar(50) NOT NULL,
   `cost_price` decimal(10,2) NOT NULL DEFAULT 0.00,
   `selling_price` decimal(10,2) NOT NULL DEFAULT 0.00,
-  `stock_quantity` int(11) NOT NULL DEFAULT 0,
-  `reorder_level` int(11) NOT NULL DEFAULT 5,
-  `on_order_level` int(11) NOT NULL DEFAULT 0,
+  `stock_quantity` decimal(12,3) NOT NULL DEFAULT 0.000,
+  `reorder_level` decimal(12,3) NOT NULL DEFAULT 5.000,
+  `on_order_level` decimal(12,3) NOT NULL DEFAULT 0.000,
   `expiry_date` date DEFAULT NULL,
   `product_image` varchar(255) DEFAULT 'uploads/products/default.png',
   `description` text DEFAULT NULL,
@@ -291,7 +291,8 @@ CREATE TABLE `registration_requests` (
   `business_name` varchar(150) NOT NULL,
   `business_type` varchar(100) NOT NULL,
   `business_address` text NOT NULL,
-  `business_code` varchar(20) DEFAULT NULL
+  `business_code` varchar(20) DEFAULT NULL,
+  `business_id` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
@@ -340,7 +341,7 @@ CREATE TABLE `sale_items` (
   `id` int(11) NOT NULL,
   `sale_id` int(11) NOT NULL,
   `product_id` int(11) NOT NULL,
-  `quantity` int(11) NOT NULL,
+  `quantity` decimal(12,3) NOT NULL,
   `unit_price` decimal(10,2) NOT NULL,
   `subtotal` decimal(10,2) NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
@@ -363,7 +364,7 @@ CREATE TABLE `stock_movements` (
   `business_id` int(11) NOT NULL,
   `product_id` int(11) NOT NULL,
   `movement_type` enum('stock_in','stock_out') NOT NULL,
-  `quantity` int(11) NOT NULL,
+  `quantity` decimal(12,3) NOT NULL,
   `remarks` varchar(255) DEFAULT NULL,
   `created_by` int(11) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
@@ -579,7 +580,8 @@ ALTER TABLE `registration_requests`
   ADD KEY `idx_registration_username` (`username`),
   ADD KEY `idx_registration_email` (`email`),
   ADD KEY `idx_registration_employee_no` (`employee_no`),
-  ADD KEY `idx_registration_business_code` (`business_code`);
+  ADD KEY `idx_registration_business_code` (`business_code`),
+  ADD KEY `idx_registration_requests_business` (`business_id`);
 
 --
 -- Indexes for table `sales`
@@ -737,6 +739,12 @@ ALTER TABLE `customers`
 --
 ALTER TABLE `products`
   ADD CONSTRAINT `fk_products_business` FOREIGN KEY (`business_id`) REFERENCES `businesses` (`id`);
+
+--
+-- Constraints for table `registration_requests`
+--
+ALTER TABLE `registration_requests`
+  ADD CONSTRAINT `fk_registration_requests_business` FOREIGN KEY (`business_id`) REFERENCES `businesses` (`id`);
 
 --
 -- Constraints for table `sales`

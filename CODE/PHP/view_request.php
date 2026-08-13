@@ -545,6 +545,27 @@ $isFinalized = in_array($currentStatus, ['approved', 'rejected'], true);
             </div>
         </section>
 
+        <section class="panel">
+            <div class="panel-header">
+                <h2>Business Information</h2>
+            </div>
+            <div class="panel-body">
+                <div class="kv-grid">
+                    <div class="kv-item"><label>Business Name</label><div class="value"><?php echo e($request['business_name'] ?? ''); ?></div></div>
+                    <div class="kv-item"><label>Business Type</label><div class="value"><?php echo e($request['business_type'] ?? ''); ?></div></div>
+                    <div class="kv-item"><label>Business Address</label><div class="value"><?php echo e($request['business_address'] ?? ''); ?></div></div>
+                    <div class="kv-item">
+                        <label>SME Business Code</label>
+                        <div class="value"><?php echo !empty($request['business_code']) ? e($request['business_code']) : '<em>Not yet assigned (generated on approval)</em>'; ?></div>
+                    </div>
+                    <?php if ($request['requested_role'] === 'employee'): ?>
+                        <div class="kv-item"><label>Employee Number</label><div class="value"><?php echo e($request['employee_no'] ?? ''); ?></div></div>
+                        <div class="kv-item"><label>Joining Business ID</label><div class="value"><?php echo $request['business_id'] ? '#' . (int)$request['business_id'] : '<em>Unresolved</em>'; ?></div></div>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </section>
+
         <section class="panel admin-actions-panel">
             <div class="panel-header">
                 <h2>Admin Actions</h2>

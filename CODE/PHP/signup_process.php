@@ -82,6 +82,16 @@ if ($requestedRole === 'owner') {
         signupRedirect('SME owners must provide the business name, business type, and business address.');
     }
 
+    $allowedBusinessTypes = [
+        'Hardware / Construction Supplies',
+        'Mini Grocery / Sari-Sari Store',
+        'Pharmacy / Drugstore',
+        'School / Office Supplies',
+    ];
+    if (!in_array($businessType, $allowedBusinessTypes, true)) {
+        signupRedirect('Please select a valid business type.');
+    }
+
     // The owner's business does not exist yet, so business_id remains NULL
     // until the system administrator approves the request and creates the business.
     $businessId = null;

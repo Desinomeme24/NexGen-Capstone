@@ -9,8 +9,8 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'owner') {
-    $_SESSION['error'] = 'Only owners can access Sales Analytics.';
+if ((int)($_SESSION['can_sales_analytics'] ?? 0) !== 1) {
+    $_SESSION['error'] = 'You do not have access to Sales Analytics.';
     header("Location: /NexGen/CODE/PHP/dashboard.php");
     exit();
 }
@@ -439,7 +439,7 @@ $totalCategoryUnits = 0;
 $tempCategories = [];
 
 while ($row = $categoryResult->fetch_assoc()) {
-    $units = (int)$row['units_sold'];
+    $units = (float)$row['units_sold'];
     $tempCategories[] = [
         'name' => $row['category_name'],
         'units_sold' => $units
@@ -522,7 +522,7 @@ if ($lowStockQuery) {
             'type' => 'warning',
             'icon' => 'bi-exclamation-triangle-fill',
             'title' => 'Low Stock Alert',
-            'message' => $row['product_name'] . ' is low on stock (' . (int)$row['stock_quantity'] . ' left, reorder at ' . (int)$row['reorder_level'] . ').',
+            'message' => $row['product_name'] . ' is low on stock (' . formatQty($row['stock_quantity']) . ' left, reorder at ' . formatQty($row['reorder_level']) . ').',
             'time' => 'Inventory',
             'is_unread' => false
         ];
@@ -574,7 +574,7 @@ while ($row = $movementResult->fetch_assoc()) {
         'type' => $row['movement_type'] === 'stock_in' ? 'success' : 'danger',
         'icon' => $row['movement_type'] === 'stock_in' ? 'bi-box-seam-fill' : 'bi-arrow-down-square-fill',
         'title' => $actionText . ' Recorded',
-        'message' => $actionText . ' for ' . $row['product_name'] . ' (' . (int)$row['quantity'] . ' item/s).',
+        'message' => $actionText . ' for ' . $row['product_name'] . ' (' . formatQty($row['quantity']) . ' item/s).',
         'time' => date('M d, Y h:i A', strtotime($row['created_at'])),
         'is_unread' => $isUnread
     ];
@@ -850,7 +850,7 @@ if (isset($_SESSION['success'])) {
                                                             ?>
                                                                 <tr>
                                                                     <td><span class="cat-dot <?php echo $dotClass; ?>"></span><?php echo htmlspecialchars($item['name']); ?></td>
-                                                                    <td class="text-center"><?php echo (int)$item['units_sold']; ?></td>
+                                                                    <td class="text-center"><?php echo formatQty($item['units_sold']); ?></td>
                                                                     <td class="text-end"><?php echo number_format($item['percentage'], 1); ?>%</td>
                                                                 </tr>
                                                             <?php endforeach; ?>

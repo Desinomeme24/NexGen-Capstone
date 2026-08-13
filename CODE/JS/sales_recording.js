@@ -305,7 +305,8 @@ document.addEventListener("DOMContentLoaded", function () {
     qtyInput.type = "number";
     qtyInput.name = "quantity[]";
     qtyInput.className = "qty-input";
-    qtyInput.min = "1";
+    qtyInput.min = "0.001";
+    qtyInput.step = "0.001";
     qtyInput.value = "1";
     col2.appendChild(qtyInput);
 

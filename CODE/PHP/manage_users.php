@@ -497,7 +497,8 @@ $sql = "
         can_sales_analytics,
         can_accounts_receivable,
         failed_login_attempts,
-        locked_until
+        locked_until,
+        business_id
     FROM users
     {$where}
     ORDER BY id DESC
@@ -533,7 +534,8 @@ if ($editId > 0) {
             can_sales_analytics,
             can_accounts_receivable,
             failed_login_attempts,
-            locked_until
+            locked_until,
+            business_id
         FROM users
         WHERE id = ?
           AND role <> 'system_admin'
@@ -566,6 +568,7 @@ function renderManageUsersTable(array $users, string $search, string $roleFilter
                         <col style="width: 220px;">
                         <col style="width: 140px;">
                         <col style="width: 130px;">
+                        <col style="width: 110px;">
                         <col style="width: 130px;">
                         <col style="width: 120px;">
                         <col style="width: 120px;">
@@ -580,6 +583,7 @@ function renderManageUsersTable(array $users, string $search, string $roleFilter
                             <th>EMAIL</th>
                             <th>PHONE</th>
                             <th>ROLE</th>
+                            <th>BUSINESS</th>
                             <th>VERIFIED</th>
                             <th>FAILED</th>
                             <th>LOCK</th>
@@ -591,7 +595,7 @@ function renderManageUsersTable(array $users, string $search, string $roleFilter
                     <tbody>
                     <?php if (empty($users)): ?>
                         <tr>
-                            <td colspan="11">No user accounts found.</td>
+                            <td colspan="12">No user accounts found.</td>
                         </tr>
                     <?php else: ?>
                         <?php foreach ($users as $user): ?>
@@ -612,6 +616,7 @@ function renderManageUsersTable(array $users, string $search, string $roleFilter
                                 <td class="table-email" data-label="Email"><?php echo e($user['email']); ?></td>
                                 <td class="table-phone" data-label="Phone"><?php echo e($user['phone']); ?></td>
                                 <td class="table-role" data-label="Role"><?php echo e(ucwords(str_replace('_', ' ', $user['role']))); ?></td>
+                                <td class="table-business" data-label="Business"><?php echo !empty($user['business_id']) ? '#' . (int)$user['business_id'] : '—'; ?></td>
                                 <td class="table-verified" data-label="Verified">
                                     <span class="mini-badge <?php echo (int)$user['is_verified'] === 1 ? 'yes' : 'no'; ?>">
                                         <?php echo (int)$user['is_verified'] === 1 ? 'Verified' : 'Not Verified'; ?>

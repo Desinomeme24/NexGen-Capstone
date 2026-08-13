@@ -8,6 +8,12 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
+if ((int)($_SESSION['can_inventory'] ?? 0) !== 1) {
+    $_SESSION['error'] = 'You do not have access to Inventory Management.';
+    header("Location: /NexGen/CODE/PHP/dashboard.php");
+    exit();
+}
+
 $businessId = nxRequireBusinessId($conn);
 
 header('Content-Type: text/csv; charset=utf-8');

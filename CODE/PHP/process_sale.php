@@ -23,6 +23,12 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST") {
     exit();
 }
 
+if (!validateCsrfToken('sale_form', $_POST['csrf_token'] ?? null)) {
+    $_SESSION['error'] = 'Your session expired. Please try again.';
+    header("Location: /NexGen/CODE/PHP/sales_recording.php");
+    exit();
+}
+
 $user_id = (int)$_SESSION['user_id'];
 $sales_no = trim($_POST['sales_no'] ?? '');
 $customer_id = (int)($_POST['customer_id'] ?? 0);
@@ -77,7 +83,7 @@ try {
 
     for ($i = 0; $i < count($product_ids); $i++) {
         $product_id = (int)($product_ids[$i] ?? 0);
-        $qty = (int)($quantities[$i] ?? 0);
+        $qty = (float)($quantities[$i] ?? 0);
         $price = (float)($unit_prices[$i] ?? 0);
 
         if ($product_id <= 0 || $qty <= 0 || $price < 0) {
@@ -126,7 +132,7 @@ try {
 
         $product = $checkResult->fetch_assoc();
 
-        if ((int)$product['stock_quantity'] < $requiredQty) {
+        if ((float)$product['stock_quantity'] < $requiredQty) {
             throw new Exception("Not enough stock for " . $product['product_name']);
         }
     }
@@ -205,7 +211,7 @@ try {
             throw new Exception("Failed to prepare sale item query.");
         }
 
-        $itemStmt->bind_param("iiidd", $sale_id, $item['product_id'], $item['quantity'], $item['unit_price'], $item['subtotal']);
+        $itemStmt->bind_param("iiddd", $sale_id, $item['product_id'], $item['quantity'], $item['unit_price'], $item['subtotal']);
 
         if (!$itemStmt->execute()) {
             throw new Exception("Failed to save sale item.");
@@ -223,7 +229,7 @@ try {
             throw new Exception("Failed to prepare stock update query.");
         }
 
-        $updateStock->bind_param("iii", $item['quantity'], $item['product_id'], $businessId);
+        $updateStock->bind_param("dii", $item['quantity'], $item['product_id'], $businessId);
 
         if (!$updateStock->execute()) {
             throw new Exception("Failed to deduct stock.");
@@ -242,7 +248,7 @@ try {
             throw new Exception("Failed to prepare stock movement query.");
         }
 
-        $stockStmt->bind_param("iiisi", $businessId, $item['product_id'], $item['quantity'], $remarks, $user_id);
+        $stockStmt->bind_param("iidsi", $businessId, $item['product_id'], $item['quantity'], $remarks, $user_id);
 
         if (!$stockStmt->execute()) {
             throw new Exception("Failed to save stock movement.");

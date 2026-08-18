@@ -53,6 +53,16 @@ if ($businessId <= 0) {
     echo json_encode(['success' => false, 'message' => 'Your account is not connected to an SME business.']);
     exit();
 }
+
+$businessTypeStmt = $conn->prepare("SELECT business_type FROM businesses WHERE id = ? LIMIT 1");
+$businessTypeStmt->bind_param("i", $businessId);
+$businessTypeStmt->execute();
+$businessTypeRow = $businessTypeStmt->get_result()->fetch_assoc();
+$businessTypeStmt->close();
+$businessType = $businessTypeRow['business_type'] ?? null;
+$isBatchTrackedBusiness = nxIsBatchTrackedType($businessType);
+$blockExpiredBatches = nxBlocksExpiredBatches($businessType);
+
 $sales_no = trim($_POST['sales_no'] ?? '');
 $customer_id = (int) ($_POST['customer_id'] ?? 0);
 $payment_status = trim($_POST['payment_status'] ?? '');
@@ -79,6 +89,14 @@ if (!in_array($payment_status, $allowedPaymentStatus, true)) {
     echo json_encode([
         'success' => false,
         'message' => 'Invalid payment status.'
+    ]);
+    exit();
+}
+
+if ($payment_status !== 'Paid' && (int)($_SESSION['can_accounts_receivable'] ?? 0) !== 1) {
+    echo json_encode([
+        'success' => false,
+        'message' => 'You do not have access to Accounts Receivable, so sales must be marked Paid.'
     ]);
     exit();
 }
@@ -182,6 +200,25 @@ try {
 
         if ($requiredQty > $availableStock) {
             throw new Exception('Insufficient stock for one of the selected products.');
+        }
+
+        if ($blockExpiredBatches) {
+            $expiryCheckStmt = $conn->prepare("
+                SELECT COUNT(*) AS batch_count, COALESCE(SUM(CASE WHEN expiry_date >= CURDATE() THEN quantity ELSE 0 END), 0) AS non_expired_qty
+                FROM product_batches
+                WHERE product_id = ? AND business_id = ?
+            ");
+            if (!$expiryCheckStmt) {
+                throw new Exception('Failed to prepare batch expiry check.');
+            }
+            $expiryCheckStmt->bind_param("ii", $product_id, $businessId);
+            $expiryCheckStmt->execute();
+            $expiryCheckRow = $expiryCheckStmt->get_result()->fetch_assoc();
+            $expiryCheckStmt->close();
+
+            if ((int) $expiryCheckRow['batch_count'] > 0 && $requiredQty > (float) $expiryCheckRow['non_expired_qty']) {
+                throw new Exception("{$product['product_name']} is expired and cannot be sold. Please remove it or check for a newer batch.");
+            }
         }
     }
 
@@ -287,23 +324,29 @@ try {
 
         $itemStmt->close();
 
-        $stockStmt = $conn->prepare("
-            UPDATE products
-            SET stock_quantity = stock_quantity - ?
-            WHERE id = ? AND business_id = ?
-        ");
+        if ($isBatchTrackedBusiness) {
+            // FEFO consumption; this also keeps products.stock_quantity in
+            // sync via the product_batches triggers, so no direct UPDATE here.
+            nxDeductFefo($conn, $businessId, $item['product_id'], $item['quantity'], $blockExpiredBatches);
+        } else {
+            $stockStmt = $conn->prepare("
+                UPDATE products
+                SET stock_quantity = stock_quantity - ?
+                WHERE id = ? AND business_id = ?
+            ");
 
-        if (!$stockStmt) {
-            throw new Exception('Failed to prepare stock update query.');
+            if (!$stockStmt) {
+                throw new Exception('Failed to prepare stock update query.');
+            }
+
+            $stockStmt->bind_param("dii", $item['quantity'], $item['product_id'], $businessId);
+
+            if (!$stockStmt->execute()) {
+                throw new Exception('Failed to deduct product stock.');
+            }
+
+            $stockStmt->close();
         }
-
-        $stockStmt->bind_param("dii", $item['quantity'], $item['product_id'], $businessId);
-
-        if (!$stockStmt->execute()) {
-            throw new Exception('Failed to deduct product stock.');
-        }
-
-        $stockStmt->close();
 
         $remarks = "Sale recorded: " . $sales_no;
 
@@ -396,7 +439,7 @@ try {
 
         echo json_encode([
             'success' => false,
-            'message' => 'Unable to save the sale. Please check the form and try again.'
+            'message' => $e->getMessage() ?: 'Unable to save the sale. Please check the form and try again.'
         ], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
         exit();
     }

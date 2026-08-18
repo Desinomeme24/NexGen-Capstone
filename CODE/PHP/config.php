@@ -59,6 +59,98 @@ if (!function_exists('formatQty')) {
     }
 }
 
+/* =========================================================================
+   ADAPTIVE SME-TYPE / BATCH INVENTORY HELPERS
+   ========================================================================= */
+if (!function_exists('nxIsBatchTrackedType')) {
+    /* Which SME types manage stock as per-batch/per-expiry lots (product_batches)
+       instead of a single flat stock_quantity number. */
+    function nxIsBatchTrackedType(?string $businessType): bool
+    {
+        return in_array($businessType, ['Mini Grocery / Sari-Sari Store', 'Pharmacy / Drugstore'], true);
+    }
+}
+
+if (!function_exists('nxBlocksExpiredBatches')) {
+    /* Pharmacy/Drugstore may never sell or count expired batches as available
+       stock. Mini Grocery still allows it - an owner is expected to manually
+       pull expired stock rather than have the system block the sale outright. */
+    function nxBlocksExpiredBatches(?string $businessType): bool
+    {
+        return $businessType === 'Pharmacy / Drugstore';
+    }
+}
+
+if (!function_exists('nxDeductFefo')) {
+    /**
+     * FEFO (first-expiry-first-out) stock deduction for a batch-tracked product.
+     * Consumes the soonest-expiring batch(es) first. Depleted batches are removed;
+     * products.stock_quantity is kept in sync automatically by the
+     * trg_product_batches_after_update/delete triggers. Must run inside the
+     * caller's transaction - throws on failure so the caller's rollback applies.
+     */
+    function nxDeductFefo(mysqli $conn, int $businessId, int $productId, float $quantity, bool $blockExpired): void
+    {
+        $expiryClause = $blockExpired ? "AND expiry_date >= CURDATE()" : "";
+        $batchStmt = $conn->prepare("
+            SELECT id, quantity
+            FROM product_batches
+            WHERE product_id = ? AND business_id = ? {$expiryClause}
+            ORDER BY expiry_date ASC, id ASC
+            FOR UPDATE
+        ");
+        if (!$batchStmt) {
+            throw new Exception('Failed to prepare batch lock query.');
+        }
+        $batchStmt->bind_param("ii", $productId, $businessId);
+        $batchStmt->execute();
+        $batches = $batchStmt->get_result()->fetch_all(MYSQLI_ASSOC);
+        $batchStmt->close();
+
+        $remaining = $quantity;
+
+        foreach ($batches as $batch) {
+            if ($remaining <= 0.0005) {
+                break;
+            }
+
+            $batchQty = (float) $batch['quantity'];
+            $take = min($batchQty, $remaining);
+            $newQty = $batchQty - $take;
+
+            if ($newQty <= 0.0005) {
+                $del = $conn->prepare("DELETE FROM product_batches WHERE id = ?");
+                if (!$del) {
+                    throw new Exception('Failed to prepare batch delete query.');
+                }
+                $del->bind_param("i", $batch['id']);
+                if (!$del->execute()) {
+                    throw new Exception('Failed to consume depleted batch.');
+                }
+                $del->close();
+            } else {
+                $upd = $conn->prepare("UPDATE product_batches SET quantity = ? WHERE id = ?");
+                if (!$upd) {
+                    throw new Exception('Failed to prepare batch update query.');
+                }
+                $upd->bind_param("di", $newQty, $batch['id']);
+                if (!$upd->execute()) {
+                    throw new Exception('Failed to deduct from batch.');
+                }
+                $upd->close();
+            }
+
+            $remaining -= $take;
+        }
+
+        if ($remaining > 0.0005) {
+            throw new Exception($blockExpired
+                ? 'This product is expired and cannot be sold. Please remove it or check for a newer batch.'
+                : 'Not enough stock available for this product.');
+        }
+    }
+}
+
 if (!function_exists('isStrongPassword')) {
     function isStrongPassword(string $password): bool
     {

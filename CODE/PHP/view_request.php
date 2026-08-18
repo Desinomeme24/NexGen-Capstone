@@ -577,6 +577,7 @@ $isFinalized = in_array($currentStatus, ['approved', 'rejected'], true);
                     </div>
                 <?php else: ?>
                     <form id="adminActionForm" method="POST" class="request-action-form modern-action-form" data-confirm-message="Are you sure you want to continue?">
+                        <input type="hidden" name="csrf_token" value="<?php echo e(generateCsrfToken('admin_request_action')); ?>">
                         <input type="hidden" name="request_id" value="<?php echo (int)$request['id']; ?>">
 
                         <div class="modern-field">

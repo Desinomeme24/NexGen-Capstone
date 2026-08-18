@@ -8,8 +8,8 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'owner') {
-    $_SESSION['inventory_error'] = "Only owners can restore products.";
+if ((int)($_SESSION['can_inventory'] ?? 0) !== 1) {
+    $_SESSION['inventory_error'] = "You do not have access to Inventory Management.";
     header("Location: /NexGen/CODE/PHP/inventory_management.php");
     exit();
 }

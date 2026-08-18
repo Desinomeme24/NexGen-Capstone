@@ -32,6 +32,13 @@ $isOwner = ($role === 'owner');
 $user_id = (int)($_SESSION['user_id'] ?? 0);
 $businessId = nxRequireBusinessId($conn);
 
+$businessTypeStmt = $conn->prepare("SELECT business_type FROM businesses WHERE id = ? LIMIT 1");
+$businessTypeStmt->bind_param("i", $businessId);
+$businessTypeStmt->execute();
+$businessType = $businessTypeStmt->get_result()->fetch_assoc()['business_type'] ?? null;
+$businessTypeStmt->close();
+$isBatchTracked = nxIsBatchTrackedType($businessType);
+
 $product_id = intval($_POST['product_id'] ?? 0);
 
 if ($product_id <= 0) {
@@ -195,51 +202,113 @@ try {
     $currentOnOrder = (float)($product['on_order_level'] ?? 0);
     $productName = $product['product_name'] ?? 'Product';
 
-    $newStock = $currentStock;
     $newOnOrder = $currentOnOrder;
 
-    if ($movement_type === 'stock_in') {
-        $newStock += $quantity;
-        $newOnOrder += $on_order_add;
+    if ($isBatchTracked) {
+        // Stock lives in product_batches for this business type; the
+        // product_batches triggers keep products.stock_quantity in sync
+        // automatically, so stock itself is never written here directly.
+        if ($movement_type === 'stock_in') {
+            $batchNumber = trim($_POST['batch_number'] ?? '');
+            $batchExpiryDate = trim($_POST['batch_expiry_date'] ?? '');
 
-        if ($deduct_from_on_order) {
-            $deductQty = min($quantity, $newOnOrder);
-            $newOnOrder -= $deductQty;
-
-            // Supplier sent more than what was actually on order for this
-            // product — still receive it into stock, but flag it in the
-            // remarks instead of silently losing the discrepancy.
-            if ($receiveShipment && $quantity > $currentOnOrder) {
-                $overage = $quantity - $currentOnOrder;
-                $remarks = trim($remarks . " [Note: received " . formatQty($overage) . " more than was on order.]");
+            if ($batchNumber === '' || $batchExpiryDate === '') {
+                throw new Exception("Batch number and expiry date are required for Stock In on this business type.");
             }
+
+            $newOnOrder += $on_order_add;
+
+            if ($deduct_from_on_order) {
+                $deductQty = min($quantity, $newOnOrder);
+                $newOnOrder -= $deductQty;
+
+                if ($receiveShipment && $quantity > $currentOnOrder) {
+                    $overage = $quantity - $currentOnOrder;
+                    $remarks = trim($remarks . " [Note: received " . formatQty($overage) . " more than was on order.]");
+                }
+            }
+
+            $batchInsertStmt = $conn->prepare("
+                INSERT INTO product_batches (business_id, product_id, batch_number, expiry_date, quantity)
+                VALUES (?, ?, ?, ?, ?)
+            ");
+
+            if (!$batchInsertStmt) {
+                throw new Exception("Failed to prepare batch insert query.");
+            }
+
+            $batchInsertStmt->bind_param("iissd", $businessId, $product_id, $batchNumber, $batchExpiryDate, $quantity);
+
+            if (!$batchInsertStmt->execute()) {
+                throw new Exception("Failed to save new batch.");
+            }
+
+            $batchInsertStmt->close();
+        } else {
+            // Stock Out here means a manual removal/write-off (damage, spoilage,
+            // correction) - not a sale - so the expired-batch block never applies,
+            // even for Pharmacy. Without this, an expired batch could never be
+            // cleared out at all, since selling it is also blocked.
+            nxDeductFefo($conn, $businessId, $product_id, $quantity, false);
+        }
+
+        if ($newOnOrder != $currentOnOrder) {
+            $onOrderStmt = $conn->prepare("UPDATE products SET on_order_level = ? WHERE id = ? AND business_id = ?");
+            if (!$onOrderStmt) {
+                throw new Exception("Failed to prepare on-order update query.");
+            }
+            $onOrderStmt->bind_param("dii", $newOnOrder, $product_id, $businessId);
+            if (!$onOrderStmt->execute()) {
+                throw new Exception("Failed to update on-order level.");
+            }
+            $onOrderStmt->close();
         }
     } else {
-        if ($quantity > $currentStock) {
-            throw new Exception("Not enough stock available for stock out.");
+        $newStock = $currentStock;
+
+        if ($movement_type === 'stock_in') {
+            $newStock += $quantity;
+            $newOnOrder += $on_order_add;
+
+            if ($deduct_from_on_order) {
+                $deductQty = min($quantity, $newOnOrder);
+                $newOnOrder -= $deductQty;
+
+                // Supplier sent more than what was actually on order for this
+                // product — still receive it into stock, but flag it in the
+                // remarks instead of silently losing the discrepancy.
+                if ($receiveShipment && $quantity > $currentOnOrder) {
+                    $overage = $quantity - $currentOnOrder;
+                    $remarks = trim($remarks . " [Note: received " . formatQty($overage) . " more than was on order.]");
+                }
+            }
+        } else {
+            if ($quantity > $currentStock) {
+                throw new Exception("Not enough stock available for stock out.");
+            }
+
+            $newStock -= $quantity;
+            $newOnOrder += $on_order_add;
         }
 
-        $newStock -= $quantity;
-        $newOnOrder += $on_order_add;
+        $updateStmt = $conn->prepare("
+            UPDATE products
+            SET stock_quantity = ?, on_order_level = ?
+            WHERE id = ? AND business_id = ?
+        ");
+
+        if (!$updateStmt) {
+            throw new Exception("Failed to prepare stock update query.");
+        }
+
+        $updateStmt->bind_param("ddii", $newStock, $newOnOrder, $product_id, $businessId);
+
+        if (!$updateStmt->execute()) {
+            throw new Exception("Failed to update product stock.");
+        }
+
+        $updateStmt->close();
     }
-
-    $updateStmt = $conn->prepare("
-        UPDATE products
-        SET stock_quantity = ?, on_order_level = ?
-        WHERE id = ? AND business_id = ?
-    ");
-
-    if (!$updateStmt) {
-        throw new Exception("Failed to prepare stock update query.");
-    }
-
-    $updateStmt->bind_param("ddii", $newStock, $newOnOrder, $product_id, $businessId);
-
-    if (!$updateStmt->execute()) {
-        throw new Exception("Failed to update product stock.");
-    }
-
-    $updateStmt->close();
 
     $movementStmt = $conn->prepare("
         INSERT INTO stock_movements (business_id, product_id, movement_type, quantity, remarks, created_by, created_at)

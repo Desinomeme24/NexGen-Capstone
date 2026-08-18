@@ -121,6 +121,38 @@ if (isset($_SESSION['error'])) {
     --radius-sm: 12px;
     --font-display: 'Sora', sans-serif;
     --font-body: 'Inter', sans-serif;
+
+    /* ---- CAPTCHA (dark / default) ---- */
+    --captcha-overlay-bg: rgba(0, 0, 0, 0.52);
+    --captcha-box-grad-1: #1f3c88;
+    --captcha-box-grad-2: #1a3578;
+    --captcha-box-border: rgba(255, 255, 255, 0.12);
+    --captcha-text: #ffffff;
+    --captcha-text-soft: rgba(255, 255, 255, 0.78);
+    --captcha-close-bg: rgba(255, 255, 255, 0.12);
+    --captcha-close-bg-hover: rgba(255, 255, 255, 0.22);
+    --captcha-item-bg: rgba(255, 255, 255, 0.08);
+    --captcha-check-ring: rgba(255, 255, 255, 0.65);
+    --captcha-check-bg: rgba(0, 0, 0, 0.55);
+    --captcha-error-bg: rgba(255, 95, 95, 0.12);
+    --captcha-error-text: #ffd9d9;
+    --captcha-cancel-bg: rgba(255, 255, 255, 0.14);
+    --captcha-cancel-bg-hover: rgba(255, 255, 255, 0.22);
+    --captcha-cancel-text: #ffffff;
+    --captcha-verify-bg: #f7d98b;
+    --captcha-verify-text: #17306b;
+    --captcha-verified-text: #aef3b8;
+    --captcha-checkbox-card-bg: rgba(255, 255, 255, 0.08);
+    --captcha-checkbox-card-border: rgba(255, 255, 255, 0.12);
+    --captcha-checkbox-label: #ffffff;
+    --captcha-checkbox-right: rgba(255, 255, 255, 0.72);
+    --captcha-notice-overlay-bg: rgba(0, 0, 0, 0.60);
+    --captcha-notice-grad-1: #264ba6;
+    --captcha-notice-grad-2: #1c3f99;
+    --captcha-notice-border: rgba(255, 255, 255, 0.12);
+    --captcha-notice-icon-bg: rgba(255, 107, 107, 0.16);
+    --captcha-notice-icon-text: #ffd2d2;
+    --captcha-notice-text: rgba(255, 255, 255, 0.88);
   }
 
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -2044,8 +2076,9 @@ if (isset($_SESSION['error'])) {
             min-height: 74px;
             padding: 14px 16px;
             border-radius: 14px;
-            background: rgba(255,255,255,0.08);
-            border: 1px solid rgba(255,255,255,0.12);
+            background: var(--captcha-checkbox-card-bg);
+            border: 1px solid var(--captcha-checkbox-card-border);
+            transition: background 0.3s ease, border-color 0.3s ease;
         }
 
         .captcha-checkbox-left {
@@ -2063,7 +2096,7 @@ if (isset($_SESSION['error'])) {
         }
 
         .captcha-checkbox-left label {
-            color: #fff;
+            color: var(--captcha-checkbox-label);
             font-size: 15px;
             cursor: pointer;
             user-select: none;
@@ -2072,12 +2105,13 @@ if (isset($_SESSION['error'])) {
         .captcha-checkbox-right {
             text-align: center;
             font-size: 10px;
-            color: rgba(255,255,255,0.72);
+            color: var(--captcha-checkbox-right);
             line-height: 1.3;
             min-width: 68px;
         }
 
-        .captcha-checkbox-right img {
+        .captcha-checkbox-right img,
+        .captcha-checkbox-right svg {
             width: 28px;
             height: 28px;
             object-fit: contain;
@@ -2089,7 +2123,7 @@ if (isset($_SESSION['error'])) {
         .captcha-popup-overlay {
             position: fixed;
             inset: 0;
-            background: rgba(0, 0, 0, 0.52);
+            background: var(--captcha-overlay-bg);
             backdrop-filter: blur(8px);
             -webkit-backdrop-filter: blur(8px);
             display: flex;
@@ -2112,14 +2146,14 @@ if (isset($_SESSION['error'])) {
         .captcha-popup-box {
             width: 100%;
             max-width: 560px;
-            background: linear-gradient(180deg, #1f3c88 0%, #1a3578 100%);
+            background: linear-gradient(180deg, var(--captcha-box-grad-1) 0%, var(--captcha-box-grad-2) 100%);
             border-radius: 22px;
             padding: 22px 20px 18px;
-            box-shadow: 0 24px 50px rgba(0, 0, 0, 0.35);
-            border: 1px solid rgba(255,255,255,0.12);
-            color: #fff;
+            box-shadow: 0 24px 50px rgba(0, 0, 0, 0.20);
+            border: 1px solid var(--captcha-box-border);
+            color: var(--captcha-text);
             transform: translateY(14px) scale(0.97);
-            transition: 0.25s ease;
+            transition: 0.25s ease, background 0.3s ease, color 0.3s ease, border-color 0.3s ease;
         }
 
         .captcha-popup-overlay.show .captcha-popup-box {
@@ -2138,7 +2172,7 @@ if (isset($_SESSION['error'])) {
             margin: 0;
             font-size: 22px;
             font-weight: 800;
-            color: #fff;
+            color: var(--captcha-text);
         }
 
         .captcha-popup-close {
@@ -2146,21 +2180,22 @@ if (isset($_SESSION['error'])) {
             width: 40px;
             height: 40px;
             border-radius: 50%;
-            background: rgba(255,255,255,0.12);
-            color: #fff;
+            background: var(--captcha-close-bg);
+            color: var(--captcha-text);
             font-size: 24px;
             cursor: pointer;
+            transition: background 0.2s ease;
         }
 
         .captcha-popup-close:hover {
-            background: rgba(255,255,255,0.22);
+            background: var(--captcha-close-bg-hover);
         }
 
         .captcha-popup-title {
             margin-bottom: 12px;
             font-size: 15px;
             font-weight: 700;
-            color: #fff;
+            color: var(--captcha-text);
         }
 
         .captcha-popup-grid {
@@ -2175,7 +2210,7 @@ if (isset($_SESSION['error'])) {
             overflow: hidden;
             border: 2px solid transparent;
             cursor: pointer;
-            background: rgba(255,255,255,0.08);
+            background: var(--captcha-item-bg);
         }
 
         .captcha-popup-item input {
@@ -2196,28 +2231,29 @@ if (isset($_SESSION['error'])) {
             width: 22px;
             height: 22px;
             border-radius: 50%;
-            background: rgba(0,0,0,0.55);
-            border: 2px solid rgba(255,255,255,0.65);
+            background: var(--captcha-check-bg);
+            border: 2px solid var(--captcha-check-ring);
             box-sizing: border-box;
+            transition: background 0.2s ease, border-color 0.2s ease;
         }
 
         .captcha-popup-item input:checked + img + span {
-            background: #f7d98b;
-            border-color: #f7d98b;
+            background: var(--captcha-verify-bg);
+            border-color: var(--captcha-verify-bg);
         }
 
         .captcha-help {
             margin-top: 10px;
             font-size: 13px;
-            color: rgba(255,255,255,0.78);
+            color: var(--captcha-text-soft);
         }
 
         .captcha-error-box {
             margin-top: 12px;
             padding: 10px 12px;
             border-radius: 12px;
-            background: rgba(255, 95, 95, 0.12);
-            color: #ffd9d9;
+            background: var(--captcha-error-bg);
+            color: var(--captcha-error-text);
             font-size: 13px;
             line-height: 1.5;
         }
@@ -2243,17 +2279,17 @@ if (isset($_SESSION['error'])) {
         }
 
         .captcha-btn-cancel {
-            background: rgba(255,255,255,0.14);
-            color: #fff;
+            background: var(--captcha-cancel-bg);
+            color: var(--captcha-cancel-text);
         }
 
         .captcha-btn-cancel:hover {
-            background: rgba(255,255,255,0.22);
+            background: var(--captcha-cancel-bg-hover);
         }
 
         .captcha-btn-verify {
-            background: #f7d98b;
-            color: #17306b;
+            background: var(--captcha-verify-bg);
+            color: var(--captcha-verify-text);
         }
 
         .captcha-btn-verify:hover {
@@ -2264,7 +2300,7 @@ if (isset($_SESSION['error'])) {
         .captcha-verified-text {
             margin-top: 8px;
             font-size: 13px;
-            color: #aef3b8;
+            color: var(--captcha-verified-text);
             display: none;
         }
 
@@ -2493,17 +2529,17 @@ if (isset($_SESSION['error'])) {
 
         .privacy-consent-wrap {
             display: flex;
-            align-items: flex-start;
+            align-items: center;
             gap: 10px;
             margin-top: 14px;
-            margin-bottom: 12px;
-            color: #fff;
+            margin-bottom: 4px;
+            color: var(--text-main);
             font-size: 13px;
             line-height: 1.5;
         }
 
         .privacy-consent-wrap input[type="checkbox"] {
-            margin-top: 3px;
+            margin: 0;
             width: 16px;
             height: 16px;
             accent-color: #f7d98b;
@@ -2511,11 +2547,35 @@ if (isset($_SESSION['error'])) {
             cursor: pointer;
         }
 
+        .privacy-consent-wrap input[type="checkbox"]:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
         .privacy-consent-wrap label {
-            color: #fff;
+            color: var(--text-main);
             font-size: 13px;
             line-height: 1.5;
             cursor: pointer;
+        }
+
+        .privacy-consent-hint {
+            margin: 0 0 12px;
+            font-size: 12px;
+            line-height: 1.5;
+            color: var(--text-faint);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .privacy-consent-hint.is-cleared {
+            color: #6bc98a;
+        }
+
+        .privacy-consent-hint .hint-icon {
+            font-size: 13px;
+            line-height: 1;
         }
 
         .privacy-policy-inline-note {
@@ -2612,7 +2672,7 @@ if (isset($_SESSION['error'])) {
         .captcha-notice-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.60);
+    background: var(--captcha-notice-overlay-bg);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     display: none;
@@ -2629,13 +2689,14 @@ if (isset($_SESSION['error'])) {
 .captcha-notice-box {
     width: 100%;
     max-width: 420px;
-    background: linear-gradient(180deg, #264ba6 0%, #1c3f99 100%);
-    border: 1px solid rgba(255,255,255,0.12);
+    background: linear-gradient(180deg, var(--captcha-notice-grad-1) 0%, var(--captcha-notice-grad-2) 100%);
+    border: 1px solid var(--captcha-notice-border);
     border-radius: 24px;
-    box-shadow: 0 24px 54px rgba(0, 0, 0, 0.35);
-    color: #fff;
+    box-shadow: 0 24px 54px rgba(0, 0, 0, 0.25);
+    color: var(--captcha-text);
     text-align: center;
     padding: 28px 24px 24px;
+    transition: background 0.3s ease, color 0.3s ease, border-color 0.3s ease;
 }
 
 .captcha-notice-icon {
@@ -2648,21 +2709,22 @@ if (isset($_SESSION['error'])) {
     justify-content: center;
     font-size: 28px;
     font-weight: 900;
-    background: rgba(255, 107, 107, 0.16);
-    color: #ffd2d2;
+    background: var(--captcha-notice-icon-bg);
+    color: var(--captcha-notice-icon-text);
 }
 
 .captcha-notice-box h3 {
     margin: 0 0 10px;
     font-size: 26px;
     font-weight: 900;
+    color: var(--captcha-text);
 }
 
 .captcha-notice-box p {
     margin: 0;
     font-size: 15px;
     line-height: 1.6;
-    color: rgba(255,255,255,0.88);
+    color: var(--captcha-notice-text);
 }
 
 .captcha-notice-btn {
@@ -2671,8 +2733,8 @@ if (isset($_SESSION['error'])) {
     border-radius: 12px;
     padding: 12px 18px;
     min-width: 150px;
-    background: #f7d98b;
-    color: #17306b;
+    background: var(--captcha-verify-bg);
+    color: var(--captcha-verify-text);
     font-size: 14px;
     font-weight: 800;
     cursor: pointer;
@@ -2799,7 +2861,18 @@ if (isset($_SESSION['error'])) {
 
   .signup-form-panel input::placeholder,
   .signup-form-panel textarea::placeholder { color: #777 !important; opacity: 1; }
-  .signup-form-panel select, .signup-form-panel select option { color: #222 !important; background-color: #fff; }
+  .signup-form-panel select,
+  .signup-form-panel select option {
+    color: #222 !important;
+    background-color: #fff !important;
+    /* Without this, browsers running in OS/browser dark mode auto-style the
+       native <select> popup with their own dark palette — independent of
+       our data-theme toggle — which fights the #222-on-white colors above
+       and leaves some rows unreadable. Locking the control to light UA
+       chrome keeps every option legible regardless of the visitor's OS
+       theme. */
+    color-scheme: light;
+  }
   .signup-form-panel input:focus,
   .signup-form-panel select:focus,
   .signup-form-panel textarea:focus {
@@ -3011,9 +3084,9 @@ if (isset($_SESSION['error'])) {
      default now too (see the "MODERN SPLIT-PANEL LOGIN & SIGNUP"
      block above) — its light-mode override lives near the bottom of
      this section, restoring the original white-card look. The captcha/
-     cookie/notice popups stay in their current dark styling on
-     purpose — they're transient overlays, same call as the toast
-     notifications on the other pages.
+     cookie/notice popups now also follow the toggle — light mode uses
+     a sky-blue surface (not a flat white) to stay on-brand with the
+     rest of the light theme.
   ========================= */
   html[data-theme="light"] {
     --bg-deep: #eaf4ff;
@@ -3023,6 +3096,38 @@ if (isset($_SESSION['error'])) {
   --text-faint: #425577;
     --line: rgba(11, 31, 115, 0.12);
     --line-bright: rgba(11, 31, 115, 0.2);
+
+    /* ---- CAPTCHA (light / sky blue) ---- */
+    --captcha-overlay-bg: rgba(9, 40, 74, 0.35);
+    --captcha-box-grad-1: #eaf6ff;
+    --captcha-box-grad-2: #bfe3fb;
+    --captcha-box-border: rgba(11, 61, 107, 0.18);
+    --captcha-text: #0b3d6b;
+    --captcha-text-soft: rgba(11, 61, 107, 0.78);
+    --captcha-close-bg: rgba(11, 61, 107, 0.08);
+    --captcha-close-bg-hover: rgba(11, 61, 107, 0.16);
+    --captcha-item-bg: rgba(11, 61, 107, 0.06);
+    --captcha-check-ring: rgba(11, 61, 107, 0.4);
+    --captcha-check-bg: rgba(255, 255, 255, 0.75);
+    --captcha-error-bg: rgba(217, 48, 60, 0.10);
+    --captcha-error-text: #a3212c;
+    --captcha-cancel-bg: rgba(11, 61, 107, 0.08);
+    --captcha-cancel-bg-hover: rgba(11, 61, 107, 0.16);
+    --captcha-cancel-text: #0b3d6b;
+    --captcha-verify-bg: #f7d98b;
+    --captcha-verify-text: #17306b;
+    --captcha-verified-text: #1f8a3a;
+    --captcha-checkbox-card-bg: rgba(11, 61, 107, 0.05);
+    --captcha-checkbox-card-border: rgba(11, 61, 107, 0.14);
+    --captcha-checkbox-label: #0b3d6b;
+    --captcha-checkbox-right: rgba(11, 61, 107, 0.62);
+    --captcha-notice-overlay-bg: rgba(9, 40, 74, 0.45);
+    --captcha-notice-grad-1: #eaf6ff;
+    --captcha-notice-grad-2: #bfe3fb;
+    --captcha-notice-border: rgba(11, 61, 107, 0.18);
+    --captcha-notice-icon-bg: rgba(217, 48, 60, 0.10);
+    --captcha-notice-icon-text: #a3212c;
+    --captcha-notice-text: rgba(11, 61, 107, 0.82);
   }
 
   html[data-theme="light"] header.scrolled {
@@ -3378,7 +3483,7 @@ html[data-theme="light"] .trust-card .trust-desc { color: #2d4570; }
                         </button>
                     </div>
                     <p class="login-lock-note" id="loginLockNote" style="color:#dc3545; font-size:12px; margin-bottom:10px; display:none;">This specific account is temporarily locked.</p>
-                    <div class="captcha-checkbox-wrap" style="margin:10px 0;"><div class="captcha-checkbox-card" style="background:#f9f9f9; border:1px solid #eee; padding:8px 12px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;"><div class="captcha-checkbox-left" style="display:flex; align-items:center; gap:8px;"><input type="checkbox" id="loginRobotCheck"><label for="loginRobotCheck" style="color:#555; font-size:13px; margin:0;">I'm not a robot</label></div><div class="captcha-checkbox-right" style="font-size:10px; color:#999; text-align:right;"><img src="/NexGen/IMAGES/NGlogo.png" style="width:25px; margin:0 auto 2px;">Manual<br>Captcha</div></div><div class="captcha-verified-text" id="loginVerifiedText" style="color:#28a745; font-size:12px; margin-top:5px; display:none;">Captcha verified.</div></div>
+                    <div class="captcha-checkbox-wrap" style="margin:10px 0;"><div class="captcha-checkbox-card"><div class="captcha-checkbox-left" style="gap:8px;"><input type="checkbox" id="loginRobotCheck"><label for="loginRobotCheck" style="font-size:13px; margin:0;">I'm not a robot</label></div><div class="captcha-checkbox-right"><img src="data:image/png;base64,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" alt="reCAPTCHA" width="32" height="32" style="width:32px;height:32px;object-fit:contain;display:block;" aria-hidden="true"><span>Manual<br>Captcha</span></div></div><div class="captcha-verified-text" id="loginVerifiedText" style="color:#28a745; font-size:12px; margin-top:5px; display:none;">Captcha verified.</div></div>
                     <div style="text-align:center; margin:10px 0 20px;"><a href="/NexGen/CODE/PHP/forgot_password.php" style="color:#777; font-size:13px; text-decoration:none;">Forgot Your Password?</a></div>
                     <button type="submit" class="glass-login-btn" id="loginSubmitBtn">Sign In</button>
                 </form>
@@ -3497,8 +3602,12 @@ html[data-theme="light"] .trust-card .trust-desc { color: #2d4570; }
                             <small class="field-help">Accepted: JPG, PNG, GIF, WEBP, or PDF. Maximum size: 5 MB.</small>
                         </div>
                     </div>
-                    <div class="privacy-consent-wrap" style="display:flex; align-items:flex-start; gap:10px; margin:10px 0;"><input type="checkbox" name="privacy_consent" id="privacy_consent" required style="width:auto; margin-top:4px;"><label for="privacy_consent" style="font-size:12px; line-height:1.4; color:#666;">I agree to the <a href="/NexGen/CODE/PHP/privacy_policy.php?return_to=signup">Privacy Policy</a></label></div>
-                    <div class="captcha-checkbox-wrap" style="margin:10px 0;"><div class="captcha-checkbox-card" style="background:#f9f9f9; border:1px solid #eee; padding:8px 12px; border-radius:8px; display:flex; justify-content:space-between; align-items:center;"><div class="captcha-checkbox-left" style="display:flex; align-items:center; gap:8px;"><input type="checkbox" id="signupRobotCheck"><label for="signupRobotCheck" style="color:#555; font-size:13px; margin:0;">I'm not a robot</label></div><div class="captcha-checkbox-right" style="font-size:10px; color:#999; text-align:right;"><img src="/NexGen/IMAGES/NGlogo.png" style="width:25px; margin:0 auto 2px;">Manual<br>Captcha</div></div><div class="captcha-verified-text" id="signupVerifiedText" style="color:#28a745; font-size:12px; margin-top:5px; display:none;">Captcha verified.</div></div>
+                    <div class="privacy-consent-wrap" id="signupPrivacyWrap">
+                        <input type="checkbox" name="privacy_consent" id="privacy_consent" required disabled>
+                        <label for="privacy_consent">I agree to the <a href="/NexGen/CODE/PHP/privacy_policy.php?return_to=signup" target="_blank" rel="noopener" id="privacyPolicyLink">Privacy Policy</a></label>
+                    </div>
+                    <p class="privacy-consent-hint" id="privacyConsentHint"><span class="hint-icon">ℹ️</span><span id="privacyConsentHintText">Open the Privacy Policy above to enable the checkbox.</span></p>
+                    <div class="captcha-checkbox-wrap" style="margin:10px 0;"><div class="captcha-checkbox-card"><div class="captcha-checkbox-left" style="gap:8px;"><input type="checkbox" id="signupRobotCheck"><label for="signupRobotCheck" style="font-size:13px; margin:0;">I'm not a robot</label></div><div class="captcha-checkbox-right"><img src="data:image/png;base64,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" alt="reCAPTCHA" width="32" height="32" style="width:32px;height:32px;object-fit:contain;display:block;" aria-hidden="true"><span>Manual<br>Captcha</span></div></div><div class="captcha-verified-text" id="signupVerifiedText" style="color:#28a745; font-size:12px; margin-top:5px; display:none;">Captcha verified.</div></div>
                     <button type="submit" class="silver-btn">Submit Request</button>
                 </form>
             </div>
@@ -3896,8 +4005,8 @@ html[data-theme="light"] .trust-card .trust-desc { color: #2d4570; }
         </div>
       </div>
       <div class="stat-badge">
-        <div class="num">18<span style="font-size:22px">+</span></div>
-        <div class="label">Years Of<br>Age Experience</div>
+        <div class="num">24<span>/7</span></div>
+        <div class="label">Availability</div>
       </div>
     </div>
   </div>
@@ -4235,11 +4344,11 @@ html[data-theme="light"] .trust-card .trust-desc { color: #2d4570; }
         <ul class="footer-contact">
           <li>
             <span class="contact-icon"><i class="fas fa-envelope"></i></span>
-            <span><a href="mailto:nexgeneration2026@gmail.com">nexgeneration2026@gmail.com</a></span>
+            <span><a href="#">nexgeneration2026@gmail.com</a></span>
           </li>
           <li>
             <span class="contact-icon"><i class="fas fa-phone"></i></span>
-            <span><a href="tel:09094399525">0909 439 9525</a></span>
+            <span><a href="#">0909 439 9525</a></span>
           </li>
           <li>
             <span class="contact-icon"><i class="fas fa-location-dot"></i></span>
@@ -5706,6 +5815,40 @@ document.addEventListener('DOMContentLoaded', function () {
     if (roleSelect) {
         roleSelect.addEventListener('change', updateSignupRoleFields);
         updateSignupRoleFields();
+    }
+});
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // ========== PRIVACY POLICY GATE ==========
+    // The signup consent checkbox stays disabled until the user has
+    // actually opened the Privacy Policy at least once (link opens in a
+    // new tab so their in-progress form data isn't lost).
+    var policyLink = document.getElementById('privacyPolicyLink');
+    var consentCheckbox = document.getElementById('privacy_consent');
+    var consentHint = document.getElementById('privacyConsentHint');
+    var consentHintText = document.getElementById('privacyConsentHintText');
+
+    if (policyLink && consentCheckbox) {
+        var enableConsent = function () {
+            consentCheckbox.disabled = false;
+            if (consentHint) {
+                consentHint.classList.add('is-cleared');
+            }
+            if (consentHintText) {
+                consentHintText.textContent = 'Thanks — you can check the box now.';
+            }
+        };
+
+        // Bound on pointerdown (fires before the browser acts on the link,
+        // so it can't be skipped by a popup blocker or tab-switch timing)
+        // and on click as a backup for keyboard/assistive-tech activation.
+        policyLink.addEventListener('pointerdown', enableConsent);
+        policyLink.addEventListener('click', enableConsent);
+        policyLink.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' || e.key === ' ') enableConsent();
+        });
     }
 });
 </script>

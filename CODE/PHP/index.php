@@ -2818,9 +2818,9 @@ if (isset($_SESSION['error'])) {
     margin: 8px 0 2px;
     padding: 10px 12px;
     border-radius: 8px;
-    background: rgba(36, 56, 189, 0.08);
-    border-left: 4px solid #2438bd;
-    color: #24315f;
+    background: rgba(247, 202, 132, 0.12);
+    border-left: 4px solid var(--accent);
+    color: var(--text-main);
     font-size: 13px;
     font-weight: 700;
   }
@@ -2899,7 +2899,7 @@ if (isset($_SESSION['error'])) {
     flex-direction: column;
     justify-content: center;
   }
-  .signup-form-panel { flex: 1.3; max-height: 85vh; overflow-y: auto; padding: 25px 35px; }
+  .signup-form-panel { flex: 1.3; max-height: 85vh; overflow-y: auto; padding: 25px 35px; justify-content: flex-start; }
 
   .login-info-panel, .signup-info-panel {
     flex: 0.8;
@@ -3896,8 +3896,8 @@ html[data-theme="light"] .trust-card .trust-desc { color: #2d4570; }
         </div>
       </div>
       <div class="stat-badge">
-        <div class="num">18<span style="font-size:22px">+</span></div>
-        <div class="label">Years Of<br>Age Experience</div>
+        <div class="num">24<span>/7</span></div>
+        <div class="label">Availability</div>
       </div>
     </div>
   </div>
@@ -4235,11 +4235,11 @@ html[data-theme="light"] .trust-card .trust-desc { color: #2d4570; }
         <ul class="footer-contact">
           <li>
             <span class="contact-icon"><i class="fas fa-envelope"></i></span>
-            <span><a href="mailto:nexgeneration2026@gmail.com">nexgeneration2026@gmail.com</a></span>
+            <span><a href="#">nexgeneration2026@gmail.com</a></span>
           </li>
           <li>
             <span class="contact-icon"><i class="fas fa-phone"></i></span>
-            <span><a href="tel:09094399525">0909 439 9525</a></span>
+            <span><a href="#">0909 439 9525</a></span>
           </li>
           <li>
             <span class="contact-icon"><i class="fas fa-location-dot"></i></span>

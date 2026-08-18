@@ -58,6 +58,12 @@ if (!in_array($payment_status, $allowedPaymentStatus, true)) {
     exit();
 }
 
+if ($payment_status !== 'Paid' && (int)($_SESSION['can_accounts_receivable'] ?? 0) !== 1) {
+    $_SESSION['error'] = 'You do not have access to Accounts Receivable, so sales must be marked Paid.';
+    header("Location: /NexGen/CODE/PHP/sales_recording.php");
+    exit();
+}
+
 if (!in_array($payment_method, $allowedPaymentMethod, true)) {
     $_SESSION['error'] = 'Invalid payment method.';
     header("Location: /NexGen/CODE/PHP/sales_recording.php");

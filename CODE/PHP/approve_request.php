@@ -63,6 +63,12 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit();
 }
 
+if (!validateCsrfToken('admin_request_action', $_POST['csrf_token'] ?? null)) {
+    $_SESSION['error'] = 'Your session expired. Please try again.';
+    header('Location: /NexGen/CODE/PHP/pending_requests.php');
+    exit();
+}
+
 $requestId = isset($_POST['request_id']) ? (int) $_POST['request_id'] : 0;
 $remarks = trim((string) ($_POST['remarks'] ?? ''));
 

@@ -15,6 +15,13 @@ if ((int)($_SESSION['can_inventory'] ?? 0) !== 1) {
 }
 
 $businessId = nxRequireBusinessId($conn);
+$businessTypeStmt = $conn->prepare("SELECT business_type FROM businesses WHERE id = ? LIMIT 1");
+$businessTypeStmt->bind_param("i", $businessId);
+$businessTypeStmt->execute();
+$businessType = $businessTypeStmt->get_result()->fetch_assoc()['business_type'] ?? null;
+$businessTypeStmt->close();
+$isBatchTracked = nxIsBatchTrackedType($businessType);
+$blocksExpiredBatches = nxBlocksExpiredBatches($businessType);
 $csrfAddProduct = generateCsrfToken('inventory_add_product');
 $csrfEditProduct = generateCsrfToken('inventory_edit_product');
 $csrfStock = generateCsrfToken('inventory_stock');
@@ -39,8 +46,12 @@ $search = trim($_GET['search'] ?? '');
 $categoryFilter = intval($_GET['category'] ?? 0);
 $statusFilter = $_GET['status'] ?? '';
 
+// For batch-tracked products, p.expiry_date is always NULL (expiry lives on
+// each batch instead) - "effective" expiry falls back to the soonest batch
+// expiry so expired/expiring filters and the row pill still work correctly.
+$effectiveExpirySql = "COALESCE(p.expiry_date, (SELECT MIN(pb.expiry_date) FROM product_batches pb WHERE pb.product_id = p.id AND pb.business_id = p.business_id))";
 $sql = "
-    SELECT p.*, c.category_name
+    SELECT p.*, c.category_name, {$effectiveExpirySql} AS effective_expiry_date
     FROM products p
     INNER JOIN categories c ON p.category_id = c.id AND c.business_id = p.business_id
     WHERE p.business_id = ?
@@ -68,9 +79,9 @@ if ($statusFilter === 'active') {
 } elseif ($statusFilter === 'out') {
     $sql .= " AND p.is_active = 1 AND p.stock_quantity <= 0";
 } elseif ($statusFilter === 'expired') {
-    $sql .= " AND p.expiry_date IS NOT NULL AND p.expiry_date < CURDATE()";
+    $sql .= " AND {$effectiveExpirySql} IS NOT NULL AND {$effectiveExpirySql} < CURDATE()";
 } elseif ($statusFilter === 'expiring') {
-    $sql .= " AND p.is_active = 1 AND p.expiry_date IS NOT NULL AND p.expiry_date >= CURDATE() AND DATEDIFF(p.expiry_date, CURDATE()) <= 15";
+    $sql .= " AND p.is_active = 1 AND {$effectiveExpirySql} IS NOT NULL AND {$effectiveExpirySql} >= CURDATE() AND DATEDIFF({$effectiveExpirySql}, CURDATE()) <= 15";
 }
 $sql .= " ORDER BY p.created_at DESC";
 $stmt = $conn->prepare($sql);
@@ -121,9 +132,10 @@ $lowStockCount=(int)($countRow['low_stock_count']??0);
 $outOfStockCount=(int)($countRow['out_of_stock_count']??0);
 
 $expiryCountRow = nxFetchOne($conn, "SELECT
-    SUM(expiry_date IS NOT NULL AND expiry_date>=CURDATE() AND DATEDIFF(expiry_date,CURDATE())<=15) expiring_soon_count,
-    SUM(expiry_date IS NOT NULL AND expiry_date<CURDATE()) expired_count
-    FROM products WHERE business_id=? AND is_active=1", "i", [$businessId]);
+    SUM(x.effective_expiry_date IS NOT NULL AND x.effective_expiry_date>=CURDATE() AND DATEDIFF(x.effective_expiry_date,CURDATE())<=15) expiring_soon_count,
+    SUM(x.effective_expiry_date IS NOT NULL AND x.effective_expiry_date<CURDATE()) expired_count
+    FROM (SELECT p.is_active, {$effectiveExpirySql} AS effective_expiry_date FROM products p WHERE p.business_id=?) x
+    WHERE x.is_active=1", "i", [$businessId]);
 $expiringSoonCount=(int)($expiryCountRow['expiring_soon_count']??0);
 $expiredCount=(int)($expiryCountRow['expired_count']??0);
 
@@ -132,10 +144,15 @@ $lowStockItems = nxFetchAll($conn, "SELECT product_name,product_code,stock_quant
     ORDER BY stock_quantity ASC,product_name ASC LIMIT 10", "i", [$businessId]);
 $lowStockFeature=$lowStockItems[0]??null;
 
-$expiringSoonItems = nxFetchAll($conn, "SELECT product_name,product_code,stock_quantity,expiry_date,product_image,
-    DATEDIFF(expiry_date,CURDATE()) days_left FROM products
-    WHERE business_id=? AND is_active=1 AND expiry_date IS NOT NULL AND expiry_date>=CURDATE()
-      AND DATEDIFF(expiry_date,CURDATE())<=15 ORDER BY expiry_date ASC,product_name ASC LIMIT 10", "i", [$businessId]);
+$expiringSoonItems = nxFetchAll($conn, "SELECT * FROM (
+        SELECT p.product_name,p.product_code,p.stock_quantity,p.product_image,
+            {$effectiveExpirySql} AS expiry_date
+        FROM products p WHERE p.business_id=? AND p.is_active=1
+    ) x
+    WHERE x.expiry_date IS NOT NULL AND x.expiry_date>=CURDATE() AND DATEDIFF(x.expiry_date,CURDATE())<=15
+    ORDER BY x.expiry_date ASC, x.product_name ASC LIMIT 10", "i", [$businessId]);
+foreach ($expiringSoonItems as &$esItem) { $esItem['days_left'] = (int)floor((strtotime($esItem['expiry_date']) - strtotime(date('Y-m-d'))) / 86400); }
+unset($esItem);
 $expiringSoonFeature=$expiringSoonItems[0]??null;
 
 $outOfStockItems = nxFetchAll($conn, "SELECT p.product_name,p.product_code,p.stock_quantity,p.on_order_level,p.product_image,
@@ -837,7 +854,7 @@ if ($currentStatusForTab === '') {
 
                                     $invState = getInventoryState($product);
                                     $productIsArchived = ((int)$product['is_active'] === 0);
-                                    $rowExpiryUrgency = expiryUrgency($product['expiry_date'] ?? null);
+                                    $rowExpiryUrgency = expiryUrgency($product['effective_expiry_date'] ?? null);
                                 ?>
                                 <tr>
                                     <td class="cell-image">
@@ -934,26 +951,24 @@ if ($currentStatusForTab === '') {
                                                     </button>
                                                 <?php endif; ?>
 
-                                                <?php if ($isOwner): ?>
-                                                    <?php if ($productIsArchived): ?>
-                                                        <form method="POST" action="/NexGen/CODE/PHP/inventory_restore.php" style="display:contents;">
-                                                            <input type="hidden" name="id" value="<?php echo (int)$product['id']; ?>">
-                                                            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfDeleteRestore); ?>">
-                                                            <button type="submit" class="action-item restore-item">
-                                                                <i class="bi bi-arrow-counterclockwise"></i>
-                                                                <span>Restore Product</span>
-                                                            </button>
-                                                        </form>
-                                                    <?php else: ?>
-                                                        <form method="POST" action="/NexGen/CODE/PHP/inventory_delete.php" style="display:contents;">
-                                                            <input type="hidden" name="id" value="<?php echo (int)$product['id']; ?>">
-                                                            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfDeleteRestore); ?>">
-                                                            <button type="submit" class="action-item delete-item">
-                                                                <i class="bi bi-trash3-fill"></i>
-                                                                <span>Archive Product</span>
-                                                            </button>
-                                                        </form>
-                                                    <?php endif; ?>
+                                                <?php if ($productIsArchived): ?>
+                                                    <form method="POST" action="/NexGen/CODE/PHP/inventory_restore.php" style="display:contents;">
+                                                        <input type="hidden" name="id" value="<?php echo (int)$product['id']; ?>">
+                                                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfDeleteRestore); ?>">
+                                                        <button type="submit" class="action-item restore-item">
+                                                            <i class="bi bi-arrow-counterclockwise"></i>
+                                                            <span>Restore Product</span>
+                                                        </button>
+                                                    </form>
+                                                <?php else: ?>
+                                                    <form method="POST" action="/NexGen/CODE/PHP/inventory_delete.php" style="display:contents;">
+                                                        <input type="hidden" name="id" value="<?php echo (int)$product['id']; ?>">
+                                                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfDeleteRestore); ?>">
+                                                        <button type="submit" class="action-item delete-item">
+                                                            <i class="bi bi-trash3-fill"></i>
+                                                            <span>Archive Product</span>
+                                                        </button>
+                                                    </form>
                                                 <?php endif; ?>
                                             </div>
                                         </div>
@@ -1135,15 +1150,33 @@ if ($currentStatusForTab === '') {
                 <!-- STEP 3: STOCK -->
                 <div class="wizard-step" data-step="3">
                     <div class="form-fields">
-                        <div class="form-group">
-                            <label>Stock Quantity</label>
-                            <input type="number" min="0" step="0.001" name="stock_quantity" required>
-                        </div>
+                        <?php if ($isBatchTracked): ?>
+                            <div class="form-group full-width">
+                                <label class="field-help">This business tracks stock per batch. Set up the product's first batch below - more batches can be added later via Adjust Stock.</label>
+                            </div>
+                            <div class="form-group">
+                                <label>Batch Number</label>
+                                <input type="text" name="batch_number" placeholder="e.g. B-2026-08-01" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Initial Quantity</label>
+                                <input type="number" min="0.001" step="0.001" name="stock_quantity" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Expiry Date</label>
+                                <input type="date" name="expiry_date" required>
+                            </div>
+                        <?php else: ?>
+                            <div class="form-group">
+                                <label>Stock Quantity</label>
+                                <input type="number" min="0" step="0.001" name="stock_quantity" required>
+                            </div>
 
-                        <div class="form-group">
-                            <label>Expiry Date</label>
-                            <input type="date" name="expiry_date">
-                        </div>
+                            <div class="form-group">
+                                <label>Expiry Date</label>
+                                <input type="date" name="expiry_date">
+                            </div>
+                        <?php endif; ?>
 
                         <?php if ($isOwner): ?>
                             <div class="form-group">
@@ -1292,15 +1325,25 @@ if ($currentStatusForTab === '') {
                 <!-- STEP 3: STOCK -->
                 <div class="wizard-step" data-step="3">
                     <div class="form-fields">
-                        <div class="form-group">
-                            <label>Stock Quantity</label>
-                            <input type="number" min="0" step="0.001" name="stock_quantity" id="edit_stock_quantity" required>
-                        </div>
+                        <?php if ($isBatchTracked): ?>
+                            <div class="form-group">
+                                <label>Current Stock (all batches)</label>
+                                <input type="number" id="edit_stock_quantity" readonly>
+                            </div>
+                            <div class="form-group full-width">
+                                <label class="field-help">This business tracks stock per batch. Use Adjust Stock on the product's menu to add a new batch or record a Stock Out - stock quantity here is read-only.</label>
+                            </div>
+                        <?php else: ?>
+                            <div class="form-group">
+                                <label>Stock Quantity</label>
+                                <input type="number" min="0" step="0.001" name="stock_quantity" id="edit_stock_quantity" required>
+                            </div>
 
-                        <div class="form-group">
-                            <label>Expiry Date</label>
-                            <input type="date" name="expiry_date" id="edit_expiry_date">
-                        </div>
+                            <div class="form-group">
+                                <label>Expiry Date</label>
+                                <input type="date" name="expiry_date" id="edit_expiry_date">
+                            </div>
+                        <?php endif; ?>
 
                         <?php if ($isOwner): ?>
                             <div class="form-group">
@@ -1382,6 +1425,20 @@ if ($currentStatusForTab === '') {
                     <label>Quantity</label>
                     <input type="number" name="quantity" min="0.001" step="0.001" required>
                 </div>
+
+                <?php if ($isBatchTracked): ?>
+                <div class="form-group full-width" id="stockBatchFieldsWrap">
+                    <label class="field-help">This business tracks stock per batch. For <strong>Stock In</strong>, enter the new batch below - a Stock Out is drawn automatically from the soonest-expiring batch first.</label>
+                </div>
+                <div class="form-group">
+                    <label>Batch Number</label>
+                    <input type="text" name="batch_number" id="stock_batch_number" placeholder="e.g. B-2026-08-01">
+                </div>
+                <div class="form-group">
+                    <label>Expiry Date</label>
+                    <input type="date" name="batch_expiry_date" id="stock_batch_expiry_date">
+                </div>
+                <?php endif; ?>
 
                 <div class="form-group">
                     <label>Current On Order</label>
@@ -1476,6 +1533,17 @@ if ($currentStatusForTab === '') {
                     <label>Quantity Received</label>
                     <input type="number" name="quantity" id="receive_quantity" min="0.001" step="0.001" required>
                 </div>
+
+                <?php if ($isBatchTracked): ?>
+                <div class="form-group">
+                    <label>Batch Number</label>
+                    <input type="text" name="batch_number" id="receive_batch_number" placeholder="e.g. B-2026-08-01">
+                </div>
+                <div class="form-group">
+                    <label>Expiry Date</label>
+                    <input type="date" name="batch_expiry_date" id="receive_batch_expiry_date">
+                </div>
+                <?php endif; ?>
 
                 <div class="form-group full-width">
                     <label>Remarks</label>

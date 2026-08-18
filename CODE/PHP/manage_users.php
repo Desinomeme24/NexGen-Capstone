@@ -93,6 +93,11 @@ $adminId      = (int) $_SESSION['user_id'];
 |--------------------------------------------------------------------------
 */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'bulk_module_action') {
+    if (!validateCsrfToken('manage_users_action', $_POST['csrf_token'] ?? null)) {
+        $_SESSION['error'] = 'Your session expired. Please try again.';
+        header("Location: manage_users.php");
+        exit();
+    }
     $bulkAction  = trim($_POST['bulk_action'] ?? '');
     $selectedIds = $_POST['selected_user_ids'] ?? [];
 
@@ -209,6 +214,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'bulk_
 |--------------------------------------------------------------------------
 */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'unlock_user') {
+    if (!validateCsrfToken('manage_users_action', $_POST['csrf_token'] ?? null)) {
+        $_SESSION['error'] = 'Your session expired. Please try again.';
+        header("Location: manage_users.php");
+        exit();
+    }
     $userId = (int)($_POST['user_id'] ?? 0);
 
     try {
@@ -271,6 +281,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'unloc
 |--------------------------------------------------------------------------
 */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'update_user') {
+    if (!validateCsrfToken('manage_users_action', $_POST['csrf_token'] ?? null)) {
+        $_SESSION['error'] = 'Your session expired. Please try again.';
+        header("Location: manage_users.php");
+        exit();
+    }
     $userId                = (int)($_POST['user_id'] ?? 0);
     $userFullName          = trim($_POST['full_name'] ?? '');
     $username              = trim($_POST['username'] ?? '');
@@ -663,6 +678,8 @@ if (
     renderManageUsersTable($users, $search, $roleFilter, $statusFilter);
     exit();
 }
+
+$csrfManageUsers = generateCsrfToken('manage_users_action');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -1615,6 +1632,7 @@ if (
 
         <div class="edit-modal-body">
             <form method="POST">
+                <input type="hidden" name="csrf_token" value="<?php echo e($csrfManageUsers); ?>">
                 <input type="hidden" name="action" value="update_user">
                 <input type="hidden" name="user_id" value="<?php echo (int)$editUser['id']; ?>">
 
@@ -1743,6 +1761,7 @@ if (
 
                     <?php if ($isLocked): ?>
                         <form method="POST" style="margin-top: 12px;" class="unlock-user-form" data-username="<?php echo e($editUser['username']); ?>">
+                            <input type="hidden" name="csrf_token" value="<?php echo e($csrfManageUsers); ?>">
                             <input type="hidden" name="action" value="unlock_user">
                             <input type="hidden" name="user_id" value="<?php echo (int)$editUser['id']; ?>">
                             <button type="submit" class="btn btn-gold">Unlock Account</button>

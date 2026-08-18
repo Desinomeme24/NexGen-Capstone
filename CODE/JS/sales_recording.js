@@ -306,7 +306,7 @@ document.addEventListener("DOMContentLoaded", function () {
     qtyInput.name = "quantity[]";
     qtyInput.className = "qty-input";
     qtyInput.min = "0.001";
-    qtyInput.step = "0.001";
+    qtyInput.step = "any";
     qtyInput.value = "1";
     col2.appendChild(qtyInput);
 
@@ -383,7 +383,7 @@ document.addEventListener("DOMContentLoaded", function () {
       grandTotalEl.textContent = formatMoney(total);
     }
 
-    togglePaymentFields();
+    togglePaymentFields(total);
     renderLiveReceipt();
 
     if (typeof wizardCurrentStep !== "undefined" && wizardCurrentStep === 3) {
@@ -473,11 +473,12 @@ document.addEventListener("DOMContentLoaded", function () {
     );
   }
 
-  function togglePaymentFields() {
+  function togglePaymentFields(totalOverride) {
     if (!paymentStatus) return;
 
     const status = paymentStatus.value;
-    const total = getGrandTotalValue();
+    const total =
+      typeof totalOverride === "number" ? totalOverride : getGrandTotalValue();
 
     if (status === "Paid") {
       if (amountPaidGroup) amountPaidGroup.style.display = "block";

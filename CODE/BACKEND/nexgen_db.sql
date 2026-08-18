@@ -205,6 +205,56 @@ CREATE TABLE `customers` (
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `product_batches`
+--
+
+CREATE TABLE `product_batches` (
+  `id` int(11) NOT NULL,
+  `business_id` int(11) NOT NULL,
+  `product_id` int(11) NOT NULL,
+  `batch_number` varchar(50) NOT NULL,
+  `lot_number` varchar(50) DEFAULT NULL,
+  `expiry_date` date NOT NULL,
+  `quantity` decimal(12,3) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+--
+-- Triggers `product_batches`
+--
+-- Keep products.stock_quantity as a maintained rollup of its batches, so
+-- every existing report/query that reads stock_quantity keeps working
+-- unchanged - only inventory-write and sale-processing paths need to know
+-- batches exist at all.
+DELIMITER $$
+CREATE TRIGGER `trg_product_batches_after_insert` AFTER INSERT ON `product_batches` FOR EACH ROW BEGIN
+    UPDATE products
+    SET stock_quantity = (SELECT COALESCE(SUM(quantity),0) FROM product_batches WHERE product_id = NEW.product_id)
+    WHERE id = NEW.product_id;
+END
+$$
+CREATE TRIGGER `trg_product_batches_after_update` AFTER UPDATE ON `product_batches` FOR EACH ROW BEGIN
+    UPDATE products
+    SET stock_quantity = (SELECT COALESCE(SUM(quantity),0) FROM product_batches WHERE product_id = NEW.product_id)
+    WHERE id = NEW.product_id;
+    IF OLD.product_id <> NEW.product_id THEN
+        UPDATE products
+        SET stock_quantity = (SELECT COALESCE(SUM(quantity),0) FROM product_batches WHERE product_id = OLD.product_id)
+        WHERE id = OLD.product_id;
+    END IF;
+END
+$$
+CREATE TRIGGER `trg_product_batches_after_delete` AFTER DELETE ON `product_batches` FOR EACH ROW BEGIN
+    UPDATE products
+    SET stock_quantity = (SELECT COALESCE(SUM(quantity),0) FROM product_batches WHERE product_id = OLD.product_id)
+    WHERE id = OLD.product_id;
+END
+$$
+DELIMITER ;
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `products`
 --
 
@@ -552,6 +602,14 @@ ALTER TABLE `customers`
   ADD KEY `idx_customers_business_code` (`business_id`,`customer_code`);
 
 --
+-- Indexes for table `product_batches`
+--
+ALTER TABLE `product_batches`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `idx_product_batches_business` (`business_id`),
+  ADD KEY `idx_product_batches_product` (`product_id`,`expiry_date`);
+
+--
 -- Indexes for table `products`
 --
 ALTER TABLE `products`
@@ -671,6 +729,12 @@ ALTER TABLE `customers`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
 
 --
+-- AUTO_INCREMENT for table `product_batches`
+--
+ALTER TABLE `product_batches`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
 -- AUTO_INCREMENT for table `products`
 --
 ALTER TABLE `products`
@@ -733,6 +797,13 @@ ALTER TABLE `categories`
 --
 ALTER TABLE `customers`
   ADD CONSTRAINT `fk_customers_business` FOREIGN KEY (`business_id`) REFERENCES `businesses` (`id`);
+
+--
+-- Constraints for table `product_batches`
+--
+ALTER TABLE `product_batches`
+  ADD CONSTRAINT `fk_product_batches_business` FOREIGN KEY (`business_id`) REFERENCES `businesses` (`id`),
+  ADD CONSTRAINT `fk_product_batches_product` FOREIGN KEY (`product_id`) REFERENCES `products` (`id`);
 
 --
 -- Constraints for table `products`

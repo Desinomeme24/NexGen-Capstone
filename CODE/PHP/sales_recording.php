@@ -925,8 +925,10 @@ unset($_SESSION['success'], $_SESSION['error']);
                         <label>Payment Status</label>
                         <select name="payment_status" id="paymentStatus" required>
                             <option value="Paid">Paid</option>
+                            <?php if ((int)($_SESSION['can_accounts_receivable'] ?? 0) === 1): ?>
                             <option value="Unpaid">Unpaid</option>
                             <option value="Partially Paid">Partially Paid</option>
+                            <?php endif; ?>
                         </select>
                     </div>
 
@@ -961,11 +963,6 @@ unset($_SESSION['success'], $_SESSION['error']);
 
                             <button type="button" class="btn-primary customer-inline-btn" id="openCustomerBtn">＋ New Customer</button>
                         </div>
-                    </div>
-
-                    <div class="form-group" id="amountPaidGroup">
-                        <label>Amount Paid</label>
-                        <input type="number" step="0.01" min="0" name="amount_paid" id="amountPaidInput" value="0">
                     </div>
 
                     <div class="form-group" id="dueDateGroup">
@@ -1012,6 +1009,11 @@ unset($_SESSION['success'], $_SESSION['error']);
                         <div class="sale-total-card sale-total-inline">
                             <small>Grand Total</small>
                             <strong>₱<span id="grandTotal">0.00</span></strong>
+                        </div>
+
+                        <div class="form-group" id="amountPaidGroup">
+                            <label>Amount Paid</label>
+                            <input type="number" step="0.01" min="0" name="amount_paid" id="amountPaidInput" value="0">
                         </div>
                     </div>
                 </div>

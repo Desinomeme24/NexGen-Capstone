@@ -59,6 +59,8 @@ if (isset($_SESSION['success'])) {
     unset($_SESSION['error']);
 }
 
+$csrfAdminUnlock = generateCsrfToken('admin_unlock_otp');
+
 if (!isset($_SESSION['admin_unlock_otp_sent']) || $_SESSION['admin_unlock_otp_sent'] !== $adminId) {
     $otp = (string) random_int(100000, 999999);
     $expiresAt = date('Y-m-d H:i:s', strtotime('+5 minutes'));
@@ -89,6 +91,12 @@ if (!isset($_SESSION['admin_unlock_otp_sent']) || $_SESSION['admin_unlock_otp_se
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!validateCsrfToken('admin_unlock_otp', $_POST['csrf_token'] ?? null)) {
+        $_SESSION['error'] = "Your session expired. Please try again.";
+        header("Location: /NexGen/CODE/PHP/admin_unlock_otp.php");
+        exit();
+    }
+
     $action = $_POST['action'] ?? '';
 
     if ($action === 'verify_unlock_otp') {
@@ -394,6 +402,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </p>
 
     <form method="POST">
+        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfAdminUnlock); ?>">
         <input type="hidden" name="action" value="verify_unlock_otp">
         <label>6-Digit OTP</label>
         <input type="text" name="otp_code" maxlength="6" placeholder="Enter OTP" required>
@@ -404,11 +413,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     <div class="btn-row">
         <form method="POST" style="flex:1;">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfAdminUnlock); ?>">
             <input type="hidden" name="action" value="resend_unlock_otp">
             <button type="submit" class="sub-btn" style="width:100%;">Resend OTP</button>
         </form>
 
         <form method="POST" style="flex:1;">
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfAdminUnlock); ?>">
             <input type="hidden" name="action" value="cancel_unlock">
             <button type="submit" class="sub-btn" style="width:100%;">Back</button>
         </form>

@@ -44,25 +44,9 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
-  const notificationsModal = document.getElementById("notificationsModal");
-  if (notificationsModal) {
-    notificationsModal.addEventListener("show.bs.modal", function () {
-      fetch("sales_analytics.php?action=mark_notifications_seen")
-        .then((response) => response.json())
-        .then((data) => {
-          if (data.success) {
-            document
-              .querySelectorAll(".notif-badge, .notif-badge-modal")
-              .forEach((el) => {
-                el.textContent = "0";
-              });
-          }
-        })
-        .catch((error) => {
-          console.error("Failed to mark notifications as seen:", error);
-        });
-    });
-  }
+  // Notifications are marked as read only via the "Mark all read" button
+  // (handled inline in sales_analytics.php) — opening the modal alone
+  // no longer marks anything as seen.
 
   const analyticsData = window.salesAnalyticsData || {
     dailyLabels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
@@ -878,7 +862,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
   addMetricRings();
   addDecorativeOrbs();
-  addParticleWaves();
   add3DHover();
 
   setTimeout(() => {

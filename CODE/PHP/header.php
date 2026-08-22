@@ -29,9 +29,9 @@ $showCategoryOpen = in_array(
 );
 ?>
 
-<aside class="sidebar" id="sidebar">
+<aside class="sidebar" id="sidebar" aria-hidden="true">
     <div class="sidebar-top">
-        <button class="close-sidebar" id="closeSidebar" type="button" onclick="closeSidebarMenu()">&times;</button>
+        <button class="close-sidebar" id="closeSidebar" type="button" aria-label="Close navigation menu">&times;</button>
     </div>
 
     <div class="profile-section">
@@ -62,7 +62,7 @@ $showCategoryOpen = in_array(
 
         <?php if ($hasAnyBusinessModule): ?>
         <div class="dropdown-section">
-            <button class="dropdown-btn <?php echo $showCategoryOpen ? 'active-btn' : ''; ?>" id="categoryToggle" type="button">
+            <button class="dropdown-btn <?php echo $showCategoryOpen ? 'active-btn' : ''; ?>" id="categoryToggle" type="button" aria-controls="categoryMenu" aria-expanded="<?php echo $showCategoryOpen ? 'true' : 'false'; ?>">
                 <span class="d-flex align-items-center gap-3">
                     <i class="bi bi-grid-1x2-fill"></i>
                     <span>Categories</span>
@@ -70,7 +70,7 @@ $showCategoryOpen = in_array(
                 <span id="dropdownArrow">▼</span>
             </button>
 
-            <div class="dropdown-content <?php echo $showCategoryOpen ? 'show' : ''; ?>" id="categoryMenu">
+            <div class="dropdown-content <?php echo $showCategoryOpen ? 'show' : ''; ?>" id="categoryMenu" aria-hidden="<?php echo $showCategoryOpen ? 'false' : 'true'; ?>">
                 <?php if ($canInventory): ?>
                 <a href="/NexGen/CODE/PHP/inventory_management.php" class="<?php echo $currentPage === 'inventory_management.php' ? 'active-sub active-submenu' : ''; ?>">
                     <i class="bi bi-box-seam-fill"></i>
@@ -107,26 +107,28 @@ $showCategoryOpen = in_array(
             <span>Settings</span>
         </a>
 
-        <a href="#" class="menu-item" onclick="openLogoutModal(event)">
+        <a href="#" class="menu-item" onclick="event.preventDefault(); openLogoutModal(event)">
             <i class="bi bi-box-arrow-right"></i>
             <span>Log Out</span>
         </a>
     </nav>
 </aside>
 
-<div class="overlay" id="overlay"></div>
+<div class="overlay" id="overlay" aria-hidden="true"></div>
 
 <header class="topbar">
     <div class="topbar-left">
-        <div class="menu-btn" id="openSidebar" role="button" tabindex="0" aria-label="Open sidebar" onclick="openSidebarMenu()">
-            <span></span>
-            <span></span>
-            <span></span>
-        </div>
+        <button class="menu-btn" id="openSidebar" type="button" aria-controls="sidebar" aria-expanded="false" aria-label="Open navigation menu">
+            <span class="menu-btn-icon" aria-hidden="true">
+                <span></span>
+                <span></span>
+                <span></span>
+            </span>
+        </button>
     </div>
 
     <div class="topbar-right">
-        <button class="theme-toggle" id="themeToggle" type="button" aria-disabled="true" tabindex="-1" aria-label="Current theme (change this in Settings)" style="pointer-events: none; cursor: default;">
+        <button class="theme-toggle" id="themeToggle" type="button" aria-label="Switch to light mode" aria-pressed="false">
             <span class="theme-toggle-thumb">
                 <i class="bi bi-moon-stars-fill" id="themeIcon"></i>
             </span>
@@ -337,23 +339,5 @@ $showCategoryOpen = in_array(
         });
 
         resetInactivityTimer();
-    })();
-
-    /* THEME INDICATOR: read-only now — the topbar button no longer toggles
-       the theme itself, it just mirrors whatever settings.php's
-       Personalization picker has stored under "nexgen-theme". Change the
-       theme in Settings; this icon updates to match on next page load. */
-    (function () {
-        const themeIcon = document.getElementById('themeIcon');
-
-        function syncIcon(theme) {
-            if (themeIcon) {
-                themeIcon.className = theme === 'light' ? 'bi bi-sun-fill' : 'bi bi-moon-stars-fill';
-            }
-        }
-
-        // data-theme is already set on <html> by theme_init.php before paint —
-        // this just points the icon at whatever that ended up being.
-        syncIcon(document.documentElement.getAttribute('data-theme') || 'dark');
     })();
 </script>

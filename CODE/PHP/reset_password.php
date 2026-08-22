@@ -20,16 +20,18 @@ $resetEmail = $_SESSION['reset_email'] ?? '';
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <?php include __DIR__ . '/theme_init.php'; ?>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Reset Password - NextGen</title>
-    <link rel="stylesheet" href="/NexGen/CODE/STYLE/forgot_password.css">
+    <link rel="stylesheet" href="/NexGen/CODE/STYLE/forgot_password.css?v=3">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 </head>
 <body>
 
 <?php if (!empty($popupMessage)): ?>
     <div class="popup-overlay" id="popupOverlay">
         <div class="popup-box <?php echo $popupType; ?>" id="popupBox">
-            <div class="popup-icon"><?php echo $popupType === 'success' ? '✓' : '!'; ?></div>
+            <div class="popup-icon"><i class="bi <?php echo $popupType === 'success' ? 'bi-check-circle-fill' : 'bi-exclamation-triangle-fill'; ?>"></i></div>
             <h3><?php echo $popupType === 'success' ? 'Success' : 'Error'; ?></h3>
             <p><?php echo htmlspecialchars($popupMessage); ?></p>
         </div>

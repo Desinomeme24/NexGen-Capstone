@@ -1,11 +1,5 @@
-const sidebar = document.getElementById("sidebar");
-const openSidebar = document.getElementById("openSidebar");
-const closeSidebar = document.getElementById("closeSidebar");
-const overlay = document.getElementById("overlay");
-
-const categoryToggle = document.getElementById("categoryToggle");
-const categoryMenu = document.getElementById("categoryMenu");
-const dropdownArrow = document.getElementById("dropdownArrow");
+/* Sidebar open/close AND the category dropdown are handled by header.js,
+   which is now loaded on this page too — so none of that lives here. */
 
 const productModal = document.getElementById("productModal");
 const openProductModal = document.getElementById("openProductModal");
@@ -16,6 +10,14 @@ const closeEditProductModal = document.getElementById("closeEditProductModal");
 
 const stockModal = document.getElementById("stockModal");
 const closeStockModal = document.getElementById("closeStockModal");
+
+const receiveShipmentModal = document.getElementById("receiveShipmentModal");
+const closeReceiveShipmentModal = document.getElementById(
+  "closeReceiveShipmentModal",
+);
+
+const placeOrderModal = document.getElementById("placeOrderModal");
+const closePlaceOrderModal = document.getElementById("closePlaceOrderModal");
 
 const categoryModal = document.getElementById("categoryModal");
 const openCategoryModal = document.getElementById("openCategoryModal");
@@ -58,21 +60,6 @@ function getCategoryFilter() {
 function getStatusFilter() {
   return document.getElementById("inventoryStatusFilter");
 }
-
-function openSidebarMenu() {
-  if (sidebar) sidebar.classList.add("active");
-  if (overlay) overlay.classList.add("show");
-  document.body.style.overflow = "hidden";
-}
-
-function closeSidebarMenu() {
-  if (sidebar) sidebar.classList.remove("active");
-  if (overlay) overlay.classList.remove("show");
-  document.body.style.overflow = "";
-}
-
-window.openSidebarMenu = openSidebarMenu;
-window.closeSidebarMenu = closeSidebarMenu;
 
 function openModal(modal) {
   if (!modal) return;
@@ -234,6 +221,35 @@ function closeAllMenus(exceptMenu = null) {
   });
 }
 
+let actionMenuAutoId = 0;
+
+// The dropdown menus start out nested inside .inventory-table-shell, which
+// uses overflow: hidden to keep its rounded corners clean. Browsers clip
+// position: fixed descendants to an overflow:hidden ancestor's box too —
+// it's not just a coordinate calculation, the paint itself gets cut off —
+// so a menu that needs to render below that card is silently hidden even
+// though its on-screen coordinates are correct. Moving each menu to be a
+// direct child of <body> removes it from that clipped ancestor entirely,
+// while the button that opens it keeps a matching ID to find it again.
+function escapeOverflowForActionMenus() {
+  document
+    .querySelectorAll("body > [data-menu-id]")
+    .forEach((el) => el.remove());
+
+  document.querySelectorAll(".action-menu-wrap").forEach((wrap) => {
+    const menu = wrap.querySelector("[data-action-menu]");
+    if (!menu) return;
+
+    actionMenuAutoId += 1;
+    const menuId = "action-menu-" + actionMenuAutoId;
+
+    menu.dataset.menuId = menuId;
+    wrap.dataset.menuFor = menuId;
+
+    document.body.appendChild(menu);
+  });
+}
+
 function positionActionMenu(button, menu) {
   const gap = 10;
   const edgePadding = 8;
@@ -248,9 +264,8 @@ function positionActionMenu(button, menu) {
   menu.style.display = "";
   menu.style.visibility = "";
 
-  // Preferred: centered beside the button, to its left.
+  // Preferred: to the left of the button.
   let left = btnRect.left - menuRect.width - gap;
-  let top = btnRect.top + btnRect.height / 2 - menuRect.height / 2;
 
   // Not enough room on the left? Open to the right instead.
   if (left < edgePadding) {
@@ -261,6 +276,18 @@ function positionActionMenu(button, menu) {
   const maxLeft = window.innerWidth - menuRect.width - edgePadding;
   if (left > maxLeft) left = maxLeft;
   if (left < edgePadding) left = edgePadding;
+
+  // Anchor the menu to the button instead of centering on it, so it
+  // consistently opens in the same spot relative to whichever row was
+  // clicked. Prefer dropping down from the button's top edge; only flip
+  // upward (aligning the menu's bottom with the button's bottom) if there
+  // genuinely isn't enough room below.
+  const spaceBelow = window.innerHeight - btnRect.top - edgePadding;
+  let top = btnRect.top;
+
+  if (menuRect.height > spaceBelow) {
+    top = btnRect.bottom - menuRect.height;
+  }
 
   const maxTop = window.innerHeight - menuRect.height - edgePadding;
   if (top > maxTop) top = maxTop;
@@ -356,6 +383,7 @@ async function refreshInventoryContent(url) {
     dynamicArea.innerHTML = nextDynamicArea.innerHTML;
     syncBrowserUrl(url);
     initDynamicFilterControls();
+    escapeOverflowForActionMenus();
   } catch (error) {
     if (error.name !== "AbortError") {
       window.location.href = url;
@@ -420,39 +448,8 @@ function initDynamicFilterControls() {
   }
 }
 
-/* SIDEBAR */
-if (openSidebar) {
-  openSidebar.addEventListener("click", openSidebarMenu);
-}
-
-if (closeSidebar) {
-  closeSidebar.addEventListener("click", closeSidebarMenu);
-}
-
-if (overlay) {
-  overlay.addEventListener("click", closeSidebarMenu);
-}
-
-/* DROPDOWN IN SIDEBAR */
-if (categoryToggle && categoryMenu) {
-  const hasActiveSub = categoryMenu.querySelector(
-    ".active-sub, .active-submenu",
-  );
-
-  if (hasActiveSub) {
-    categoryMenu.classList.add("show");
-    if (dropdownArrow) dropdownArrow.style.transform = "rotate(180deg)";
-  }
-
-  categoryToggle.addEventListener("click", () => {
-    categoryMenu.classList.toggle("show");
-    if (dropdownArrow) {
-      dropdownArrow.style.transform = categoryMenu.classList.contains("show")
-        ? "rotate(180deg)"
-        : "rotate(0deg)";
-    }
-  });
-}
+/* Category dropdown (openSidebarMenu's Categories toggle) is now handled
+   centrally by header.js, which is loaded on this page too. */
 
 /* OPEN / CLOSE MODALS */
 if (openProductModal) {
@@ -492,7 +489,30 @@ if (closeStockModal && stockModal) {
   });
 }
 
-[productModal, editProductModal, stockModal, categoryModal].forEach((modal) => {
+if (closeReceiveShipmentModal && receiveShipmentModal) {
+  closeReceiveShipmentModal.addEventListener("click", function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    closeModal(receiveShipmentModal);
+  });
+}
+
+if (closePlaceOrderModal && placeOrderModal) {
+  closePlaceOrderModal.addEventListener("click", function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    closeModal(placeOrderModal);
+  });
+}
+
+[
+  productModal,
+  editProductModal,
+  stockModal,
+  categoryModal,
+  receiveShipmentModal,
+  placeOrderModal,
+].forEach((modal) => {
   if (!modal) return;
 
   modal.addEventListener("click", (event) => {
@@ -642,12 +662,59 @@ document.addEventListener("click", (event) => {
     return;
   }
 
+  const receiveButton = event.target.closest(".receive-btn");
+  if (receiveButton) {
+    const productId = document.getElementById("receive_product_id");
+    const productName = document.getElementById("receive_product_name");
+    const expectedQty = document.getElementById("receive_expected_qty");
+    const quantity = document.getElementById("receive_quantity");
+    const remarks = document.getElementById("receive_remarks");
+
+    const onOrderQty = receiveButton.dataset.receiveOnorder || "0";
+
+    if (productId) productId.value = receiveButton.dataset.receiveId;
+    if (productName) productName.value = receiveButton.dataset.receiveName;
+    if (expectedQty) expectedQty.value = onOrderQty;
+
+    // Default the received quantity to what's expected. Editable so a
+    // partial or over-shipment can still be recorded accurately.
+    if (quantity) quantity.value = onOrderQty;
+    if (remarks) remarks.value = "";
+
+    closeAllMenus();
+    openModal(receiveShipmentModal);
+    return;
+  }
+
+  const placeOrderButton = event.target.closest(".place-order-btn");
+  if (placeOrderButton) {
+    const productId = document.getElementById("order_product_id");
+    const productName = document.getElementById("order_product_name");
+    const currentOnOrder = document.getElementById("order_current_on_order");
+    const quantity = document.getElementById("order_quantity");
+    const remarks = document.getElementById("order_remarks");
+
+    if (productId) productId.value = placeOrderButton.dataset.orderId;
+    if (productName) productName.value = placeOrderButton.dataset.orderName;
+    if (currentOnOrder)
+      currentOnOrder.value = placeOrderButton.dataset.orderCurrent || "0";
+    if (quantity) quantity.value = "";
+    if (remarks) remarks.value = "";
+
+    closeAllMenus();
+    openModal(placeOrderModal);
+    return;
+  }
+
   const toggleButton = event.target.closest("[data-action-menu-toggle]");
   if (toggleButton) {
     event.stopPropagation();
 
     const wrap = toggleButton.closest(".action-menu-wrap");
-    const menu = wrap ? wrap.querySelector("[data-action-menu]") : null;
+    const menuId = wrap ? wrap.dataset.menuFor : null;
+    const menu = menuId
+      ? document.querySelector('[data-menu-id="' + menuId + '"]')
+      : null;
 
     if (!menu) return;
 
@@ -691,11 +758,5 @@ window.addEventListener("scroll", () => closeAllMenus(), true);
 window.addEventListener("resize", () => closeAllMenus());
 
 initDynamicFilterControls();
+escapeOverflowForActionMenus();
 
-/* POPUP AUTO HIDE */
-const popupOverlay = document.getElementById("popupOverlay");
-if (popupOverlay) {
-  setTimeout(() => {
-    popupOverlay.remove();
-  }, 2600);
-}

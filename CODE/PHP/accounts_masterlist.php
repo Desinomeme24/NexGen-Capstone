@@ -149,8 +149,7 @@ function renderAccountsTable(array $accounts): void
         <table>
             <colgroup>
                 <col style="width: 80px;">
-                <col style="width: 150px;">
-                <col style="width: 240px;">
+                <col style="width: 390px;">
                 <col style="width: 270px;">
                 <col style="width: 160px;">
                 <col style="width: 160px;">
@@ -160,7 +159,6 @@ function renderAccountsTable(array $accounts): void
             <thead>
                 <tr>
                     <th>ID</th>
-                    <th>EMPLOYEE NO</th>
                     <th>FULL NAME</th>
                     <th>EMAIL</th>
                     <th>PHONE</th>
@@ -172,13 +170,12 @@ function renderAccountsTable(array $accounts): void
             <tbody>
             <?php if (empty($accounts)): ?>
                 <tr>
-                    <td colspan="8">No account records found.</td>
+                    <td colspan="7">No account records found.</td>
                 </tr>
             <?php else: ?>
                 <?php foreach ($accounts as $acc): ?>
                     <tr>
                         <td class="id-col"><?php echo (int)$acc['id']; ?></td>
-                        <td class="empno-col"><?php echo e($acc['employee_no']); ?></td>
                         <td><?php echo e($acc['full_name']); ?></td>
                         <td><?php echo e($acc['email']); ?></td>
                         <td><?php echo e($acc['phone']); ?></td>
@@ -356,8 +353,7 @@ if (
         .created-col,
         .status-col,
         .position-col,
-        .id-col,
-        .empno-col {
+        .id-col {
             white-space: nowrap;
         }
 

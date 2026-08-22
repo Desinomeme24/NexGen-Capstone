@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once("config.php");
+require_once("tenant_helper.php");
 
 if (!isset($_SESSION['user_id'])) {
     header("Location: /NexGen/CODE/PHP/index.php");
@@ -13,51 +14,106 @@ if ((int)($_SESSION['can_inventory'] ?? 0) !== 1) {
     exit();
 }
 
-$displayName  = $_SESSION['username'] ?? 'Client';
-$fullName     = $_SESSION['full_name'] ?? 'Client';
+$businessId = nxRequireBusinessId($conn);
+$businessTypeStmt = $conn->prepare("SELECT business_type FROM businesses WHERE id = ? LIMIT 1");
+$businessTypeStmt->bind_param("i", $businessId);
+$businessTypeStmt->execute();
+$businessType = $businessTypeStmt->get_result()->fetch_assoc()['business_type'] ?? null;
+$businessTypeStmt->close();
+$isBatchTracked = nxIsBatchTrackedType($businessType);
+$blocksExpiredBatches = nxBlocksExpiredBatches($businessType);
+$csrfAddProduct = generateCsrfToken('inventory_add_product');
+$csrfEditProduct = generateCsrfToken('inventory_edit_product');
+$csrfStock = generateCsrfToken('inventory_stock');
+$csrfCategory = generateCsrfToken('inventory_category');
+$csrfDeleteRestore = generateCsrfToken('inventory_delete_restore');
+$displayName = $_SESSION['username'] ?? 'Client';
+$fullName = $_SESSION['full_name'] ?? 'Client';
+$userId = (int)$_SESSION['user_id'];
+$role = $_SESSION['role'] ?? 'employee';
+$isOwner = $role === 'owner';
+$isEmployee = $role === 'employee';
 
-$userId       = $_SESSION['user_id'];
-$role         = $_SESSION['role'] ?? 'employee';
-$isOwner      = $role === 'owner';
-$isEmployee   = $role === 'employee';
+
+/*
+|--------------------------------------------------------------------------
+| NOTIFICATION READ TRACKING (persisted in DB — survives logout)
+|--------------------------------------------------------------------------
+*/
+$notifModule = 'inventory';
+
+if (isset($_GET['action']) && $_GET['action'] === 'mark_notifications_seen') {
+    $markStmt = $conn->prepare(
+        "INSERT INTO notification_reads (user_id, module, last_seen_at)
+         VALUES (?, ?, NOW())
+         ON DUPLICATE KEY UPDATE last_seen_at = NOW()"
+    );
+    $markStmt->bind_param("is", $userId, $notifModule);
+    $markStmt->execute();
+    $markStmt->close();
+
+    header('Content-Type: application/json');
+    echo json_encode([
+        'success' => true,
+        'message' => 'Notifications marked as read.'
+    ]);
+    exit();
+}
+
+$lastSeenRow = nxFetchOne($conn,
+    "SELECT last_seen_at FROM notification_reads WHERE user_id = ? AND module = ?",
+    "is", [$userId, $notifModule]
+);
+
+if (!empty($lastSeenRow['last_seen_at'])) {
+    $notificationsLastSeen = $lastSeenRow['last_seen_at'];
+} else {
+    // First use establishes a baseline so old inventory activity is not retroactively unread.
+    $notificationsLastSeen = date('Y-m-d H:i:s');
+    $initStmt = $conn->prepare(
+        "INSERT INTO notification_reads (user_id, module, last_seen_at) VALUES (?, ?, ?)"
+    );
+    $initStmt->bind_param("iss", $userId, $notifModule, $notificationsLastSeen);
+    $initStmt->execute();
+    $initStmt->close();
+}
 
 $categories = [];
-$categoryQuery = $conn->query("SELECT id, category_name FROM categories ORDER BY category_name ASC");
-if ($categoryQuery) {
-    while ($row = $categoryQuery->fetch_assoc()) {
-        $categories[] = $row;
-    }
-}
+$categoryStmt = $conn->prepare("SELECT id, category_name FROM categories WHERE business_id = ? ORDER BY category_name ASC");
+$categoryStmt->bind_param("i", $businessId);
+$categoryStmt->execute();
+$categoryResult = $categoryStmt->get_result();
+while ($row = $categoryResult->fetch_assoc()) { $categories[] = $row; }
+$categoryStmt->close();
 
 $search = trim($_GET['search'] ?? '');
 $categoryFilter = intval($_GET['category'] ?? 0);
 $statusFilter = $_GET['status'] ?? '';
 
+// For batch-tracked products, p.expiry_date is always NULL (expiry lives on
+// each batch instead) - "effective" expiry falls back to the soonest batch
+// expiry so expired/expiring filters and the row pill still work correctly.
+$effectiveExpirySql = "COALESCE(p.expiry_date, (SELECT MIN(pb.expiry_date) FROM product_batches pb WHERE pb.product_id = p.id AND pb.business_id = p.business_id))";
 $sql = "
-    SELECT p.*, c.category_name
+    SELECT p.*, c.category_name, {$effectiveExpirySql} AS effective_expiry_date
     FROM products p
-    INNER JOIN categories c ON p.category_id = c.id
-    WHERE 1=1
+    INNER JOIN categories c ON p.category_id = c.id AND c.business_id = p.business_id
+    WHERE p.business_id = ?
 ";
-
-$params = [];
-$types = "";
+$params = [$businessId];
+$types = "i";
 
 if ($search !== '') {
     $sql .= " AND (p.product_name LIKE ? OR p.product_code LIKE ? OR p.brand LIKE ?)";
     $searchParam = "%{$search}%";
-    $params[] = $searchParam;
-    $params[] = $searchParam;
-    $params[] = $searchParam;
+    array_push($params, $searchParam, $searchParam, $searchParam);
     $types .= "sss";
 }
-
 if ($categoryFilter > 0) {
     $sql .= " AND p.category_id = ?";
     $params[] = $categoryFilter;
     $types .= "i";
 }
-
 if ($statusFilter === 'active') {
     $sql .= " AND p.is_active = 1";
 } elseif ($statusFilter === 'inactive' || $statusFilter === 'archived') {
@@ -66,152 +122,195 @@ if ($statusFilter === 'active') {
     $sql .= " AND p.is_active = 1 AND p.stock_quantity <= p.reorder_level AND p.stock_quantity > 0";
 } elseif ($statusFilter === 'out') {
     $sql .= " AND p.is_active = 1 AND p.stock_quantity <= 0";
+} elseif ($statusFilter === 'expired') {
+    $sql .= " AND {$effectiveExpirySql} IS NOT NULL AND {$effectiveExpirySql} < CURDATE()";
+} elseif ($statusFilter === 'expiring') {
+    $sql .= " AND p.is_active = 1 AND {$effectiveExpirySql} IS NOT NULL AND {$effectiveExpirySql} >= CURDATE() AND DATEDIFF({$effectiveExpirySql}, CURDATE()) <= 15";
 }
-
 $sql .= " ORDER BY p.created_at DESC";
-
 $stmt = $conn->prepare($sql);
-if ($stmt) {
-    if (!empty($params)) {
-        $stmt->bind_param($types, ...$params);
-    }
-    $stmt->execute();
-    $result = $stmt->get_result();
-} else {
-    die("Query error: " . $conn->error);
-}
-
+$stmt->bind_param($types, ...$params);
+$stmt->execute();
+$result = $stmt->get_result();
 $allProducts = [];
-if ($result) {
-    while ($row = $result->fetch_assoc()) {
-        $allProducts[] = $row;
-    }
-}
-$totalFetchedProducts = count($allProducts);
+while ($row = $result->fetch_assoc()) { $allProducts[] = $row; }
+$stmt->close();
 
+$totalFetchedProducts = count($allProducts);
 $productDisplayLimit = 10;
 $showAllProducts = isset($_GET['show_all']) && $_GET['show_all'] === '1';
 $productsToDisplay = $showAllProducts ? $allProducts : array_slice($allProducts, 0, $productDisplayLimit);
-
-$viewAllParams = $_GET;
-$viewAllParams['show_all'] = 1;
+$viewAllParams = $_GET; $viewAllParams['show_all'] = 1;
 $viewAllUrl = '/NexGen/CODE/PHP/inventory_management.php?' . http_build_query($viewAllParams);
+$showTop10Params = $_GET; unset($showTop10Params['show_all']);
+$showTop10Url = '/NexGen/CODE/PHP/inventory_management.php' . (!empty($showTop10Params) ? '?' . http_build_query($showTop10Params) : '');
 
-$showTop10Params = $_GET;
-unset($showTop10Params['show_all']);
-$showTop10Url = '/NexGen/CODE/PHP/inventory_management.php'
-    . (!empty($showTop10Params) ? '?' . http_build_query($showTop10Params) : '');
-
-/* COUNTS */
-$totalProducts = 0;
-$activeProductsCount = 0;
-$inactiveProductsCount = 0;
-$lowStockCount = 0;
-$outOfStockCount = 0;
-
-$countQuery = $conn->query("
-    SELECT
-        COUNT(*) AS total_products,
-        SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) AS active_products,
-        SUM(CASE WHEN is_active = 0 THEN 1 ELSE 0 END) AS inactive_products,
-        SUM(CASE WHEN is_active = 1 AND stock_quantity <= reorder_level AND stock_quantity > 0 THEN 1 ELSE 0 END) AS low_stock_count,
-        SUM(CASE WHEN is_active = 1 AND stock_quantity <= 0 THEN 1 ELSE 0 END) AS out_of_stock_count
-    FROM products
-");
-
-if ($countQuery && $countRow = $countQuery->fetch_assoc()) {
-    $totalProducts = (int)($countRow['total_products'] ?? 0);
-    $activeProductsCount = (int)($countRow['active_products'] ?? 0);
-    $inactiveProductsCount = (int)($countRow['inactive_products'] ?? 0);
-    $lowStockCount = (int)($countRow['low_stock_count'] ?? 0);
-    $outOfStockCount = (int)($countRow['out_of_stock_count'] ?? 0);
+function nxFetchOne(mysqli $conn, string $sql, string $types, array $params): array {
+    $stmt = $conn->prepare($sql);
+    if (!$stmt) return [];
+    if ($types !== '') $stmt->bind_param($types, ...$params);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc() ?: [];
+    $stmt->close();
+    return $row;
+}
+function nxFetchAll(mysqli $conn, string $sql, string $types, array $params): array {
+    $stmt = $conn->prepare($sql);
+    if (!$stmt) return [];
+    if ($types !== '') $stmt->bind_param($types, ...$params);
+    $stmt->execute();
+    $res = $stmt->get_result(); $rows=[];
+    while ($r=$res->fetch_assoc()) $rows[]=$r;
+    $stmt->close(); return $rows;
 }
 
-/* LOW STOCK */
-$lowStockItems = [];
-$lowStockQuery = $conn->query("
-    SELECT product_name, product_code, stock_quantity, reorder_level, on_order_level, product_image
-    FROM products
-    WHERE is_active = 1
-      AND stock_quantity <= reorder_level
-      AND stock_quantity > 0
-    ORDER BY stock_quantity ASC, product_name ASC
-    LIMIT 10
-");
-if ($lowStockQuery) {
-    while ($row = $lowStockQuery->fetch_assoc()) {
-        $lowStockItems[] = $row;
-    }
-}
-$lowStockFeature = $lowStockItems[0] ?? null;
+$countRow = nxFetchOne($conn, "SELECT COUNT(*) total_products,
+    SUM(is_active=1) active_products, SUM(is_active=0) inactive_products,
+    SUM(is_active=1 AND stock_quantity<=reorder_level AND stock_quantity>0) low_stock_count,
+    SUM(is_active=1 AND stock_quantity<=0) out_of_stock_count
+    FROM products WHERE business_id=?", "i", [$businessId]);
+$totalProducts=(int)($countRow['total_products']??0);
+$activeProductsCount=(int)($countRow['active_products']??0);
+$inactiveProductsCount=(int)($countRow['inactive_products']??0);
+$lowStockCount=(int)($countRow['low_stock_count']??0);
+$outOfStockCount=(int)($countRow['out_of_stock_count']??0);
 
-/* OUT OF STOCK - LATEST FIRST */
-$outOfStockItems = [];
-$outOfStockQuery = $conn->query("
-    SELECT
-        p.product_name,
-        p.product_code,
-        p.stock_quantity,
-        p.on_order_level,
-        p.product_image,
-        latest_move.latest_stock_out_at
-    FROM products p
-    LEFT JOIN (
-        SELECT product_id, MAX(created_at) AS latest_stock_out_at
-        FROM stock_movements
-        WHERE movement_type = 'stock_out'
-        GROUP BY product_id
-    ) latest_move ON latest_move.product_id = p.id
-    WHERE p.is_active = 1
-      AND p.stock_quantity <= 0
-    ORDER BY
-        CASE WHEN latest_move.latest_stock_out_at IS NULL THEN 1 ELSE 0 END ASC,
-        latest_move.latest_stock_out_at DESC,
-        p.created_at DESC,
-        p.id DESC
-    LIMIT 10
-");
-if ($outOfStockQuery) {
-    while ($row = $outOfStockQuery->fetch_assoc()) {
-        $outOfStockItems[] = $row;
-    }
-}
-$outOfStockFeature = $outOfStockItems[0] ?? null;
+$expiryCountRow = nxFetchOne($conn, "SELECT
+    SUM(x.effective_expiry_date IS NOT NULL AND x.effective_expiry_date>=CURDATE() AND DATEDIFF(x.effective_expiry_date,CURDATE())<=15) expiring_soon_count,
+    SUM(x.effective_expiry_date IS NOT NULL AND x.effective_expiry_date<CURDATE()) expired_count
+    FROM (SELECT p.is_active, {$effectiveExpirySql} AS effective_expiry_date FROM products p WHERE p.business_id=?) x
+    WHERE x.is_active=1", "i", [$businessId]);
+$expiringSoonCount=(int)($expiryCountRow['expiring_soon_count']??0);
+$expiredCount=(int)($expiryCountRow['expired_count']??0);
 
-/* LAST SOLD / STOCK HISTORY FEATURE */
-$latestSoldItem = null;
-$latestSoldQuery = $conn->query("
-    SELECT
-        sm.quantity,
-        sm.created_at,
-        sm.remarks,
-        p.product_name,
-        p.product_code,
-        p.product_image
+$lowStockItems = nxFetchAll($conn, "SELECT product_name,product_code,stock_quantity,reorder_level,on_order_level,product_image
+    FROM products WHERE business_id=? AND is_active=1 AND stock_quantity<=reorder_level AND stock_quantity>0
+    ORDER BY stock_quantity ASC,product_name ASC LIMIT 10", "i", [$businessId]);
+$lowStockFeature=$lowStockItems[0]??null;
+
+$expiringSoonItems = nxFetchAll($conn, "SELECT * FROM (
+        SELECT p.product_name,p.product_code,p.stock_quantity,p.product_image,
+            {$effectiveExpirySql} AS expiry_date
+        FROM products p WHERE p.business_id=? AND p.is_active=1
+    ) x
+    WHERE x.expiry_date IS NOT NULL AND x.expiry_date>=CURDATE() AND DATEDIFF(x.expiry_date,CURDATE())<=15
+    ORDER BY x.expiry_date ASC, x.product_name ASC LIMIT 10", "i", [$businessId]);
+foreach ($expiringSoonItems as &$esItem) { $esItem['days_left'] = (int)floor((strtotime($esItem['expiry_date']) - strtotime(date('Y-m-d'))) / 86400); }
+unset($esItem);
+$expiringSoonFeature=$expiringSoonItems[0]??null;
+
+$outOfStockItems = nxFetchAll($conn, "SELECT p.product_name,p.product_code,p.stock_quantity,p.on_order_level,p.product_image,
+    MAX(sm.created_at) latest_stock_out_at FROM products p
+    LEFT JOIN stock_movements sm ON sm.product_id=p.id AND sm.business_id=p.business_id AND sm.movement_type='stock_out'
+    WHERE p.business_id=? AND p.is_active=1 AND p.stock_quantity<=0
+    GROUP BY p.id ORDER BY latest_stock_out_at DESC,p.created_at DESC,p.id DESC LIMIT 10", "i", [$businessId]);
+$outOfStockFeature=$outOfStockItems[0]??null;
+
+$latestSoldItem = nxFetchOne($conn, "SELECT sm.quantity,sm.created_at,sm.remarks,p.product_name,p.product_code,p.product_image
+    FROM stock_movements sm INNER JOIN products p ON sm.product_id=p.id AND sm.business_id=p.business_id
+    WHERE sm.business_id=? AND sm.movement_type='stock_out' ORDER BY sm.created_at DESC LIMIT 1", "i", [$businessId]);
+if (!$latestSoldItem) $latestSoldItem=null;
+
+$recentMovements = nxFetchAll($conn, "SELECT sm.*,p.product_name,p.product_code,p.product_image
+    FROM stock_movements sm INNER JOIN products p ON sm.product_id=p.id AND sm.business_id=p.business_id
+    WHERE sm.business_id=? AND sm.created_at>=NOW()-INTERVAL 7 DAY ORDER BY sm.created_at DESC LIMIT 5", "i", [$businessId]);
+
+$orderHistory = nxFetchAll($conn, "SELECT sm.id, sm.product_id, sm.quantity, sm.remarks, sm.created_at,
+        p.product_name, p.product_code
     FROM stock_movements sm
-    INNER JOIN products p ON sm.product_id = p.id
-    WHERE sm.movement_type = 'stock_out'
-    ORDER BY sm.created_at DESC
-    LIMIT 1
-");
-if ($latestSoldQuery && $latestSoldQuery->num_rows > 0) {
-    $latestSoldItem = $latestSoldQuery->fetch_assoc();
+    INNER JOIN products p ON p.id=sm.product_id AND p.business_id=sm.business_id
+    WHERE sm.business_id=? AND sm.movement_type='order_placed'
+    ORDER BY sm.created_at DESC, sm.id DESC LIMIT 20", "i", [$businessId]);
+
+
+/*
+|--------------------------------------------------------------------------
+| NOTIFICATIONS
+|--------------------------------------------------------------------------
+*/
+$notifications = [];
+$notificationCount = 0;
+
+/* Low stock - visible in modal, not counted as unread badge */
+foreach ($lowStockItems as $item) {
+    $notifications[] = [
+        'type' => 'warning',
+        'icon' => 'bi-exclamation-triangle-fill',
+        'title' => 'Low Stock Alert',
+        'message' => $item['product_name'] . ' is low on stock (' . formatQty($item['stock_quantity']) . ' left, reorder at ' . formatQty($item['reorder_level']) . ').',
+        'time' => 'Inventory',
+        'is_unread' => false,
+        'trackable' => false
+    ];
 }
 
-/* RECENT MOVEMENTS */
-$recentMovements = [];
-$movementQuery = $conn->query("
-    SELECT sm.*, p.product_name, p.product_code, p.product_image
-    FROM stock_movements sm
-    INNER JOIN products p ON sm.product_id = p.id
-    WHERE sm.created_at >= (NOW() - INTERVAL 7 DAY)
-    ORDER BY sm.created_at DESC
-    LIMIT 5
-");
-if ($movementQuery) {
-    while ($row = $movementQuery->fetch_assoc()) {
-        $recentMovements[] = $row;
+/* Out of stock - visible in modal, not counted as unread badge */
+foreach ($outOfStockItems as $item) {
+    $notifications[] = [
+        'type' => 'danger',
+        'icon' => 'bi-bell-fill',
+        'title' => 'Out of Stock',
+        'message' => $item['product_name'] . ' is currently out of stock.',
+        'time' => 'Inventory',
+        'is_unread' => false,
+        'trackable' => false
+    ];
+}
+
+/* Recent stock movements - counted if newer than last seen */
+foreach ($recentMovements as $mv) {
+    $isUnread = strtotime($mv['created_at']) > strtotime($notificationsLastSeen);
+    if ($isUnread) {
+        $notificationCount++;
     }
+
+    $actionText = $mv['movement_type'] === 'stock_in'
+        ? 'Stock In'
+        : ($mv['movement_type'] === 'stock_out' ? 'Stock Out' : 'Order Placed');
+
+    $notifications[] = [
+        'type' => $mv['movement_type'] === 'stock_in' ? 'success' : ($mv['movement_type'] === 'stock_out' ? 'danger' : 'info'),
+        'icon' => $mv['movement_type'] === 'stock_in' ? 'bi-box-seam-fill' : ($mv['movement_type'] === 'stock_out' ? 'bi-arrow-down-square-fill' : 'bi-cart-check-fill'),
+        'title' => $actionText . ' Recorded',
+        'message' => $actionText . ' for ' . $mv['product_name'] . ' (' . formatQty($mv['quantity']) . ' item/s).',
+        'time' => date('M d, Y h:i A', strtotime($mv['created_at'])),
+        'is_unread' => $isUnread,
+        'trackable' => true
+    ];
+}
+
+/* Recently added products - counted if newer than last seen */
+$newProductRows = nxFetchAll($conn, "SELECT product_name, created_at FROM products
+    WHERE business_id=? ORDER BY created_at DESC LIMIT 4", "i", [$businessId]);
+
+foreach ($newProductRows as $np) {
+    $isUnread = strtotime($np['created_at']) > strtotime($notificationsLastSeen);
+    if ($isUnread) {
+        $notificationCount++;
+    }
+
+    $notifications[] = [
+        'type' => 'info',
+        'icon' => 'bi-plus-circle-fill',
+        'title' => 'New Product Added',
+        'message' => $np['product_name'] . ' was added to inventory.',
+        'time' => date('M d, Y', strtotime($np['created_at'])),
+        'is_unread' => $isUnread,
+        'trackable' => true
+    ];
+}
+
+$displayNotifications = $notifications;
+if (empty($displayNotifications)) {
+    $displayNotifications[] = [
+        'type' => 'empty',
+        'icon' => 'bi-info-circle-fill',
+        'title' => 'No Notifications Yet',
+        'message' => 'No stock changes, alerts, or new products available yet.',
+        'time' => 'Just now',
+        'is_unread' => false,
+        'trackable' => false
+    ];
 }
 
 $popupMessage = $_SESSION['inventory_success'] ?? $_SESSION['inventory_error'] ?? "";
@@ -219,9 +318,9 @@ $popupType = isset($_SESSION['inventory_success']) ? "success" : (isset($_SESSIO
 unset($_SESSION['inventory_success'], $_SESSION['inventory_error']);
 
 function getInventoryState(array $product): array {
-    $stock = (int)$product['stock_quantity'];
-    $reorder = (int)$product['reorder_level'];
-    $onOrder = (int)($product['on_order_level'] ?? 0);
+    $stock = (float)$product['stock_quantity'];
+    $reorder = (float)$product['reorder_level'];
+    $onOrder = (float)($product['on_order_level'] ?? 0);
     $isActive = (int)$product['is_active'] === 1;
 
     if (!$isActive) {
@@ -245,6 +344,37 @@ function getInventoryState(array $product): array {
     }
 
     return ['label' => 'Good Stock', 'class' => 'active'];
+}
+
+function expiryUrgency(?string $expiryDate): ?array {
+    if (empty($expiryDate)) {
+        return null;
+    }
+
+    $expiry = strtotime($expiryDate);
+    if ($expiry === false) {
+        return null;
+    }
+
+    $daysLeft = (int)floor(($expiry - strtotime(date('Y-m-d'))) / 86400);
+
+    if ($daysLeft < 0) {
+        return ['label' => 'Expired', 'class' => 'expiry-expired', 'days' => $daysLeft];
+    }
+    if ($daysLeft === 0) {
+        return ['label' => 'Expires today', 'class' => 'expiry-critical', 'days' => $daysLeft];
+    }
+    if ($daysLeft === 1) {
+        return ['label' => 'Expires tomorrow', 'class' => 'expiry-critical', 'days' => $daysLeft];
+    }
+    if ($daysLeft <= 7) {
+        return ['label' => "Expires in {$daysLeft}d", 'class' => 'expiry-warning', 'days' => $daysLeft];
+    }
+    if ($daysLeft <= 15) {
+        return ['label' => "Expires in {$daysLeft}d", 'class' => 'expiry-notice', 'days' => $daysLeft];
+    }
+
+    return null;
 }
 
 function inventoryImagePath(?string $path): string {
@@ -275,6 +405,293 @@ if ($currentStatusForTab === '') {
     <link rel="stylesheet" href="/NexGen/CODE/STYLE/header.css?v=2">
     <link rel="stylesheet" href="/NexGen/CODE/STYLE/module_footer.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<style>
+        .optimized-product-list-header {
+            align-items: center;
+            gap: 14px;
+        }
+
+        .product-list-header-actions {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-left: auto;
+        }
+
+        .po-history-trigger {
+            border: 1px solid rgba(255,255,255,.16);
+            background: rgba(255,255,255,.08);
+            color: #14c3d3;
+            min-height: 40px;
+            padding: 9px 13px;
+            border-radius: 12px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-weight: 700;
+            cursor: pointer;
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            transition: .2s ease;
+        }
+
+        .po-history-trigger:hover {
+            background: rgba(255,255,255,.14);
+            transform: translateY(-1px);
+        }
+
+        .po-history-trigger-count {
+            min-width: 24px;
+            height: 24px;
+            padding: 0 7px;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(255,255,255,.14);
+            font-size: 11px;
+        }
+
+        .po-history-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 99990;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            background: rgba(3, 13, 45, .34);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+            transition: .22s ease;
+        }
+
+        .po-history-overlay.show {
+            opacity: 1;
+            visibility: visible;
+            pointer-events: auto;
+        }
+
+        .po-history-mini-tab {
+            width: min(960px, 96vw);
+            max-height: 82vh;
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,.18);
+            border-radius: 22px;
+            background: rgba(10, 35, 100, .82);
+            box-shadow: 0 28px 70px rgba(0,0,0,.34);
+            backdrop-filter: blur(22px);
+            -webkit-backdrop-filter: blur(22px);
+            transform: translateY(14px) scale(.98);
+            transition: .22s ease;
+        }
+
+        .po-history-overlay.show .po-history-mini-tab {
+            transform: translateY(0) scale(1);
+        }
+
+        .po-history-modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 18px;
+            padding: 22px 24px 16px;
+            border-bottom: 1px solid rgba(255,255,255,.10);
+        }
+
+        .po-history-kicker {
+            display: block;
+            margin-bottom: 5px;
+            color: rgba(255,255,255,.58);
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: .7px;
+            text-transform: uppercase;
+        }
+
+        .po-history-modal-header h2 {
+            margin: 0;
+            color: #fff;
+            font-size: 22px;
+        }
+
+        .po-history-modal-header p {
+            margin: 6px 0 0;
+            color: rgba(255,255,255,.72);
+            font-size: 13px;
+        }
+
+        .po-history-close {
+            width: 38px;
+            height: 38px;
+            flex: 0 0 38px;
+            border: 1px solid rgba(255,255,255,.14);
+            border-radius: 50%;
+            background: rgba(255,255,255,.08);
+            color: #fff;
+            font-size: 24px;
+            cursor: pointer;
+        }
+
+        .po-history-modal-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 24px;
+            color: rgba(255,255,255,.72);
+            font-size: 12px;
+        }
+
+        .po-history-total {
+            padding: 5px 9px;
+            border-radius: 999px;
+            background: rgba(255,255,255,.08);
+        }
+
+        .po-history-modal-table-wrap {
+            overflow: auto;
+            max-height: calc(82vh - 150px);
+            padding: 0 18px 18px;
+        }
+
+        .po-history-modal-table {
+            width: 100%;
+            min-width: 720px;
+            border-collapse: separate;
+            border-spacing: 0;
+            overflow: hidden;
+            border-radius: 14px;
+        }
+
+        .po-history-modal-table th,
+        .po-history-modal-table td {
+            padding: 13px 14px;
+            border-bottom: 1px solid rgba(255,255,255,.08);
+            text-align: left;
+            vertical-align: middle;
+        }
+
+        .po-history-modal-table th {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            background: rgba(5, 21, 66, .96);
+            color: #f4d56b;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: .35px;
+        }
+
+        .po-history-modal-table td {
+            color: #edf4ff;
+            background: rgba(255,255,255,.025);
+            font-size: 13px;
+        }
+
+        .po-history-modal-table tbody tr:hover td {
+            background: rgba(255,255,255,.06);
+        }
+
+        .po-history-modal-table td strong,
+        .po-history-modal-table td small {
+            display: block;
+        }
+
+        .po-history-modal-table td small {
+            margin-top: 3px;
+            color: rgba(255,255,255,.55);
+        }
+
+        .po-qty {
+            text-align: center !important;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+
+        .po-remarks {
+            min-width: 260px;
+            line-height: 1.5;
+        }
+
+        .po-date {
+            white-space: nowrap;
+        }
+
+        .po-empty {
+            opacity: .6;
+            font-style: italic;
+        }
+
+        .po-history-empty-state {
+            padding: 38px 16px !important;
+            text-align: center !important;
+        }
+
+        .po-history-empty-state i,
+        .po-history-empty-state strong,
+        .po-history-empty-state span {
+            display: block;
+        }
+
+        .po-history-empty-state i {
+            font-size: 28px;
+            margin-bottom: 8px;
+            opacity: .7;
+        }
+
+        .po-history-empty-state span {
+            margin-top: 5px;
+            opacity: .6;
+        }
+
+        @media (max-width: 700px) {
+            .optimized-product-list-header {
+                align-items: stretch;
+                flex-direction: column;
+            }
+
+            .product-list-header-actions {
+                width: 100%;
+                justify-content: stretch;
+            }
+
+            .po-history-trigger,
+            .product-list-header-actions .view-all-link {
+                flex: 1 1 auto;
+                justify-content: center;
+            }
+
+            .po-history-overlay {
+                padding: 12px;
+            }
+
+            .po-history-mini-tab {
+                width: 100%;
+                max-height: 88vh;
+            }
+
+            .po-history-modal-header {
+                padding: 18px;
+            }
+
+            .po-history-modal-meta {
+                padding: 10px 18px;
+            }
+
+            .po-history-modal-table-wrap {
+                max-height: calc(88vh - 145px);
+                padding: 0 12px 12px;
+            }
+        }
+    </style>
+
 </head>
 <body>
 
@@ -345,6 +762,7 @@ if ($currentStatusForTab === '') {
                                         <button type="button" class="filter-chip <?php echo ($statusFilter === 'archived' || $statusFilter === 'inactive') ? 'active' : ''; ?>" data-filter-kind="status" data-filter-value="archived">Archived</button>
                                         <button type="button" class="filter-chip <?php echo $statusFilter === 'low' ? 'active' : ''; ?>" data-filter-kind="status" data-filter-value="low">Low Stock</button>
                                         <button type="button" class="filter-chip <?php echo $statusFilter === 'out' ? 'active' : ''; ?>" data-filter-kind="status" data-filter-value="out">Out of Stock</button>
+                                        <button type="button" class="filter-chip <?php echo $statusFilter === 'expiring' ? 'active' : ''; ?>" data-filter-kind="status" data-filter-value="expiring">Expiring Soon</button>
                                         <button type="button" class="filter-chip <?php echo $statusFilter === 'expired' ? 'active' : ''; ?>" data-filter-kind="status" data-filter-value="expired">Expired</button>
                                     </div>
                                 </div>
@@ -405,13 +823,24 @@ if ($currentStatusForTab === '') {
                 <a href="/NexGen/CODE/PHP/inventory_management.php?status=archived" class="inventory-tab <?php echo isActiveTab($currentStatusForTab, 'archived'); ?>" data-filter-link>
                     Archived <span><?php echo $inactiveProductsCount; ?></span>
                 </a>
+                <a href="/NexGen/CODE/PHP/inventory_management.php?status=expiring" class="inventory-tab <?php echo isActiveTab($currentStatusForTab, 'expiring'); ?>" data-filter-link>
+                    Expiring Soon <span><?php echo $expiringSoonCount; ?></span>
+                </a>
+                <?php if ($expiredCount > 0): ?>
+                    <a href="/NexGen/CODE/PHP/inventory_management.php?status=expired" class="inventory-tab tab-danger <?php echo isActiveTab($currentStatusForTab, 'expired'); ?>" data-filter-link>
+                        Expired <span><?php echo $expiredCount; ?></span>
+                    </a>
+                <?php endif; ?>
             </section>
 
             <section class="inventory-summary-grid">
 
-                <div class="summary-card gradient-card">
+                <div class="summary-card gradient-card low-stock-card">
                     <div class="summary-card-top">
-                        <h3>Low Stock Alert</h3>
+                        <div class="summary-heading-wrap">
+                            <span class="summary-icon"><i class="bi bi-exclamation-triangle-fill"></i></span>
+                            <h3>Low Stock Alert</h3>
+                        </div>
                         <span class="summary-badge"><?php echo count($lowStockItems); ?></span>
                     </div>
 
@@ -420,11 +849,11 @@ if ($currentStatusForTab === '') {
                             <div class="summary-text">
                                 <h4><?php echo htmlspecialchars($lowStockFeature['product_name']); ?></h4>
                                 <p>Code: <?php echo htmlspecialchars($lowStockFeature['product_code']); ?></p>
-                                <p><?php echo (int)$lowStockFeature['stock_quantity']; ?> in stock</p>
-                                <p>Reorder at <?php echo (int)$lowStockFeature['reorder_level']; ?></p>
+                                <p><?php echo formatQty($lowStockFeature['stock_quantity']); ?> in stock</p>
+                                <p>Reorder at <?php echo formatQty($lowStockFeature['reorder_level']); ?></p>
 
                                 <div class="mini-pill">
-                                    <?php echo (int)($lowStockFeature['on_order_level'] ?? 0); ?> incoming
+                                    <?php echo formatQty($lowStockFeature['on_order_level'] ?? 0); ?> incoming
                                 </div>
                             </div>
                         </div>
@@ -433,9 +862,12 @@ if ($currentStatusForTab === '') {
                     <?php endif; ?>
                 </div>
 
-                <div class="summary-card gradient-card">
+                <div class="summary-card gradient-card out-stock-card">
                     <div class="summary-card-top">
-                        <h3>Out of Stock</h3>
+                        <div class="summary-heading-wrap">
+                            <span class="summary-icon"><i class="bi bi-box-seam-fill"></i></span>
+                            <h3>Out of Stock</h3>
+                        </div>
                         <span class="summary-badge blue"><?php echo count($outOfStockItems); ?></span>
                     </div>
 
@@ -444,10 +876,10 @@ if ($currentStatusForTab === '') {
                             <div class="summary-text">
                                 <h4><?php echo htmlspecialchars($outOfStockFeature['product_name']); ?></h4>
                                 <p>Code: <?php echo htmlspecialchars($outOfStockFeature['product_code']); ?></p>
-                                <p><?php echo (int)$outOfStockFeature['stock_quantity']; ?> in stock</p>
+                                <p><?php echo formatQty($outOfStockFeature['stock_quantity']); ?> in stock</p>
 
                                 <div class="mini-pill">
-                                    <?php echo (int)($outOfStockFeature['on_order_level'] ?? 0); ?> incoming
+                                    <?php echo formatQty($outOfStockFeature['on_order_level'] ?? 0); ?> incoming
                                 </div>
                             </div>
                         </div>
@@ -456,9 +888,45 @@ if ($currentStatusForTab === '') {
                     <?php endif; ?>
                 </div>
 
+                <div class="summary-card gradient-card expiring-card">
+                    <div class="summary-card-top">
+                        <div class="summary-heading-wrap">
+                            <span class="summary-icon"><i class="bi bi-hourglass-split"></i></span>
+                            <h3>Expiring Soon</h3>
+                        </div>
+                        <span class="summary-badge <?php echo ($expiringSoonFeature && (int)$expiringSoonFeature['days_left'] <= 7) ? 'red' : 'blue'; ?>"><?php echo $expiringSoonCount; ?></span>
+                    </div>
+
+                    <?php if ($expiringSoonFeature): ?>
+                        <?php $featureUrgency = expiryUrgency($expiringSoonFeature['expiry_date']); ?>
+                        <div class="summary-card-body with-image">
+                            <div class="summary-text">
+                                <h4><?php echo htmlspecialchars($expiringSoonFeature['product_name']); ?></h4>
+                                <p>Code: <?php echo htmlspecialchars($expiringSoonFeature['product_code']); ?></p>
+                                <p>Expires: <?php echo date("M d, Y", strtotime($expiringSoonFeature['expiry_date'])); ?></p>
+
+                                <div class="mini-pill <?php echo $featureUrgency ? $featureUrgency['class'] : ''; ?>">
+                                    <?php echo $featureUrgency ? htmlspecialchars($featureUrgency['label']) : ''; ?>
+                                </div>
+                            </div>
+                        </div>
+                    <?php else: ?>
+                        <div class="summary-empty">No products expiring in the next 15 days.</div>
+                    <?php endif; ?>
+                </div>
+
                 <div class="summary-card history-card">
                     <div class="summary-card-top">
-                        <h3>Stock History</h3>
+                        <div class="summary-heading-wrap">
+                            <button type="button" class="notif-bell-btn" id="openNotificationsModal" aria-label="Notifications">
+                                <i class="bi bi-bell-fill"></i>
+                                <?php if ($notificationCount > 0): ?>
+                                    <span class="icon-badge"><?php echo $notificationCount; ?></span>
+                                <?php endif; ?>
+                            </button>
+                            <span class="summary-icon"><i class="bi bi-clock-history"></i></span>
+                            <h3>Stock History</h3>
+                        </div>
                         <div class="history-chip-wrap">
                             <span class="history-chip">Past 7 days</span>
                         </div>
@@ -471,7 +939,7 @@ if ($currentStatusForTab === '') {
                                 <h4><?php echo htmlspecialchars($latestSoldItem['product_name']); ?></h4>
                                 <div class="history-row">
                                     <span><?php echo date("M d", strtotime($latestSoldItem['created_at'])); ?></span>
-                                    <strong>-<?php echo (int)$latestSoldItem['quantity']; ?></strong>
+                                    <strong>-<?php echo formatQty($latestSoldItem['quantity']); ?></strong>
                                 </div>
                             </div>
                         </div>
@@ -491,17 +959,26 @@ if ($currentStatusForTab === '') {
             </section>
 
             <section class="inventory-table-shell">
-                <div class="product-list-header">
+                <div class="product-list-header optimized-product-list-header">
                     <h3>Products</h3>
+                    <div class="product-list-header-actions">
+                        <?php if ($isOwner): ?>
+                            <button type="button" class="po-history-trigger" id="openPoHistoryModal">
+                                <i class="bi bi-clock-history"></i>
+                                <span>Purchase Order History</span>
+                                <span class="po-history-trigger-count"><?php echo count($orderHistory); ?></span>
+                            </button>
+                        <?php endif; ?>
                     <?php if ($showAllProducts && $totalFetchedProducts > $productDisplayLimit): ?>
                         <a href="<?php echo htmlspecialchars($showTop10Url); ?>" class="view-all-link" data-filter-link>
-                            Show Top <?php echo $productDisplayLimit; ?>
+                            Show Top <?php echo $productDisplayLimit; ?> Products
                         </a>
                     <?php elseif ($totalFetchedProducts > $productDisplayLimit): ?>
                         <a href="<?php echo htmlspecialchars($viewAllUrl); ?>" class="view-all-link" data-filter-link>
-                            View All (<?php echo $totalFetchedProducts; ?>) <i class="bi bi-chevron-right"></i>
+                            Show All Products (<?php echo $totalFetchedProducts; ?>) <i class="bi bi-chevron-right"></i>
                         </a>
                     <?php endif; ?>
+                    </div>
                 </div>
                 <div class="table-scroll product-table-scroll">
                     <table class="inventory-table">
@@ -510,14 +987,15 @@ if ($currentStatusForTab === '') {
                             <?php foreach ($productsToDisplay as $product): ?>
                                 <?php
                                     $stockClass = 'stock-good';
-                                    if ((int)$product['stock_quantity'] <= 0) {
+                                    if ((float)$product['stock_quantity'] <= 0) {
                                         $stockClass = 'stock-out';
-                                    } elseif ((int)$product['stock_quantity'] <= (int)$product['reorder_level']) {
+                                    } elseif ((float)$product['stock_quantity'] <= (float)$product['reorder_level']) {
                                         $stockClass = 'stock-low';
                                     }
 
                                     $invState = getInventoryState($product);
                                     $productIsArchived = ((int)$product['is_active'] === 0);
+                                    $rowExpiryUrgency = expiryUrgency($product['effective_expiry_date'] ?? null);
                                 ?>
                                 <tr>
                                     <td class="cell-image">
@@ -536,8 +1014,13 @@ if ($currentStatusForTab === '') {
                                         </div>
                                         <div class="stock-line-row">
                                             <span class="stock-line <?php echo $stockClass; ?>">
-                                                <?php echo htmlspecialchars($invState['label']); ?> &bull; <?php echo (int)$product['stock_quantity']; ?> <?php echo (int)$product['stock_quantity'] === 1 ? 'Left' : 'in stock'; ?>
+                                                <?php echo htmlspecialchars($invState['label']); ?> &bull; <?php echo formatQty($product['stock_quantity']); ?> <?php echo (float)$product['stock_quantity'] == 1 ? 'Left' : 'in stock'; ?>
                                             </span>
+                                            <?php if ($rowExpiryUrgency): ?>
+                                                <span class="expiry-pill <?php echo $rowExpiryUrgency['class']; ?>">
+                                                    <i class="bi bi-clock-history"></i> <?php echo htmlspecialchars($rowExpiryUrgency['label']); ?>
+                                                </span>
+                                            <?php endif; ?>
                                         </div>
                                     </td>
 
@@ -560,9 +1043,9 @@ if ($currentStatusForTab === '') {
                                                     data-unit="<?php echo htmlspecialchars($product['unit']); ?>"
                                                     data-cost="<?php echo htmlspecialchars($product['cost_price']); ?>"
                                                     data-selling="<?php echo htmlspecialchars($product['selling_price']); ?>"
-                                                    data-stock="<?php echo (int)$product['stock_quantity']; ?>"
-                                                    data-reorder="<?php echo (int)$product['reorder_level']; ?>"
-                                                    data-onorder="<?php echo (int)($product['on_order_level'] ?? 0); ?>"
+                                                    data-stock="<?php echo htmlspecialchars($product['stock_quantity']); ?>"
+                                                    data-reorder="<?php echo htmlspecialchars($product['reorder_level']); ?>"
+                                                    data-onorder="<?php echo htmlspecialchars($product['on_order_level'] ?? 0); ?>"
                                                     data-expiry="<?php echo htmlspecialchars($product['expiry_date'] ?? ''); ?>"
                                                     data-description="<?php echo htmlspecialchars($product['description'] ?? ''); ?>"
                                                     data-active="<?php echo (int)$product['is_active']; ?>"
@@ -577,30 +1060,56 @@ if ($currentStatusForTab === '') {
                                                     type="button"
                                                     data-stock-id="<?php echo (int)$product['id']; ?>"
                                                     data-stock-name="<?php echo htmlspecialchars($product['product_name']); ?>"
-                                                    data-current-onorder="<?php echo (int)($product['on_order_level'] ?? 0); ?>"
+                                                    data-current-onorder="<?php echo htmlspecialchars($product['on_order_level'] ?? 0); ?>"
                                                 >
                                                     <i class="bi bi-arrow-left-right"></i>
                                                     <span>Adjust Stock</span>
                                                 </button>
 
                                                 <?php if ($isOwner): ?>
-                                                    <?php if ($productIsArchived): ?>
-                                                        <a
-                                                            href="/NexGen/CODE/PHP/inventory_restore.php?id=<?php echo (int)$product['id']; ?>"
-                                                            class="action-item restore-item"
-                                                        >
+                                                    <button
+                                                        class="action-item place-order-btn"
+                                                        type="button"
+                                                        data-order-id="<?php echo (int)$product['id']; ?>"
+                                                        data-order-name="<?php echo htmlspecialchars($product['product_name']); ?>"
+                                                        data-order-current="<?php echo htmlspecialchars($product['on_order_level'] ?? 0); ?>"
+                                                    >
+                                                        <i class="bi bi-cart-plus"></i>
+                                                        <span>Place Order</span>
+                                                    </button>
+                                                <?php endif; ?>
+
+                                                <?php if ((float)($product['on_order_level'] ?? 0) > 0): ?>
+                                                    <button
+                                                        class="action-item receive-btn"
+                                                        type="button"
+                                                        data-receive-id="<?php echo (int)$product['id']; ?>"
+                                                        data-receive-name="<?php echo htmlspecialchars($product['product_name']); ?>"
+                                                        data-receive-onorder="<?php echo htmlspecialchars($product['on_order_level'] ?? 0); ?>"
+                                                    >
+                                                        <i class="bi bi-box-seam"></i>
+                                                        <span>Receive Shipment</span>
+                                                    </button>
+                                                <?php endif; ?>
+
+                                                <?php if ($productIsArchived): ?>
+                                                    <form method="POST" action="/NexGen/CODE/PHP/inventory_restore.php" style="display:contents;">
+                                                        <input type="hidden" name="id" value="<?php echo (int)$product['id']; ?>">
+                                                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfDeleteRestore); ?>">
+                                                        <button type="submit" class="action-item restore-item">
                                                             <i class="bi bi-arrow-counterclockwise"></i>
                                                             <span>Restore Product</span>
-                                                        </a>
-                                                    <?php else: ?>
-                                                        <a
-                                                            href="/NexGen/CODE/PHP/inventory_delete.php?id=<?php echo (int)$product['id']; ?>"
-                                                            class="action-item delete-item"
-                                                        >
+                                                        </button>
+                                                    </form>
+                                                <?php else: ?>
+                                                    <form method="POST" action="/NexGen/CODE/PHP/inventory_delete.php" style="display:contents;">
+                                                        <input type="hidden" name="id" value="<?php echo (int)$product['id']; ?>">
+                                                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfDeleteRestore); ?>">
+                                                        <button type="submit" class="action-item delete-item">
                                                             <i class="bi bi-trash3-fill"></i>
                                                             <span>Archive Product</span>
-                                                        </a>
-                                                    <?php endif; ?>
+                                                        </button>
+                                                    </form>
                                                 <?php endif; ?>
                                             </div>
                                         </div>
@@ -616,8 +1125,126 @@ if ($currentStatusForTab === '') {
                     </table>
                 </div>
             </section>
-        </div>
+
+                    </div>
     </main>
+
+
+    <?php if ($isOwner): ?>
+    <!-- PURCHASE ORDER HISTORY MINI TAB -->
+    <div class="po-history-overlay" id="poHistoryModal" aria-hidden="true">
+        <div class="po-history-mini-tab" role="dialog" aria-modal="true" aria-labelledby="poHistoryTitle">
+            <div class="po-history-modal-header">
+                <div>
+                    <span class="po-history-kicker">Inventory Purchasing</span>
+                    <h2 id="poHistoryTitle">Purchase Order History</h2>
+                    <p>Review quantities and remarks recorded when products were placed on order.</p>
+                </div>
+                <button type="button" class="po-history-close" id="closePoHistoryModal" aria-label="Close Purchase Order History">&times;</button>
+            </div>
+
+            <div class="po-history-modal-meta">
+                <span><i class="bi bi-clock-history"></i> Latest 20 orders</span>
+                <span class="po-history-total"><?php echo count($orderHistory); ?> shown</span>
+            </div>
+
+            <div class="po-history-modal-table-wrap">
+                <table class="po-history-modal-table">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Qty</th>
+                            <th>Remarks</th>
+                            <th>Placed On</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    <?php if (!empty($orderHistory)): ?>
+                        <?php foreach ($orderHistory as $order): ?>
+                            <tr>
+                                <td>
+                                    <strong><?php echo htmlspecialchars($order['product_name']); ?></strong>
+                                    <small>SKU: <?php echo htmlspecialchars($order['product_code']); ?></small>
+                                </td>
+                                <td class="po-qty">+<?php echo formatQty($order['quantity']); ?></td>
+                                <td class="po-remarks">
+                                    <?php if (trim((string)($order['remarks'] ?? '')) !== ''): ?>
+                                        <?php echo nl2br(htmlspecialchars($order['remarks'])); ?>
+                                    <?php else: ?>
+                                        <span class="po-empty">No remarks provided.</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td class="po-date">
+                                    <?php echo !empty($order['created_at'])
+                                        ? htmlspecialchars(date('M d, Y h:i A', strtotime($order['created_at'])))
+                                        : '—'; ?>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <tr>
+                            <td colspan="4" class="po-history-empty-state">
+                                <i class="bi bi-receipt"></i>
+                                <strong>No purchase-order history yet.</strong>
+                                <span>New orders will appear here after you place them.</span>
+                            </td>
+                        </tr>
+                    <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+
+    <!-- INVENTORY NOTIFICATIONS MODAL -->
+    <div class="modal-overlay" id="notificationsModal" aria-hidden="true">
+        <div class="notifications-modal-content">
+            <div class="notifications-modal-header">
+                <div class="notif-header-left">
+                    <div class="notif-header-icon"><i class="bi bi-bell-fill"></i></div>
+                    <div>
+                        <h4>Notifications</h4>
+                        <p id="notifUnreadCount"><?php echo $notificationCount; ?> unread update<?php echo $notificationCount === 1 ? '' : 's'; ?></p>
+                    </div>
+                </div>
+                <button type="button" class="notif-mark-read" id="markAllReadBtn">
+                    <i class="bi bi-check2-all"></i> <span>Mark all read</span>
+                </button>
+            </div>
+
+            <div class="notifications-modal-body">
+                <?php if (!empty($displayNotifications)): ?>
+                    <?php foreach ($displayNotifications as $item): ?>
+                        <?php $cardReadClass = (!empty($item['trackable']) && empty($item['is_unread'])) ? ' notif-read' : ''; ?>
+                        <div class="notification-card notif-<?php echo htmlspecialchars($item['type']); ?><?php echo $cardReadClass; ?>">
+                            <div class="notification-card-icon <?php echo htmlspecialchars($item['type']); ?>">
+                                <i class="<?php echo htmlspecialchars($item['icon']); ?>"></i>
+                            </div>
+
+                            <div class="notification-card-content">
+                                <div class="notification-card-top">
+                                    <h5><?php echo htmlspecialchars($item['title']); ?></h5>
+                                    <span class="notif-time"><?php echo htmlspecialchars($item['time']); ?></span>
+                                </div>
+                                <p><?php echo htmlspecialchars($item['message']); ?></p>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <div class="notif-empty-state">
+                        <div class="notif-empty-icon"><i class="bi bi-bell-slash"></i></div>
+                        <h5>You're all caught up</h5>
+                        <p>New alerts about your stock activity will show up here.</p>
+                    </div>
+                <?php endif; ?>
+            </div>
+
+            <div class="notifications-modal-footer">
+                <button type="button" class="btn-close-notif" id="closeNotificationsModal">Close</button>
+            </div>
+        </div>
+    </div>
 
     <!-- ADD PRODUCT MODAL -->
     <div class="modal-overlay" id="productModal">
@@ -650,6 +1277,7 @@ if ($currentStatusForTab === '') {
             </div>
 
             <form action="/NexGen/CODE/PHP/inventory_save.php" method="POST" enctype="multipart/form-data" class="product-form wizard-form" id="addProductWizardForm" novalidate>
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfAddProduct); ?>">
 
                 <!-- STEP 1: BASIC INFO -->
                 <div class="wizard-step is-active" data-step="1">
@@ -712,25 +1340,43 @@ if ($currentStatusForTab === '') {
                 <!-- STEP 3: STOCK -->
                 <div class="wizard-step" data-step="3">
                     <div class="form-fields">
-                        <div class="form-group">
-                            <label>Stock Quantity</label>
-                            <input type="number" min="0" name="stock_quantity" required>
-                        </div>
+                        <?php if ($isBatchTracked): ?>
+                            <div class="form-group full-width">
+                                <label class="field-help">This business tracks stock per batch. Set up the product's first batch below - more batches can be added later via Adjust Stock.</label>
+                            </div>
+                            <div class="form-group">
+                                <label>Batch Number</label>
+                                <input type="text" name="batch_number" placeholder="e.g. B-2026-08-01" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Initial Quantity</label>
+                                <input type="number" min="0.001" step="0.001" name="stock_quantity" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Expiry Date</label>
+                                <input type="date" name="expiry_date" required>
+                            </div>
+                        <?php else: ?>
+                            <div class="form-group">
+                                <label>Stock Quantity</label>
+                                <input type="number" min="0" step="0.001" name="stock_quantity" required>
+                            </div>
 
-                        <div class="form-group">
-                            <label>Expiry Date</label>
-                            <input type="date" name="expiry_date">
-                        </div>
+                            <div class="form-group">
+                                <label>Expiry Date</label>
+                                <input type="date" name="expiry_date">
+                            </div>
+                        <?php endif; ?>
 
                         <?php if ($isOwner): ?>
                             <div class="form-group">
                                 <label>Reorder Level</label>
-                                <input type="number" min="0" name="reorder_level" value="5" required>
+                                <input type="number" min="0" step="0.001" name="reorder_level" value="5" required>
                             </div>
 
                             <div class="form-group">
                                 <label>On Order Level</label>
-                                <input type="number" min="0" name="on_order_level" value="0" required>
+                                <input type="number" min="0" step="0.001" name="on_order_level" value="0" required>
                             </div>
                         <?php endif; ?>
                     </div>
@@ -804,6 +1450,7 @@ if ($currentStatusForTab === '') {
             </div>
 
             <form action="/NexGen/CODE/PHP/inventory_update.php" method="POST" enctype="multipart/form-data" class="product-form wizard-form" id="editProductWizardForm" novalidate>
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfEditProduct); ?>">
                 <input type="hidden" name="id" id="edit_id">
                 <input type="hidden" name="old_image" id="edit_old_image">
 
@@ -868,25 +1515,35 @@ if ($currentStatusForTab === '') {
                 <!-- STEP 3: STOCK -->
                 <div class="wizard-step" data-step="3">
                     <div class="form-fields">
-                        <div class="form-group">
-                            <label>Stock Quantity</label>
-                            <input type="number" min="0" name="stock_quantity" id="edit_stock_quantity" required>
-                        </div>
+                        <?php if ($isBatchTracked): ?>
+                            <div class="form-group">
+                                <label>Current Stock (all batches)</label>
+                                <input type="number" id="edit_stock_quantity" readonly>
+                            </div>
+                            <div class="form-group full-width">
+                                <label class="field-help">This business tracks stock per batch. Use Adjust Stock on the product's menu to add a new batch or record a Stock Out - stock quantity here is read-only.</label>
+                            </div>
+                        <?php else: ?>
+                            <div class="form-group">
+                                <label>Stock Quantity</label>
+                                <input type="number" min="0" step="0.001" name="stock_quantity" id="edit_stock_quantity" required>
+                            </div>
 
-                        <div class="form-group">
-                            <label>Expiry Date</label>
-                            <input type="date" name="expiry_date" id="edit_expiry_date">
-                        </div>
+                            <div class="form-group">
+                                <label>Expiry Date</label>
+                                <input type="date" name="expiry_date" id="edit_expiry_date">
+                            </div>
+                        <?php endif; ?>
 
                         <?php if ($isOwner): ?>
                             <div class="form-group">
                                 <label>Reorder Level</label>
-                                <input type="number" min="0" name="reorder_level" id="edit_reorder_level" required>
+                                <input type="number" min="0" step="0.001" name="reorder_level" id="edit_reorder_level" required>
                             </div>
 
                             <div class="form-group">
                                 <label>On Order Level</label>
-                                <input type="number" min="0" name="on_order_level" id="edit_on_order_level" required>
+                                <input type="number" min="0" step="0.001" name="on_order_level" id="edit_on_order_level" required>
                             </div>
                         <?php endif; ?>
                     </div>
@@ -938,6 +1595,7 @@ if ($currentStatusForTab === '') {
             </div>
 
             <form action="/NexGen/CODE/PHP/inventory_stock.php" method="POST" class="stock-form">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfStock); ?>">
                 <input type="hidden" name="product_id" id="stock_product_id">
 
                 <div class="form-group full-width">
@@ -955,27 +1613,34 @@ if ($currentStatusForTab === '') {
 
                 <div class="form-group">
                     <label>Quantity</label>
-                    <input type="number" name="quantity" min="1" required>
+                    <input type="number" name="quantity" min="0.001" step="0.001" required>
                 </div>
 
-                <?php if ($isOwner): ?>
-                    <div class="form-group">
-                        <label>Current On Order</label>
-                        <input type="number" id="stock_current_on_order" readonly>
-                    </div>
-
-                    <div class="form-group" id="onOrderOwnerFields">
-                        <label>Add to On Order</label>
-                        <input type="number" name="on_order_add" id="on_order_add" min="0" value="0">
-                    </div>
-
-                    <div class="form-group full-width" id="deductOnOrderWrap">
-                        <label class="checkbox-row">
-                            <input type="checkbox" name="deduct_from_on_order" id="deduct_from_on_order" value="1">
-                            Deduct this stock-in quantity from On Order
-                        </label>
-                    </div>
+                <?php if ($isBatchTracked): ?>
+                <div class="form-group full-width" id="stockBatchFieldsWrap">
+                    <label class="field-help">This business tracks stock per batch. For <strong>Stock In</strong>, enter the new batch below - a Stock Out is drawn automatically from the soonest-expiring batch first.</label>
+                </div>
+                <div class="form-group">
+                    <label>Batch Number</label>
+                    <input type="text" name="batch_number" id="stock_batch_number" placeholder="e.g. B-2026-08-01">
+                </div>
+                <div class="form-group">
+                    <label>Expiry Date</label>
+                    <input type="date" name="batch_expiry_date" id="stock_batch_expiry_date">
+                </div>
                 <?php endif; ?>
+
+                <div class="form-group">
+                    <label>Current On Order</label>
+                    <input type="number" id="stock_current_on_order" readonly>
+                </div>
+
+                <div class="form-group full-width" id="deductOnOrderWrap">
+                    <label class="checkbox-row">
+                        <input type="checkbox" name="deduct_from_on_order" id="deduct_from_on_order" value="1">
+                        Deduct this stock-in quantity from On Order
+                    </label>
+                </div>
 
                 <div class="form-group full-width">
                     <label>Remarks</label>
@@ -984,6 +1649,99 @@ if ($currentStatusForTab === '') {
 
                 <div class="form-group form-actions full-width">
                     <button type="submit" class="save-btn">Save Movement</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- PLACE ORDER MODAL -->
+    <div class="modal-overlay" id="placeOrderModal">
+        <div class="stock-modal">
+            <div class="modal-header">
+                <h2>Place Order</h2>
+                <button type="button" class="close-modal-btn" id="closePlaceOrderModal" onclick="document.getElementById('placeOrderModal').classList.remove('show'); document.body.style.overflow='';">&times;</button>
+            </div>
+
+            <form action="/NexGen/CODE/PHP/inventory_stock.php" method="POST" class="stock-form">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfStock); ?>">
+                <input type="hidden" name="product_id" id="order_product_id">
+                <input type="hidden" name="place_order" value="1">
+
+                <div class="form-group full-width">
+                    <label>Product</label>
+                    <input type="text" id="order_product_name" readonly>
+                </div>
+
+                <div class="form-group">
+                    <label>Current On Order</label>
+                    <input type="number" id="order_current_on_order" readonly>
+                </div>
+
+                <div class="form-group">
+                    <label>Quantity to Order</label>
+                    <input type="number" name="on_order_add" id="order_quantity" min="0.001" step="0.001" required>
+                </div>
+
+                <div class="form-group full-width">
+                    <label>Remarks</label>
+                    <textarea name="remarks" id="order_remarks" rows="3" placeholder="Optional - supplier, PO number, expected date, etc."></textarea>
+                </div>
+
+                <div class="form-group form-actions full-width">
+                    <button type="submit" class="save-btn">Confirm Order Placed</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- RECEIVE SHIPMENT MODAL -->
+    <div class="modal-overlay" id="receiveShipmentModal">
+        <div class="stock-modal">
+            <div class="modal-header">
+                <h2>Receive Shipment</h2>
+                <button type="button" class="close-modal-btn" id="closeReceiveShipmentModal" onclick="document.getElementById('receiveShipmentModal').classList.remove('show'); document.body.style.overflow='';">&times;</button>
+            </div>
+
+            <form action="/NexGen/CODE/PHP/inventory_stock.php" method="POST" class="stock-form">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfStock); ?>">
+                <input type="hidden" name="product_id" id="receive_product_id">
+                <input type="hidden" name="movement_type" value="stock_in">
+                <input type="hidden" name="receive_shipment" value="1">
+                <input type="hidden" name="deduct_from_on_order" value="1">
+
+                <div class="form-group full-width">
+                    <label>Product</label>
+                    <input type="text" id="receive_product_name" readonly>
+                </div>
+
+                <div class="form-group">
+                    <label>Expected (On Order)</label>
+                    <input type="number" id="receive_expected_qty" readonly>
+                </div>
+
+                <div class="form-group">
+                    <label>Quantity Received</label>
+                    <input type="number" name="quantity" id="receive_quantity" min="0.001" step="0.001" required>
+                </div>
+
+                <?php if ($isBatchTracked): ?>
+                <div class="form-group">
+                    <label>Batch Number</label>
+                    <input type="text" name="batch_number" id="receive_batch_number" placeholder="e.g. B-2026-08-01">
+                </div>
+                <div class="form-group">
+                    <label>Expiry Date</label>
+                    <input type="date" name="batch_expiry_date" id="receive_batch_expiry_date">
+                </div>
+                <?php endif; ?>
+
+                <div class="form-group full-width">
+                    <label>Remarks</label>
+                    <textarea name="remarks" id="receive_remarks" rows="3" placeholder="Optional - supplier, PO number, partial shipment, etc."></textarea>
+                </div>
+
+                <div class="form-group form-actions full-width">
+                    <button type="submit" class="save-btn">Confirm Shipment Received</button>
                 </div>
             </form>
         </div>
@@ -998,6 +1756,7 @@ if ($currentStatusForTab === '') {
             </div>
 
             <form action="/NexGen/CODE/PHP/category_save.php" method="POST" class="category-form">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfCategory); ?>">
                 <div class="form-group full-width">
                     <label>New Category Name</label>
                     <input type="text" name="category_name" required>
@@ -1026,6 +1785,112 @@ if ($currentStatusForTab === '') {
 </div>
 
 <?php include 'chatbot.php'; ?>
+<script src="/NexGen/CODE/JS/header.js"></script>
 <script src="/NexGen/CODE/JS/inventory_management.js?v=<?php echo time(); ?>"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const openPo = document.getElementById('openPoHistoryModal');
+    const closePo = document.getElementById('closePoHistoryModal');
+    const poModal = document.getElementById('poHistoryModal');
+
+    function openPoHistory() {
+        if (!poModal) return;
+        poModal.classList.add('show');
+        poModal.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closePoHistory() {
+        if (!poModal) return;
+        poModal.classList.remove('show');
+        poModal.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+    }
+
+    if (openPo) openPo.addEventListener('click', openPoHistory);
+    if (closePo) closePo.addEventListener('click', closePoHistory);
+
+    if (poModal) {
+        poModal.addEventListener('click', function (event) {
+            if (event.target === poModal) {
+                closePoHistory();
+            }
+        });
+    }
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && poModal && poModal.classList.contains('show')) {
+            closePoHistory();
+        }
+    });
+
+
+    const openNotif = document.getElementById('openNotificationsModal');
+    const closeNotif = document.getElementById('closeNotificationsModal');
+    const notifModal = document.getElementById('notificationsModal');
+    const markAllBtn = document.getElementById('markAllReadBtn');
+
+    function openNotifications() {
+        if (!notifModal) return;
+        notifModal.classList.add('show');
+        notifModal.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeNotifications() {
+        if (!notifModal) return;
+        notifModal.classList.remove('show');
+        notifModal.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+    }
+
+    if (openNotif) openNotif.addEventListener('click', openNotifications);
+    if (closeNotif) closeNotif.addEventListener('click', closeNotifications);
+
+    if (notifModal) {
+        notifModal.addEventListener('click', function (event) {
+            if (event.target === notifModal) {
+                closeNotifications();
+            }
+        });
+    }
+
+    if (markAllBtn) {
+        markAllBtn.addEventListener('click', function () {
+            markAllBtn.disabled = true;
+
+            fetch('inventory_management.php?action=mark_notifications_seen')
+                .then(function (response) { return response.json(); })
+                .then(function (data) {
+                    if (!data.success) return;
+
+                    document.querySelectorAll('#notificationsModal .notification-card').forEach(function (card) {
+                        card.classList.add('notif-read');
+                    });
+                    document.querySelectorAll('.notif-bell-btn .icon-badge').forEach(function (badge) {
+                        badge.remove();
+                    });
+                    document.querySelectorAll('#notifUnreadCount').forEach(function (el) {
+                        el.textContent = '0 unread updates';
+                    });
+                })
+                .catch(function (error) {
+                    console.error('Failed to mark notifications as read:', error);
+                })
+                .finally(function () {
+                    markAllBtn.disabled = false;
+                });
+        });
+    }
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && notifModal && notifModal.classList.contains('show')) {
+            closeNotifications();
+        }
+    });
+});
+</script>
+
 </body>
 </html>

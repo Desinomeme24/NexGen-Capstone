@@ -25,48 +25,63 @@ $userId = $_SESSION['user_id'];
 
 /*
 |--------------------------------------------------------------------------
-| NOTIFICATION READ TRACKING (persisted in DB — survives logout)
+| NOTIFICATION READ TRACKING
 |--------------------------------------------------------------------------
+| Persist the read timestamp per user/module in notification_reads.
+| Important: when there is no row yet, do NOT initialize it to NOW().
+| Doing that would instantly mark already-created milestone notifications
+| as read on the user's first visit to Sales Analytics.
 */
 $notifModule = 'sales_analytics';
-$userIdInt = (int)$userId;
+$userId = (int)$userId;
 
 if (isset($_GET['action']) && $_GET['action'] === 'mark_notifications_seen') {
+    $seenAt = date('Y-m-d H:i:s');
     $markStmt = $conn->prepare(
         "INSERT INTO notification_reads (user_id, module, last_seen_at)
-         VALUES (?, ?, NOW())
-         ON DUPLICATE KEY UPDATE last_seen_at = NOW()"
+         VALUES (?, ?, ?)
+         ON DUPLICATE KEY UPDATE last_seen_at = VALUES(last_seen_at)"
     );
-    $markStmt->bind_param("is", $userIdInt, $notifModule);
+
+    if (!$markStmt) {
+        header('Content-Type: application/json');
+        http_response_code(500);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Unable to update notification read status.'
+        ]);
+        exit();
+    }
+
+    $markStmt->bind_param('iss', $userId, $notifModule, $seenAt);
     $markStmt->execute();
     $markStmt->close();
 
     header('Content-Type: application/json');
     echo json_encode([
         'success' => true,
-        'message' => 'Notifications marked as read.'
+        'message' => 'Notifications marked as seen.',
+        'last_seen_at' => $seenAt
     ]);
     exit();
 }
 
-$lastSeenStmt = $conn->prepare("SELECT last_seen_at FROM notification_reads WHERE user_id = ? AND module = ?");
-$lastSeenStmt->bind_param("is", $userIdInt, $notifModule);
-$lastSeenStmt->execute();
-$lastSeenRow = $lastSeenStmt->get_result()->fetch_assoc() ?: [];
-$lastSeenStmt->close();
+$notificationsLastSeen = '1970-01-01 00:00:00';
+$lastSeenStmt = $conn->prepare(
+    "SELECT last_seen_at
+     FROM notification_reads
+     WHERE user_id = ? AND module = ?
+     LIMIT 1"
+);
+if ($lastSeenStmt) {
+    $lastSeenStmt->bind_param('is', $userId, $notifModule);
+    $lastSeenStmt->execute();
+    $lastSeenRow = $lastSeenStmt->get_result()->fetch_assoc();
+    $lastSeenStmt->close();
 
-if (!empty($lastSeenRow['last_seen_at'])) {
-    $notificationsLastSeen = $lastSeenRow['last_seen_at'];
-} else {
-    // First time this user has ever opened notifications for this module —
-    // establish a baseline now so old data isn't retroactively "unread".
-    $notificationsLastSeen = date('Y-m-d H:i:s');
-    $initStmt = $conn->prepare(
-        "INSERT INTO notification_reads (user_id, module, last_seen_at) VALUES (?, ?, ?)"
-    );
-    $initStmt->bind_param("iss", $userIdInt, $notifModule, $notificationsLastSeen);
-    $initStmt->execute();
-    $initStmt->close();
+    if (!empty($lastSeenRow['last_seen_at'])) {
+        $notificationsLastSeen = $lastSeenRow['last_seen_at'];
+    }
 }
 
 /*
@@ -542,7 +557,11 @@ $notificationCount = 0;
 /* record once the period is fully over. We also run the completed-period   */
 /* check here on page load, so an achievement still surfaces even if no new */
 /* sale has happened yet in the period right after the one that just ended. */
-nxCheckCompletedPeriodAchievements($conn, $businessId, new DateTime());
+// Reconcile live Daily/Weekly/Monthly milestones on page load too.
+// This is safe because sales_milestones has a unique key and the helper uses
+// INSERT IGNORE, so an already-recorded threshold is never duplicated.
+// It also keeps the existing completed Quarter/Semi-Annual/Annual checks.
+nxCheckAndRecordMilestones($conn, $businessId, new DateTime());
 
 $periodLabels = [
     'today' => ['title' => 'Daily Sales Milestone Reached!', 'when' => 'today'],
@@ -593,8 +612,7 @@ if ($milestoneStmt) {
                 'title' => $periodCopy['title'],
                 'message' => 'Your store reached ₱' . number_format($reached) . ' in sales ' . $periodCopy['when'] . '.',
                 'time' => date('M d, Y h:i A', strtotime($reachedAt)),
-                'is_unread' => $isUnread,
-                'trackable' => true
+                'is_unread' => $isUnread
             ];
         } else {
             /* Completed-period achievement */
@@ -628,21 +646,23 @@ if ($milestoneStmt) {
                 'title' => $title,
                 'message' => $message,
                 'time' => date('M d, Y h:i A', strtotime($reachedAt)),
-                'is_unread' => $isUnread,
-                'trackable' => true
+                'is_unread' => $isUnread
             ];
         }
     }
     $milestoneStmt->close();
 }
 
+/* Sales Analytics notifications are intentionally milestone-only.
+   Inventory alerts belong in Inventory Management and are not shown here. */
+
 $displayNotifications = $notifications;
 if (empty($displayNotifications)) {
     $displayNotifications[] = [
         'type' => 'empty',
         'icon' => 'bi-info-circle-fill',
-        'title' => 'No Notifications Yet',
-        'message' => 'Sales milestones and achievements will show up here as your store hits them.',
+        'title' => 'No Milestones Yet',
+        'message' => 'No sales milestones have been reached yet.',
         'time' => 'Just now',
         'is_unread' => false
     ];
@@ -1046,7 +1066,7 @@ if (isset($_SESSION['success'])) {
             <div class="notifications-modal-body">
                 <?php if (!empty($displayNotifications)): ?>
                     <?php foreach ($displayNotifications as $item): ?>
-                        <?php $cardReadClass = (!empty($item['trackable']) && empty($item['is_unread'])) ? ' notif-read' : ''; ?>
+                        <?php $cardReadClass = empty($item['is_unread']) ? ' notif-read' : ''; ?>
                         <div class="notification-card notif-<?php echo htmlspecialchars($item['type']); ?><?php echo $cardReadClass; ?>">
                             <div class="notification-card-icon <?php echo htmlspecialchars($item['type']); ?>">
                                 <i class="<?php echo htmlspecialchars($item['icon']); ?>"></i>
@@ -1154,29 +1174,44 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Mark all notifications as read (persists server-side, survives logout)
+    // Mark all notifications as read and persist the timestamp in the database.
     var markAllBtn = document.getElementById('markAllReadBtn');
     if (markAllBtn) {
         markAllBtn.addEventListener('click', function () {
             markAllBtn.disabled = true;
 
-            fetch('sales_analytics.php?action=mark_notifications_seen')
-                .then(function (response) { return response.json(); })
+            fetch('/NexGen/CODE/PHP/sales_analytics.php?action=mark_notifications_seen', {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+                .then(function (response) {
+                    if (!response.ok) {
+                        throw new Error('Failed to update notification read status.');
+                    }
+                    return response.json();
+                })
                 .then(function (data) {
-                    if (!data.success) return;
+                    if (!data.success) {
+                        throw new Error(data.message || 'Failed to mark notifications as read.');
+                    }
 
                     document.querySelectorAll('#notificationsModal .notification-card').forEach(function (card) {
                         card.classList.add('notif-read');
                     });
-                    document.querySelectorAll('.icon-badge').forEach(function (badge) {
+
+                    document.querySelectorAll('.topbar-icon-btn .icon-badge').forEach(function (badge) {
                         badge.remove();
                     });
-                    document.querySelectorAll('#notifUnreadCount').forEach(function (el) {
-                        el.textContent = '0 unread updates';
-                    });
+
+                    var unreadCount = document.getElementById('notifUnreadCount');
+                    if (unreadCount) {
+                        unreadCount.textContent = '0 unread updates';
+                    }
                 })
                 .catch(function (error) {
-                    console.error('Failed to mark notifications as read:', error);
+                    console.error('Failed to mark Sales Analytics notifications as read:', error);
                 })
                 .finally(function () {
                     markAllBtn.disabled = false;

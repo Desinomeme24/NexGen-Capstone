@@ -2,6 +2,8 @@
 session_start();
 header('Content-Type: application/json; charset=UTF-8');
 require_once("config.php");
+require_once __DIR__ . '/tenant_helper.php';
+require_once __DIR__ . '/milestone_helper.php';
 
 if (!isset($_SESSION['user_id'])) {
     echo json_encode([
@@ -27,7 +29,41 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit();
 }
 
+if (!validateCsrfToken('sale_form', $_POST['csrf_token'] ?? null)) {
+    echo json_encode([
+        'success' => false,
+        'message' => 'Your session expired. Please refresh the page and try again.'
+    ]);
+    exit();
+}
+
 $user_id = (int) ($_SESSION['user_id'] ?? 0);
+$businessId = (int)($_SESSION['business_id'] ?? 0);
+if ($businessId <= 0) {
+    $businessStmt = $conn->prepare("SELECT business_id FROM users WHERE id = ? LIMIT 1");
+    if ($businessStmt) {
+        $businessStmt->bind_param("i", $user_id);
+        $businessStmt->execute();
+        $businessRow = $businessStmt->get_result()->fetch_assoc();
+        $businessStmt->close();
+        $businessId = (int)($businessRow['business_id'] ?? 0);
+        if ($businessId > 0) $_SESSION['business_id'] = $businessId;
+    }
+}
+if ($businessId <= 0) {
+    echo json_encode(['success' => false, 'message' => 'Your account is not connected to an SME business.']);
+    exit();
+}
+
+$businessTypeStmt = $conn->prepare("SELECT business_type FROM businesses WHERE id = ? LIMIT 1");
+$businessTypeStmt->bind_param("i", $businessId);
+$businessTypeStmt->execute();
+$businessTypeRow = $businessTypeStmt->get_result()->fetch_assoc();
+$businessTypeStmt->close();
+$businessType = $businessTypeRow['business_type'] ?? null;
+$isBatchTrackedBusiness = nxIsBatchTrackedType($businessType);
+$blockExpiredBatches = nxBlocksExpiredBatches($businessType);
+
 $sales_no = trim($_POST['sales_no'] ?? '');
 $customer_id = (int) ($_POST['customer_id'] ?? 0);
 $payment_status = trim($_POST['payment_status'] ?? '');
@@ -54,6 +90,14 @@ if (!in_array($payment_status, $allowedPaymentStatus, true)) {
     echo json_encode([
         'success' => false,
         'message' => 'Invalid payment status.'
+    ]);
+    exit();
+}
+
+if ($payment_status !== 'Paid' && (int)($_SESSION['can_accounts_receivable'] ?? 0) !== 1) {
+    echo json_encode([
+        'success' => false,
+        'message' => 'You do not have access to Accounts Receivable, so sales must be marked Paid.'
     ]);
     exit();
 }
@@ -103,7 +147,7 @@ try {
 
     for ($i = 0; $i < count($product_ids); $i++) {
         $product_id = (int) ($product_ids[$i] ?? 0);
-        $quantity = (int) ($quantities[$i] ?? 0);
+        $quantity = (float) ($quantities[$i] ?? 0);
         $unit_price = (float) ($unit_prices[$i] ?? 0);
 
         if ($product_id <= 0 || $quantity <= 0 || $unit_price < 0) {
@@ -132,7 +176,7 @@ try {
     $productCheckStmt = $conn->prepare("
         SELECT id, product_name, stock_quantity
         FROM products
-        WHERE id = ? AND is_active = 1
+        WHERE id = ? AND business_id = ? AND is_active = 1
         FOR UPDATE
     ");
 
@@ -143,7 +187,7 @@ try {
     $productNames = [];
 
     foreach ($requiredByProduct as $product_id => $requiredQty) {
-        $productCheckStmt->bind_param("i", $product_id);
+        $productCheckStmt->bind_param("ii", $product_id, $businessId);
         $productCheckStmt->execute();
         $productResult = $productCheckStmt->get_result();
 
@@ -152,11 +196,30 @@ try {
         }
 
         $product = $productResult->fetch_assoc();
-        $availableStock = (int) $product['stock_quantity'];
+        $availableStock = (float) $product['stock_quantity'];
         $productNames[$product_id] = $product['product_name'];
 
         if ($requiredQty > $availableStock) {
             throw new Exception('Insufficient stock for one of the selected products.');
+        }
+
+        if ($blockExpiredBatches) {
+            $expiryCheckStmt = $conn->prepare("
+                SELECT COUNT(*) AS batch_count, COALESCE(SUM(CASE WHEN expiry_date >= CURDATE() THEN quantity ELSE 0 END), 0) AS non_expired_qty
+                FROM product_batches
+                WHERE product_id = ? AND business_id = ?
+            ");
+            if (!$expiryCheckStmt) {
+                throw new Exception('Failed to prepare batch expiry check.');
+            }
+            $expiryCheckStmt->bind_param("ii", $product_id, $businessId);
+            $expiryCheckStmt->execute();
+            $expiryCheckRow = $expiryCheckStmt->get_result()->fetch_assoc();
+            $expiryCheckStmt->close();
+
+            if ((int) $expiryCheckRow['batch_count'] > 0 && $requiredQty > (float) $expiryCheckRow['non_expired_qty']) {
+                throw new Exception("{$product['product_name']} is expired and cannot be sold. Please remove it or check for a newer batch.");
+            }
         }
     }
 
@@ -191,8 +254,19 @@ try {
 
     $customerParam = $customer_id > 0 ? $customer_id : null;
 
+    if ($customerParam !== null) {
+        $customerCheck = $conn->prepare("SELECT id FROM customers WHERE id = ? AND business_id = ? AND status = 1 LIMIT 1");
+        if (!$customerCheck) throw new Exception('Failed to validate customer.');
+        $customerCheck->bind_param("ii", $customerParam, $businessId);
+        $customerCheck->execute();
+        $customerExists = $customerCheck->get_result()->fetch_assoc();
+        $customerCheck->close();
+        if (!$customerExists) throw new Exception('Selected customer does not belong to your business.');
+    }
+
     $saleStmt = $conn->prepare("
         INSERT INTO sales (
+            business_id,
             sales_no,
             salesperson_id,
             customer_id,
@@ -200,7 +274,7 @@ try {
             payment_status,
             payment_method,
             order_status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     ");
 
     if (!$saleStmt) {
@@ -208,7 +282,8 @@ try {
     }
 
     $saleStmt->bind_param(
-        "siidsss",
+        "isiidsss",
+        $businessId,
         $sales_no,
         $user_id,
         $customerParam,
@@ -236,7 +311,7 @@ try {
         }
 
         $itemStmt->bind_param(
-            "iiidd",
+            "iiddd",
             $sale_id,
             $item['product_id'],
             $item['quantity'],
@@ -250,29 +325,35 @@ try {
 
         $itemStmt->close();
 
-        $stockStmt = $conn->prepare("
-            UPDATE products
-            SET stock_quantity = stock_quantity - ?
-            WHERE id = ?
-        ");
+        if ($isBatchTrackedBusiness) {
+            // FEFO consumption; this also keeps products.stock_quantity in
+            // sync via the product_batches triggers, so no direct UPDATE here.
+            nxDeductFefo($conn, $businessId, $item['product_id'], $item['quantity'], $blockExpiredBatches);
+        } else {
+            $stockStmt = $conn->prepare("
+                UPDATE products
+                SET stock_quantity = stock_quantity - ?
+                WHERE id = ? AND business_id = ?
+            ");
 
-        if (!$stockStmt) {
-            throw new Exception('Failed to prepare stock update query.');
+            if (!$stockStmt) {
+                throw new Exception('Failed to prepare stock update query.');
+            }
+
+            $stockStmt->bind_param("dii", $item['quantity'], $item['product_id'], $businessId);
+
+            if (!$stockStmt->execute()) {
+                throw new Exception('Failed to deduct product stock.');
+            }
+
+            $stockStmt->close();
         }
-
-        $stockStmt->bind_param("ii", $item['quantity'], $item['product_id']);
-
-        if (!$stockStmt->execute()) {
-            throw new Exception('Failed to deduct product stock.');
-        }
-
-        $stockStmt->close();
 
         $remarks = "Sale recorded: " . $sales_no;
 
         $movementStmt = $conn->prepare("
-            INSERT INTO stock_movements (product_id, movement_type, quantity, remarks, created_by)
-            VALUES (?, 'stock_out', ?, ?, ?)
+            INSERT INTO stock_movements (business_id, product_id, movement_type, quantity, remarks, created_by)
+            VALUES (?, ?, 'stock_out', ?, ?, ?)
         ");
 
         if (!$movementStmt) {
@@ -280,7 +361,8 @@ try {
         }
 
         $movementStmt->bind_param(
-            "iisi",
+            "iidsi",
+            $businessId,
             $item['product_id'],
             $item['quantity'],
             $remarks,
@@ -308,8 +390,8 @@ try {
 
         $arStmt = $conn->prepare("
             INSERT INTO accounts_receivable
-            (sale_id, customer_id, total_amount, amount_paid, balance_due, due_date, status, created_by)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            (business_id, sale_id, customer_id, total_amount, amount_paid, balance_due, due_date, status, created_by)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
 
         if (!$arStmt) {
@@ -317,7 +399,8 @@ try {
         }
 
         $arStmt->bind_param(
-            "iidddssi",
+            "iiidddssi",
+            $businessId,
             $sale_id,
             $customer_id,
             $total_amount,
@@ -336,6 +419,8 @@ try {
     }
 
     $conn->commit();
+
+    nxCheckAndRecordMilestones($conn, $businessId, new DateTime());
 
     echo json_encode([
         'success' => true,
@@ -357,10 +442,10 @@ try {
 
         echo json_encode([
             'success' => false,
-            'message' => 'Unable to save the sale. Please check the form and try again.'
+            'message' => $e->getMessage() ?: 'Unable to save the sale. Please check the form and try again.'
         ], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
         exit();
     }
 
-} // end retry loop
+} 
 ?>

@@ -13,10 +13,19 @@ if ((int)($_SESSION['can_sales'] ?? 0) !== 1) {
 }
 
 include 'config.php';
+require_once __DIR__ . '/tenant_helper.php';
+require_once __DIR__ . '/milestone_helper.php';
+$businessId = nxRequireBusinessId($conn);
 
 
 
 if ($_SERVER["REQUEST_METHOD"] !== "POST") {
+    header("Location: /NexGen/CODE/PHP/sales_recording.php");
+    exit();
+}
+
+if (!validateCsrfToken('sale_form', $_POST['csrf_token'] ?? null)) {
+    $_SESSION['error'] = 'Your session expired. Please try again.';
     header("Location: /NexGen/CODE/PHP/sales_recording.php");
     exit();
 }
@@ -50,6 +59,12 @@ if (!in_array($payment_status, $allowedPaymentStatus, true)) {
     exit();
 }
 
+if ($payment_status !== 'Paid' && (int)($_SESSION['can_accounts_receivable'] ?? 0) !== 1) {
+    $_SESSION['error'] = 'You do not have access to Accounts Receivable, so sales must be marked Paid.';
+    header("Location: /NexGen/CODE/PHP/sales_recording.php");
+    exit();
+}
+
 if (!in_array($payment_method, $allowedPaymentMethod, true)) {
     $_SESSION['error'] = 'Invalid payment method.';
     header("Location: /NexGen/CODE/PHP/sales_recording.php");
@@ -75,7 +90,7 @@ try {
 
     for ($i = 0; $i < count($product_ids); $i++) {
         $product_id = (int)($product_ids[$i] ?? 0);
-        $qty = (int)($quantities[$i] ?? 0);
+        $qty = (float)($quantities[$i] ?? 0);
         $price = (float)($unit_prices[$i] ?? 0);
 
         if ($product_id <= 0 || $qty <= 0 || $price < 0) {
@@ -105,7 +120,7 @@ try {
     $checkStmt = $conn->prepare("
         SELECT id, product_name, stock_quantity
         FROM products
-        WHERE id = ?
+        WHERE id = ? AND business_id = ?
         FOR UPDATE
     ");
 
@@ -114,7 +129,7 @@ try {
     }
 
     foreach ($requiredByProduct as $product_id => $requiredQty) {
-        $checkStmt->bind_param("i", $product_id);
+        $checkStmt->bind_param("ii", $product_id, $businessId);
         $checkStmt->execute();
         $checkResult = $checkStmt->get_result();
 
@@ -124,7 +139,7 @@ try {
 
         $product = $checkResult->fetch_assoc();
 
-        if ((int)$product['stock_quantity'] < $requiredQty) {
+        if ((float)$product['stock_quantity'] < $requiredQty) {
             throw new Exception("Not enough stock for " . $product['product_name']);
         }
     }
@@ -160,17 +175,31 @@ try {
 
     $customerParam = $customer_id > 0 ? $customer_id : null;
 
+    if ($customerParam !== null) {
+        $customerCheck = $conn->prepare("SELECT id FROM customers WHERE id = ? AND business_id = ? AND status = 1 LIMIT 1");
+        if (!$customerCheck) {
+            throw new Exception('Failed to validate customer.');
+        }
+        $customerCheck->bind_param("ii", $customerParam, $businessId);
+        $customerCheck->execute();
+        $customerExists = $customerCheck->get_result()->fetch_assoc();
+        $customerCheck->close();
+        if (!$customerExists) {
+            throw new Exception('Selected customer does not belong to your business.');
+        }
+    }
+
     $saleStmt = $conn->prepare("
         INSERT INTO sales (
-            sales_no, salesperson_id, customer_id, total_amount, payment_status, payment_method, order_status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            business_id, sales_no, salesperson_id, customer_id, total_amount, payment_status, payment_method, order_status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     ");
 
     if (!$saleStmt) {
         throw new Exception("Failed to prepare sales insert query.");
     }
 
-    $saleStmt->bind_param("siidsss", $sales_no, $user_id, $customerParam, $total_amount, $payment_status, $payment_method, $order_status);
+    $saleStmt->bind_param("isiidsss", $businessId, $sales_no, $user_id, $customerParam, $total_amount, $payment_status, $payment_method, $order_status);
 
     if (!$saleStmt->execute()) {
         throw new Exception("Failed to save sale record.");
@@ -189,7 +218,7 @@ try {
             throw new Exception("Failed to prepare sale item query.");
         }
 
-        $itemStmt->bind_param("iiidd", $sale_id, $item['product_id'], $item['quantity'], $item['unit_price'], $item['subtotal']);
+        $itemStmt->bind_param("iiddd", $sale_id, $item['product_id'], $item['quantity'], $item['unit_price'], $item['subtotal']);
 
         if (!$itemStmt->execute()) {
             throw new Exception("Failed to save sale item.");
@@ -200,14 +229,14 @@ try {
         $updateStock = $conn->prepare("
             UPDATE products
             SET stock_quantity = stock_quantity - ?
-            WHERE id = ?
+            WHERE id = ? AND business_id = ?
         ");
 
         if (!$updateStock) {
             throw new Exception("Failed to prepare stock update query.");
         }
 
-        $updateStock->bind_param("ii", $item['quantity'], $item['product_id']);
+        $updateStock->bind_param("dii", $item['quantity'], $item['product_id'], $businessId);
 
         if (!$updateStock->execute()) {
             throw new Exception("Failed to deduct stock.");
@@ -218,15 +247,15 @@ try {
         $remarks = "Sale recorded: " . $sales_no;
 
         $stockStmt = $conn->prepare("
-            INSERT INTO stock_movements (product_id, movement_type, quantity, remarks, created_by)
-            VALUES (?, 'stock_out', ?, ?, ?)
+            INSERT INTO stock_movements (business_id, product_id, movement_type, quantity, remarks, created_by)
+            VALUES (?, ?, 'stock_out', ?, ?, ?)
         ");
 
         if (!$stockStmt) {
             throw new Exception("Failed to prepare stock movement query.");
         }
 
-        $stockStmt->bind_param("iisi", $item['product_id'], $item['quantity'], $remarks, $user_id);
+        $stockStmt->bind_param("iidsi", $businessId, $item['product_id'], $item['quantity'], $remarks, $user_id);
 
         if (!$stockStmt->execute()) {
             throw new Exception("Failed to save stock movement.");
@@ -249,8 +278,8 @@ try {
 
         $stmtAr = $conn->prepare("
             INSERT INTO accounts_receivable (
-                sale_id, customer_id, total_amount, amount_paid, balance_due, due_date, status, created_by
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                business_id, sale_id, customer_id, total_amount, amount_paid, balance_due, due_date, status, created_by
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
 
         if (!$stmtAr) {
@@ -258,7 +287,8 @@ try {
         }
 
         $stmtAr->bind_param(
-            "iidddssi",
+            "iiidddssi",
+            $businessId,
             $sale_id,
             $customer_id,
             $total_amount,
@@ -273,44 +303,12 @@ try {
             throw new Exception("Failed to save accounts receivable record.");
         }
 
-        $receivable_id = $conn->insert_id;
         $stmtAr->close();
-
-        // If the customer already paid something at the time of sale
-        // (Partially Paid), log that as the first payment_history entry —
-        // otherwise the receivable's payment history starts out empty
-        // even though money was actually received.
-        if ($amount_paid > 0) {
-            $initialRemarks = 'Initial payment recorded at time of sale.';
-
-            $stmtHistory = $conn->prepare("
-                INSERT INTO payment_history (
-                    receivable_id, payment_date, amount, payment_method, reference_number, remarks, received_by
-                ) VALUES (?, CURDATE(), ?, ?, NULL, ?, ?)
-            ");
-
-            if (!$stmtHistory) {
-                throw new Exception("Failed to prepare initial payment history query.");
-            }
-
-            $stmtHistory->bind_param(
-                "idssi",
-                $receivable_id,
-                $amount_paid,
-                $payment_method,
-                $initialRemarks,
-                $user_id
-            );
-
-            if (!$stmtHistory->execute()) {
-                throw new Exception("Failed to save initial payment history.");
-            }
-
-            $stmtHistory->close();
-        }
     }
 
     $conn->commit();
+
+    nxCheckAndRecordMilestones($conn, $businessId, new DateTime());
 
     $_SESSION['success'] = 'Sale recorded successfully.';
     header("Location: sale_view.php?id=" . $sale_id);
@@ -330,5 +328,5 @@ try {
         exit();
     }
 
-} // end retry loop
-?>s
+} 
+?>

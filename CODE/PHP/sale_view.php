@@ -7,7 +7,9 @@ if (!isset($_SESSION['user_id'])) {
 
 include 'config.php';
 require_once __DIR__ . '/tenant_helper.php';
+require_once __DIR__ . '/ar_helper.php';
 $businessId = nxRequireBusinessId($conn);
+$arEnabled = nxArEnabled();
 
 if ((int)($_SESSION['can_sales'] ?? 0) !== 1) {
     $_SESSION['error'] = 'You do not have access to Sales.';
@@ -39,6 +41,12 @@ function badgeClassOrder($status) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_payment'])) {
+    if (!$arEnabled) {
+        $_SESSION['error'] = 'You do not have access to Accounts Receivable.';
+        header("Location: sale_view.php?id=" . $sale_id);
+        exit();
+    }
+
     if (!validateCsrfToken('sale_view_payment_form', $_POST['csrf_token'] ?? null)) {
         $_SESSION['error'] = 'Your session expired. Please try again.';
         header("Location: sale_view.php?id=" . $sale_id);
@@ -872,7 +880,7 @@ unset($_SESSION['success'], $_SESSION['error']);
                 </div>
             </div>
 
-            <?php if ($arInfo): ?>
+            <?php if ($arEnabled && $arInfo): ?>
                 <div class="card">
                     <div class="section-title">Receivable Status</div>
 
@@ -905,7 +913,7 @@ unset($_SESSION['success'], $_SESSION['error']);
                 </div>
             <?php endif; ?>
 
-            <?php if ($arInfo && $sale['payment_status'] !== 'Paid'): ?>
+            <?php if ($arEnabled && $arInfo && $sale['payment_status'] !== 'Paid'): ?>
                 <div class="card">
                     <div class="section-title">Update Payment</div>
 
@@ -932,7 +940,7 @@ unset($_SESSION['success'], $_SESSION['error']);
                         Rule applied: Unpaid or Partially Paid stays <strong>Pending</strong>. Once fully paid, it automatically becomes <strong>Paid</strong> and <strong>Fulfilled</strong>.
                     </div>
                 </div>
-            <?php elseif (!$arInfo): ?>
+            <?php elseif ($arEnabled && !$arInfo): ?>
                 <div class="card">
                     <div class="section-title">Update Payment</div>
                     <div class="empty-note">This sale has no accounts receivable record, so there is no payment update form available.</div>

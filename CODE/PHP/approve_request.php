@@ -207,7 +207,7 @@ try {
     $canInventory = 1;
     $canSales = 1;
     $canSalesAnalytics = $role === 'owner' ? 1 : 0;
-    $canAccountsReceivable = 1;
+    $canAccountsReceivable = 0;
     $approvedAt = date('Y-m-d H:i:s');
     $employeeNo = trim((string) ($request['employee_no'] ?? ''));
     $employeeNoForDb = $employeeNo !== '' ? $employeeNo : null;

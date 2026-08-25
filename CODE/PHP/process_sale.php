@@ -14,6 +14,7 @@ if ((int)($_SESSION['can_sales'] ?? 0) !== 1) {
 
 include 'config.php';
 require_once __DIR__ . '/tenant_helper.php';
+require_once __DIR__ . '/ar_helper.php';
 $businessId = nxRequireBusinessId($conn);
 
 
@@ -58,7 +59,7 @@ if (!in_array($payment_status, $allowedPaymentStatus, true)) {
     exit();
 }
 
-if ($payment_status !== 'Paid' && (int)($_SESSION['can_accounts_receivable'] ?? 0) !== 1) {
+if ($payment_status !== 'Paid' && !nxArEnabled()) {
     $_SESSION['error'] = 'You do not have access to Accounts Receivable, so sales must be marked Paid.';
     header("Location: /NexGen/CODE/PHP/sales_recording.php");
     exit();

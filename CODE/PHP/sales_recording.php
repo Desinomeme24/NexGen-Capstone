@@ -13,7 +13,9 @@ if ((int)($_SESSION['can_sales'] ?? 0) !== 1) {
 
 include 'config.php';
 require_once __DIR__ . '/tenant_helper.php';
+require_once __DIR__ . '/ar_helper.php';
 $businessId = nxRequireBusinessId($conn);
+$arEnabled = nxArEnabled();
 $csrfSaleForm = generateCsrfToken('sale_form');
 $csrfCustomerForm = generateCsrfToken('customer_form');
 
@@ -194,7 +196,7 @@ $summary = $summaryResult ? $summaryResult->fetch_assoc() : [
 
 $productList = [];
 $productStmt = $conn->prepare("
-    SELECT id, product_name, selling_price, stock_quantity
+    SELECT id, product_name, selling_price, discount_percent, stock_quantity
     FROM products
     WHERE business_id = ? AND is_active = 1
     ORDER BY product_name ASC
@@ -571,6 +573,7 @@ unset($_SESSION['success'], $_SESSION['error']);
                     <strong><?php echo (int)($summary['paid_count'] ?? 0); ?></strong>
                 </div>
             </a>
+            <?php if ($arEnabled): ?>
             <a href="<?php echo salesHref(['filter' => 'Unpaid'], $salesBaseParams); ?>" class="kpi-tile kpi-slate <?php echo ($filter === 'Unpaid') ? 'active' : ''; ?>">
                 <i class="bi bi-x-circle"></i>
                 <div>
@@ -599,6 +602,7 @@ unset($_SESSION['success'], $_SESSION['error']);
                     <strong><?php echo (int)($summary['pending_count'] ?? 0); ?></strong>
                 </div>
             </a>
+            <?php endif; ?>
             <span class="kpi-tile kpi-green kpi-static">
                 <i class="bi bi-cash-coin"></i>
                 <div>
@@ -921,33 +925,6 @@ unset($_SESSION['success'], $_SESSION['error']);
                         <input type="text" value="<?php echo isset($_SESSION['full_name']) ? htmlspecialchars($_SESSION['full_name']) : 'Current User'; ?>" readonly>
                     </div>
 
-                    <div class="form-group">
-                        <label>Payment Status</label>
-                        <select name="payment_status" id="paymentStatus" required>
-                            <option value="Paid">Paid</option>
-                            <?php if ((int)($_SESSION['can_accounts_receivable'] ?? 0) === 1): ?>
-                            <option value="Unpaid">Unpaid</option>
-                            <option value="Partially Paid">Partially Paid</option>
-                            <?php endif; ?>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Payment Method</label>
-                        <select name="payment_method" id="paymentMethod" required>
-                            <option value="Cash">Cash</option>
-                            <option value="GCash">GCash</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group full-span">
-                        <label>Order Status</label>
-                        <select name="order_status" id="orderStatus" required>
-                            <option value="Fulfilled">Fulfilled</option>
-                            <option value="Pending">Pending</option>
-                        </select>
-                    </div>
-
                     <div class="form-group full-span customer-inline-group">
                         <label>Customer</label>
 
@@ -965,10 +942,41 @@ unset($_SESSION['success'], $_SESSION['error']);
                         </div>
                     </div>
 
+                    <div class="form-group">
+                        <label>Payment Method</label>
+                        <select name="payment_method" id="paymentMethod" required>
+                            <option value="Cash">Cash</option>
+                            <option value="GCash">GCash</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Payment Status</label>
+                        <select name="payment_status" id="paymentStatus" required>
+                            <option value="Paid">Paid</option>
+                            <?php if ($arEnabled): ?>
+                            <option value="Unpaid">Unpaid</option>
+                            <option value="Partially Paid">Partially Paid</option>
+                            <?php endif; ?>
+                        </select>
+                    </div>
+
+                    <?php if ($arEnabled): ?>
                     <div class="form-group" id="dueDateGroup">
                         <label>Due Date</label>
                         <input type="date" name="due_date" id="dueDateInput">
                     </div>
+                    <?php endif; ?>
+
+                    <?php if ($arEnabled): ?>
+                    <div class="form-group full-span">
+                        <label>Order Status</label>
+                        <select name="order_status" id="orderStatus" required>
+                            <option value="Fulfilled">Fulfilled</option>
+                            <option value="Pending">Pending</option>
+                        </select>
+                    </div>
+                    <?php endif; ?>
                 </div>
             </div>
 

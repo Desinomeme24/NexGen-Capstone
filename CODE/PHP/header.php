@@ -4,6 +4,7 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 require_once 'config.php';
+require_once __DIR__ . '/ar_helper.php';
 
 /* SESSION SECURITY: enforce 10-minute timeout on protected user pages using header */
 enforceSessionTimeout();
@@ -18,7 +19,7 @@ $isEmployee   = $role === 'employee';
 $canInventory = (int)($_SESSION['can_inventory'] ?? 0) === 1;
 $canSales = (int)($_SESSION['can_sales'] ?? 0) === 1;
 $canSalesAnalytics = (int)($_SESSION['can_sales_analytics'] ?? 0) === 1;
-$canAccountsReceivable = (int)($_SESSION['can_accounts_receivable'] ?? 0) === 1;
+$canAccountsReceivable = nxArEnabled();
 $hasAnyBusinessModule = $canInventory || $canSales || $canSalesAnalytics || $canAccountsReceivable;
 $roleLabel = $isOwner ? 'Owner' : ($isEmployee ? 'Employee' : ucwords(str_replace('_', ' ', (string)$role)));
 
@@ -324,6 +325,8 @@ $showCategoryOpen = in_array(
     (function () {
         const timeoutMs = <?php echo (int)SESSION_TIMEOUT_SECONDS * 1000; ?>;
         let inactivityTimer = null;
+        let lastPingAt = 0;
+        const pingThrottleMs = 60000;
 
         function triggerTimeoutLogout() {
             window.location.href = "/NexGen/CODE/PHP/logout.php?timeout=1";
@@ -332,6 +335,16 @@ $showCategoryOpen = in_array(
         function resetInactivityTimer() {
             clearTimeout(inactivityTimer);
             inactivityTimer = setTimeout(triggerTimeoutLogout, timeoutMs);
+
+            // Keep $_SESSION['last_activity'] in sync with real user activity
+            // (not just full page/AJAX requests) so users actively filling out
+            // a long form aren't logged out - and don't lose unsaved data -
+            // while the client-side timer above still shows them as active.
+            const now = Date.now();
+            if (now - lastPingAt >= pingThrottleMs) {
+                lastPingAt = now;
+                fetch('/NexGen/CODE/PHP/session_ping.php', { method: 'POST', credentials: 'same-origin' }).catch(function () {});
+            }
         }
 
         ['click', 'mousemove', 'keydown', 'scroll', 'touchstart'].forEach(function (eventName) {

@@ -35,7 +35,7 @@ if ($username === '' || $password === '') {
 */
 $sql = "SELECT id, username, full_name, email, password, profile_image, role, account_status,
                can_inventory, can_sales, can_sales_analytics, can_accounts_receivable,
-               failed_login_attempts, locked_until
+               failed_login_attempts, locked_until, business_id
         FROM users
         WHERE username = ?
         LIMIT 1";
@@ -288,6 +288,15 @@ $_SESSION['can_inventory'] = (int)($user['can_inventory'] ?? 0);
 $_SESSION['can_sales'] = (int)($user['can_sales'] ?? 0);
 $_SESSION['can_sales_analytics'] = (int)($user['can_sales_analytics'] ?? 0);
 $_SESSION['can_accounts_receivable'] = (int)($user['can_accounts_receivable'] ?? 0);
+
+/* TENANT ISOLATION: always set business_id fresh from the authenticated
+   user's own row, overwriting anything left over from a previous session.
+   Without this, logging into a second account without formally logging out
+   first (e.g. navigating straight back to the login form) would silently
+   inherit the previous account's business_id via nxRequireBusinessId()'s
+   session cache, showing/writing the wrong business's data. 0 = system_admin
+   (no business), matching nxRequireBusinessId()'s convention. */
+$_SESSION['business_id'] = (int)($user['business_id'] ?? 0);
 
 /* SESSION SECURITY: start inactivity timer after successful login */
 $_SESSION['last_activity'] = time();

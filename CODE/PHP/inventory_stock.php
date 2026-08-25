@@ -209,12 +209,9 @@ try {
         // product_batches triggers keep products.stock_quantity in sync
         // automatically, so stock itself is never written here directly.
         if ($movement_type === 'stock_in') {
-            $batchNumber = trim($_POST['batch_number'] ?? '');
+            $batchNumber = nxGenerateBatchNumber();
             $batchExpiryDate = trim($_POST['batch_expiry_date'] ?? '');
-
-            if ($batchNumber === '' || $batchExpiryDate === '') {
-                throw new Exception("Batch number and expiry date are required for Stock In on this business type.");
-            }
+            $batchExpiryParam = $batchExpiryDate === '' ? null : $batchExpiryDate;
 
             $newOnOrder += $on_order_add;
 
@@ -237,7 +234,7 @@ try {
                 throw new Exception("Failed to prepare batch insert query.");
             }
 
-            $batchInsertStmt->bind_param("iissd", $businessId, $product_id, $batchNumber, $batchExpiryDate, $quantity);
+            $batchInsertStmt->bind_param("iissd", $businessId, $product_id, $batchNumber, $batchExpiryParam, $quantity);
 
             if (!$batchInsertStmt->execute()) {
                 throw new Exception("Failed to save new batch.");

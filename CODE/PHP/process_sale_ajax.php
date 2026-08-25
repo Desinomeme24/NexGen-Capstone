@@ -3,6 +3,7 @@ session_start();
 header('Content-Type: application/json; charset=UTF-8');
 require_once("config.php");
 require_once __DIR__ . '/tenant_helper.php';
+require_once __DIR__ . '/ar_helper.php';
 
 if (!isset($_SESSION['user_id'])) {
     echo json_encode([
@@ -93,7 +94,7 @@ if (!in_array($payment_status, $allowedPaymentStatus, true)) {
     exit();
 }
 
-if ($payment_status !== 'Paid' && (int)($_SESSION['can_accounts_receivable'] ?? 0) !== 1) {
+if ($payment_status !== 'Paid' && !nxArEnabled()) {
     echo json_encode([
         'success' => false,
         'message' => 'You do not have access to Accounts Receivable, so sales must be marked Paid.'
@@ -153,14 +154,10 @@ try {
             throw new Exception('Invalid product, quantity, or unit price detected.');
         }
 
-        $subtotal = $quantity * $unit_price;
-        $total_amount += $subtotal;
-
         $items[] = [
             'product_id' => $product_id,
             'quantity' => $quantity,
-            'unit_price' => $unit_price,
-            'subtotal' => $subtotal
+            'unit_price' => $unit_price
         ];
 
         if (!isset($requiredByProduct[$product_id])) {
@@ -173,7 +170,7 @@ try {
     ksort($requiredByProduct);
 
     $productCheckStmt = $conn->prepare("
-        SELECT id, product_name, stock_quantity
+        SELECT id, product_name, discount_percent, stock_quantity
         FROM products
         WHERE id = ? AND business_id = ? AND is_active = 1
         FOR UPDATE
@@ -184,6 +181,7 @@ try {
     }
 
     $productNames = [];
+    $productDiscounts = [];
 
     foreach ($requiredByProduct as $product_id => $requiredQty) {
         $productCheckStmt->bind_param("ii", $product_id, $businessId);
@@ -197,6 +195,7 @@ try {
         $product = $productResult->fetch_assoc();
         $availableStock = (float) $product['stock_quantity'];
         $productNames[$product_id] = $product['product_name'];
+        $productDiscounts[$product_id] = max(0, min(100, (float) $product['discount_percent']));
 
         if ($requiredQty > $availableStock) {
             throw new Exception('Insufficient stock for one of the selected products.');
@@ -204,9 +203,9 @@ try {
 
         if ($blockExpiredBatches) {
             $expiryCheckStmt = $conn->prepare("
-                SELECT COUNT(*) AS batch_count, COALESCE(SUM(CASE WHEN expiry_date >= CURDATE() THEN quantity ELSE 0 END), 0) AS non_expired_qty
+                SELECT COUNT(*) AS batch_count, COALESCE(SUM(CASE WHEN expiry_date IS NULL OR expiry_date >= CURDATE() THEN quantity ELSE 0 END), 0) AS non_expired_qty
                 FROM product_batches
-                WHERE product_id = ? AND business_id = ?
+                WHERE product_id = ? AND business_id = ? AND status = 'active'
             ");
             if (!$expiryCheckStmt) {
                 throw new Exception('Failed to prepare batch expiry check.');
@@ -225,7 +224,13 @@ try {
     $productCheckStmt->close();
 
     foreach ($items as $index => $item) {
+        $discountPercent = $productDiscounts[$item['product_id']] ?? 0;
+        $subtotal = $item['quantity'] * $item['unit_price'] * (1 - $discountPercent / 100);
+
         $items[$index]['product_name'] = $productNames[$item['product_id']] ?? 'Product';
+        $items[$index]['discount_percent'] = $discountPercent;
+        $items[$index]['subtotal'] = $subtotal;
+        $total_amount += $subtotal;
     }
 
     if ($payment_status === 'Paid') {
@@ -301,8 +306,8 @@ try {
 
     foreach ($items as $item) {
         $itemStmt = $conn->prepare("
-            INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, subtotal)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, discount_percent, subtotal)
+            VALUES (?, ?, ?, ?, ?, ?)
         ");
 
         if (!$itemStmt) {
@@ -310,11 +315,12 @@ try {
         }
 
         $itemStmt->bind_param(
-            "iiddd",
+            "iidddd",
             $sale_id,
             $item['product_id'],
             $item['quantity'],
             $item['unit_price'],
+            $item['discount_percent'],
             $item['subtotal']
         );
 

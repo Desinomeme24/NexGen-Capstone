@@ -1013,7 +1013,8 @@ body {
 
 .product-modal,
 .stock-modal,
-.category-modal {
+.category-modal,
+.batches-modal {
   width: 100%;
   background: #ffffff;
   border-radius: 28px;
@@ -1031,6 +1032,221 @@ body {
 .stock-modal,
 .category-modal {
   max-width: 680px;
+}
+
+.batches-modal {
+  max-width: 760px;
+}
+
+.batches-modal-hint {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.75);
+  margin: 0 0 16px;
+}
+
+.batches-modal-table {
+  width: 100%;
+  min-width: 560px;
+  border-collapse: collapse;
+}
+
+.batches-modal-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 900;
+  padding: 12px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+  text-align: left;
+}
+
+.batches-modal-table tbody td {
+  padding: 12px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
+.batches-empty-state {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.7);
+  padding: 30px 10px !important;
+}
+
+.batch-status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.batch-status-pill.batch-valid {
+  background: rgba(62, 159, 139, 0.18);
+  color: #3e9f8b;
+}
+
+.batch-status-pill.batch-expired {
+  background: rgba(221, 107, 124, 0.3);
+  color: #dd6b7c;
+}
+
+.batch-status-pill.batch-dropped {
+  background: rgba(120, 130, 150, 0.2);
+  color: var(--ink-soft);
+}
+
+.batch-drop-btn {
+  border: 1px solid rgba(221, 107, 124, 0.4);
+  background: rgba(221, 107, 124, 0.12);
+  color: #dd6b7c;
+  border-radius: 10px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.batch-drop-btn:hover {
+  background: rgba(221, 107, 124, 0.22);
+}
+
+.visually-hidden-form {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}
+
+/* DROP BATCH CONFIRMATION - same dark navy modal look as the other
+   Inventory modals (.product-modal / .stock-modal / .category-modal /
+   .batches-modal), not the lighter frosted-glass logout-modal style. */
+.drop-batch-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(5, 14, 40, 0.68);
+  backdrop-filter: blur(10px) saturate(125%);
+  -webkit-backdrop-filter: blur(10px) saturate(125%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: all 0.25s ease;
+  z-index: 99999;
+}
+
+.drop-batch-confirm-overlay.show {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.drop-batch-confirm-card {
+  width: 100%;
+  max-width: 400px;
+  background: linear-gradient(180deg, #0f1f4f 0%, #122860 55%, #0c1d4a 100%);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 28px;
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  padding: 28px 24px 22px;
+  text-align: center;
+  transform: translateY(20px) scale(0.96);
+  transition: all 0.25s ease;
+}
+
+.drop-batch-confirm-overlay.show .drop-batch-confirm-card {
+  transform: translateY(0) scale(1);
+}
+
+.drop-batch-confirm-icon {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 14px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #dd6b7c, #7a1120);
+  color: #fff;
+  font-size: 26px;
+  box-shadow: 0 10px 25px rgba(221, 107, 124, 0.35);
+}
+
+.drop-batch-confirm-card h3 {
+  margin: 0 0 8px;
+  color: #ffffff;
+  font-size: 1.4rem;
+  font-weight: 700;
+}
+
+.drop-batch-confirm-card p {
+  margin: 0 0 22px;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.drop-batch-confirm-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.drop-batch-cancel-btn,
+.drop-batch-confirm-btn {
+  border: none;
+  border-radius: 12px;
+  padding: 12px 18px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 120px;
+}
+
+.drop-batch-cancel-btn {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.drop-batch-cancel-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.drop-batch-confirm-btn {
+  background: linear-gradient(135deg, #dd6b7c, #a83c4c);
+  color: #ffffff;
+  box-shadow: 0 8px 18px rgba(221, 107, 124, 0.35);
+}
+
+.drop-batch-confirm-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 12px 22px rgba(221, 107, 124, 0.42);
+}
+
+@media (max-width: 480px) {
+  .drop-batch-confirm-actions {
+    flex-direction: column;
+  }
+
+  .drop-batch-cancel-btn,
+  .drop-batch-confirm-btn {
+    width: 100%;
+  }
 }
 
 .modal-header {
@@ -1111,6 +1327,13 @@ body {
   color: #23376d;
   font-size: 15px;
   font-weight: 900;
+}
+
+.field-optional {
+  color: var(--ink-soft);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: none;
 }
 
 .form-group input,
@@ -1679,7 +1902,8 @@ body {
 
 .product-modal,
 .stock-modal,
-.category-modal {
+.category-modal,
+.batches-modal {
   background: linear-gradient(
     180deg,
     #0f1f4f 0%,
@@ -2220,7 +2444,32 @@ body {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px;
+}
+
+.stock-qty-number {
+  font-size: 14px;
+  font-weight: 900;
+  color: var(--ink);
+}
+
+.stock-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  flex: 0 0 auto;
+}
+
+.stock-dot.stock-good {
+  background: #3e9f8b;
+}
+
+.stock-dot.stock-low {
+  background: #efb443;
+}
+
+.stock-dot.stock-out {
+  background: #dd6b7c;
 }
 
 .stock-line {
@@ -2428,7 +2677,8 @@ body {
   /* ---- Modals: full-bleed sheets on phones (same colors kept) ---- */
   .product-modal,
   .stock-modal,
-  .category-modal {
+  .category-modal,
+  .batches-modal {
     padding: 20px;
     border-radius: 22px;
     max-width: 100%;
@@ -2540,7 +2790,8 @@ body {
 
   .product-modal,
   .stock-modal,
-  .category-modal {
+  .category-modal,
+  .batches-modal {
     padding: 16px;
     border-radius: 18px;
     max-height: 92vh;
@@ -3033,7 +3284,8 @@ html[data-theme="light"] .modal-overlay {
 
 html[data-theme="light"] .product-modal,
 html[data-theme="light"] .stock-modal,
-html[data-theme="light"] .category-modal {
+html[data-theme="light"] .category-modal,
+html[data-theme="light"] .batches-modal {
   background: linear-gradient(
     180deg,
     rgba(241, 248, 255, 0.99) 0%,
@@ -3044,6 +3296,25 @@ html[data-theme="light"] .category-modal {
   box-shadow:
     0 28px 64px rgba(38, 67, 108, 0.26),
     inset 0 1px 0 rgba(255, 255, 255, 0.9) !important;
+}
+
+html[data-theme="light"] .batches-modal-hint {
+  color: #4a5568 !important;
+}
+
+html[data-theme="light"] .batches-modal-table thead th {
+  background: rgba(11, 42, 97, 0.06) !important;
+  color: #0b2a61 !important;
+  border-bottom-color: rgba(74, 143, 224, 0.28) !important;
+}
+
+html[data-theme="light"] .batches-modal-table tbody td {
+  color: #0b2a61 !important;
+  border-bottom-color: rgba(74, 143, 224, 0.18) !important;
+}
+
+html[data-theme="light"] .batches-empty-state {
+  color: #4a5568 !important;
 }
 
 html[data-theme="light"] .modal-header h2,
@@ -3089,7 +3360,13 @@ html[data-theme="light"] .nx-footer {
   color: #4d6280;
 }
 
-/* Expiration alert tiers: 15-day notice, 7-day warning, 1-day/today critical, past-due expired */
+/* Expiration alert tiers: 30-day upcoming, 15-day notice, 7-day warning, 1-day/today critical, past-due expired */
+.mini-pill.expiry-upcoming,
+.expiry-pill.expiry-upcoming {
+  background: rgba(140, 160, 200, 0.2);
+  color: #7d93c2;
+}
+
 .mini-pill.expiry-notice,
 .expiry-pill.expiry-notice {
   background: rgba(239, 180, 67, 0.22);

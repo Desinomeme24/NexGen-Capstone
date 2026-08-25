@@ -2,6 +2,7 @@
 session_start();
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/tenant_helper.php';
+require_once __DIR__ . '/ar_helper.php';
 
 if (!isset($_SESSION['user_id'])) {
     header("Location: /NexGen/CODE/PHP/index.php");
@@ -34,7 +35,7 @@ $isEmployee = $role === 'employee';
 $canInventory = (int)($_SESSION['can_inventory'] ?? 0) === 1;
 $canSales = (int)($_SESSION['can_sales'] ?? 0) === 1;
 $canSalesAnalytics = (int)($_SESSION['can_sales_analytics'] ?? 0) === 1;
-$canAccountsReceivable = (int)($_SESSION['can_accounts_receivable'] ?? 0) === 1;
+$canAccountsReceivable = nxArEnabled();
 $hasAnyBusinessModule = $canInventory || $canSales || $canSalesAnalytics || $canAccountsReceivable;
 
 $popupMessage = "";

@@ -14,6 +14,16 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+/* SECURITY: prevent the browser from caching authenticated pages. Without
+   this, hitting Back after logging out (or switching accounts on a shared
+   till/PC) can redisplay a previous user's cached page - including data
+   like Purchase Order History or receivables - straight from disk/memory
+   cache instead of re-requesting it from the server. */
+if (!headers_sent()) {
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    header('Pragma: no-cache');
+}
+
 /* DATABASE CONNECTION */
 $host = "localhost";
 $dbname = "nexgen_db";
@@ -81,6 +91,17 @@ if (!function_exists('nxBlocksExpiredBatches')) {
     }
 }
 
+if (!function_exists('nxGenerateBatchNumber')) {
+    /* Batch numbers are system-generated, not typed by users - avoids typos/
+       duplicates and matches the same auto-numbering approach already used
+       for sales_no. Timestamp + a short random suffix keeps it unique even
+       if two batches are created for the same product in the same second. */
+    function nxGenerateBatchNumber(): string
+    {
+        return 'B-' . date('Ymd-His') . '-' . bin2hex(random_bytes(2));
+    }
+}
+
 if (!function_exists('nxDeductFefo')) {
     /**
      * FEFO (first-expiry-first-out) stock deduction for a batch-tracked product.
@@ -91,12 +112,19 @@ if (!function_exists('nxDeductFefo')) {
      */
     function nxDeductFefo(mysqli $conn, int $businessId, int $productId, float $quantity, bool $blockExpired): void
     {
-        $expiryClause = $blockExpired ? "AND expiry_date >= CURDATE()" : "";
+        // status = 'active' excludes batches already dropped as expired/disposed -
+        // those sit at quantity 0 and must never be touched again (deleting a
+        // depleted-looking row here would erase the drop's history).
+        // Batches with no expiry date sort last (MySQL puts NULL first in ASC
+        // order by default, which is the opposite of "deducted last").
+        // A NULL expiry means "never expires" - it must stay sellable even
+        // when blocking expired stock, so it's never excluded by this clause.
+        $expiryClause = $blockExpired ? "AND (expiry_date IS NULL OR expiry_date >= CURDATE())" : "";
         $batchStmt = $conn->prepare("
             SELECT id, quantity
             FROM product_batches
-            WHERE product_id = ? AND business_id = ? {$expiryClause}
-            ORDER BY expiry_date ASC, id ASC
+            WHERE product_id = ? AND business_id = ? AND status = 'active' {$expiryClause}
+            ORDER BY (expiry_date IS NULL), expiry_date ASC, id ASC
             FOR UPDATE
         ");
         if (!$batchStmt) {
@@ -155,6 +183,50 @@ if (!function_exists('isStrongPassword')) {
     function isStrongPassword(string $password): bool
     {
         return (bool) preg_match('/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/', $password);
+    }
+}
+
+if (!function_exists('nxMaskUsername')) {
+    /* Masks a username for display when a forgot-password lookup matches more
+       than one account under the same email (e.g. an SME owner's branch
+       accounts) - shows enough to be recognizable without exposing the full
+       username to anyone who isn't already looking at their own inbox. */
+    function nxMaskUsername(string $username): string
+    {
+        $len = strlen($username);
+
+        if ($len <= 2) {
+            return str_repeat('*', $len);
+        }
+
+        if ($len <= 4) {
+            return substr($username, 0, 1) . str_repeat('*', $len - 1);
+        }
+
+        return substr($username, 0, 2) . str_repeat('*', $len - 3) . substr($username, -1);
+    }
+}
+
+if (!function_exists('nxMaskEmail')) {
+    /* Masks an email for display after an OTP is sent (e.g. "jo***@gmail.com")
+       - lets the user confirm where the code went without echoing the full
+       address back on screen. */
+    function nxMaskEmail(string $email): string
+    {
+        $parts = explode('@', $email, 2);
+
+        if (count($parts) !== 2 || $parts[1] === '') {
+            return $email;
+        }
+
+        [$local, $domain] = $parts;
+        $len = strlen($local);
+
+        $maskedLocal = $len <= 2
+            ? str_repeat('*', $len)
+            : substr($local, 0, 2) . str_repeat('*', max(1, $len - 2));
+
+        return $maskedLocal . '@' . $domain;
     }
 }
 
@@ -335,6 +407,16 @@ if (!function_exists('generateCsrfToken')) {
     {
         if (empty($_SESSION['csrf_tokens']) || !is_array($_SESSION['csrf_tokens'])) {
             $_SESSION['csrf_tokens'] = [];
+        }
+
+        // Reuse the existing token for this form if one is already pending.
+        // Pages like inventory_management.php re-run this on every AJAX
+        // filter/tab refresh (not just full loads) to keep their static
+        // modals' hidden tokens working - minting a brand-new token every
+        // time silently invalidated any modal that was already open,
+        // showing "session expired" even though the session was fine.
+        if (!empty($_SESSION['csrf_tokens'][$formName])) {
+            return $_SESSION['csrf_tokens'][$formName];
         }
 
         $token = bin2hex(random_bytes(32));

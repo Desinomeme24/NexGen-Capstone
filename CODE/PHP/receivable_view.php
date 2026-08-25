@@ -5,6 +5,7 @@ if (session_status() === PHP_SESSION_NONE) {
 
 require_once "config.php";
 require_once __DIR__ . '/tenant_helper.php';
+require_once __DIR__ . '/ar_helper.php';
 
 header('Content-Type: application/json; charset=UTF-8');
 
@@ -14,7 +15,7 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-if ((int)($_SESSION['can_accounts_receivable'] ?? 0) !== 1) {
+if (!nxArEnabled()) {
     http_response_code(403);
     echo json_encode(['error' => 'You do not have access to Accounts Receivable.']);
     exit();

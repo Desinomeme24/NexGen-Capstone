@@ -2,6 +2,7 @@
 session_start();
 require_once("config.php");
 require_once __DIR__ . '/tenant_helper.php';
+require_once __DIR__ . '/ar_helper.php';
 $businessId = nxRequireBusinessId($conn);
 
 if (!isset($_SESSION['user_id'])) {
@@ -9,7 +10,7 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-if ((int)($_SESSION['can_accounts_receivable'] ?? 0) !== 1) {
+if (!nxArEnabled()) {
     $_SESSION['error'] = 'You do not have access to Accounts Receivable.';
     header("Location: /NexGen/CODE/PHP/dashboard.php");
     exit();

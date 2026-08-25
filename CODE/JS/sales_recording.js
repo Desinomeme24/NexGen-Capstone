@@ -279,10 +279,13 @@ document.addEventListener("DOMContentLoaded", function () {
 
     products.forEach((product) => {
       const option = document.createElement("option");
+      const discount = safeNumber(product.discount_percent);
       option.value = safeText(product.id);
       option.dataset.price = String(safeNumber(product.selling_price));
+      option.dataset.discount = String(discount);
       option.dataset.stock = String(safeNumber(product.stock_quantity));
-      option.textContent = `${safeText(product.product_name)} (Stock: ${safeNumber(product.stock_quantity)} | ₱${safeNumber(product.selling_price).toFixed(2)})`;
+      const discountLabel = discount > 0 ? ` (-${discount}%)` : "";
+      option.textContent = `${safeText(product.product_name)} (Stock: ${safeNumber(product.stock_quantity)} | ₱${safeNumber(product.selling_price).toFixed(2)}${discountLabel})`;
       selectEl.appendChild(option);
     });
   }
@@ -327,6 +330,9 @@ document.addEventListener("DOMContentLoaded", function () {
     subtotalInput.value = "0.00";
     subtotalInput.readOnly = true;
     col4.appendChild(subtotalInput);
+    const discountNote = document.createElement("small");
+    discountNote.className = "item-discount-note";
+    col4.appendChild(discountNote);
 
     const col5 = document.createElement("div");
     const removeBtn = document.createElement("button");
@@ -364,11 +370,23 @@ document.addEventListener("DOMContentLoaded", function () {
       : rowOrElement;
     if (!row) return;
 
+    const select = row.querySelector(".product-select");
+    const selectedOption = select ? select.options[select.selectedIndex] : null;
+    const discount = selectedOption
+      ? parseFloat(selectedOption.getAttribute("data-discount")) || 0
+      : 0;
+
     const qty = parseFloat(row.querySelector(".qty-input").value) || 0;
     const price = parseFloat(row.querySelector(".price-input").value) || 0;
-    const subtotal = qty * price;
+    const subtotal = qty * price * (1 - discount / 100);
 
     row.querySelector(".subtotal-input").value = formatMoney(subtotal);
+
+    const discountNote = row.querySelector(".item-discount-note");
+    if (discountNote) {
+      discountNote.textContent = discount > 0 ? `-${discount}% discount applied` : "";
+    }
+
     calculateGrandTotal();
   }
 

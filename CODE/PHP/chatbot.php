@@ -5,6 +5,7 @@ if (session_status() === PHP_SESSION_NONE) {
 
 require_once("config.php");
 require_once __DIR__ . "/tenant_helper.php";
+require_once __DIR__ . "/ar_helper.php";
 require_once("ollama_helpers.php");
 date_default_timezone_set('Asia/Manila');
 
@@ -32,7 +33,7 @@ $chatbotIsEmployee = $chatbotRole === 'employee';
 $chatbotCanInventory = (int)($_SESSION['can_inventory'] ?? 0) === 1;
 $chatbotCanSales = (int)($_SESSION['can_sales'] ?? 0) === 1;
 $chatbotCanSalesAnalytics = (int)($_SESSION['can_sales_analytics'] ?? 0) === 1;
-$chatbotCanAccountsReceivable = (int)($_SESSION['can_accounts_receivable'] ?? 0) === 1;
+$chatbotCanAccountsReceivable = nxArEnabled();
 
 $chatbotBusinessId = nxRequireBusinessId($conn);
 $GLOBALS['chatbotBusinessId'] = $chatbotBusinessId;

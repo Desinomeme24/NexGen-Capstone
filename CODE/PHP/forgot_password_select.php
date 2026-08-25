@@ -15,20 +15,20 @@ if (isset($_SESSION['success'])) {
     unset($_SESSION['error']);
 }
 
-if (empty($_SESSION['fp_selected_user_id'])) {
+$candidates = $_SESSION['fp_candidates'] ?? null;
+
+if (!$candidates) {
     $_SESSION['error'] = 'Please start the password reset process again.';
     header('Location: /NexGen/CODE/PHP/forgot_password.php');
     exit();
 }
-
-$resetEmail = $_SESSION['fp_email'] ?? '';
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Reset Password - NextGen</title>
+    <title>Select Account - NextGen</title>
     <link rel="stylesheet" href="/NexGen/CODE/STYLE/forgot_password.css">
 </head>
 <body>
@@ -47,29 +47,26 @@ $resetEmail = $_SESSION['fp_email'] ?? '';
     <div class="forgot-card">
         <img src="/NexGen/IMAGES/NGlogo.png" alt="Logo" class="forgot-logo">
 
-        <h1>Reset Password</h1>
-        <p class="subtext">Enter the OTP sent to your email and set a new password.</p>
+        <h1>Select Account</h1>
+        <p class="subtext">This email is linked to more than one account. Choose which one to reset.</p>
 
-        <form action="/NexGen/CODE/PHP/process_reset_password.php" method="POST">
-            <label>Email Address</label>
-            <input type="email" value="<?php echo htmlspecialchars($resetEmail); ?>" readonly>
+        <form action="/NexGen/CODE/PHP/send_forgot_otp.php" method="POST">
+            <div class="account-list">
+                <?php foreach ($candidates as $c): ?>
+                    <label class="account-option">
+                        <input type="radio" name="selected_user_id" value="<?php echo (int) $c['id']; ?>" required>
+                        <span>
+                            <?php echo htmlspecialchars($c['masked_username']); ?><?php if ($c['business_name'] !== ''): ?> &mdash; <?php echo htmlspecialchars($c['business_name']); ?><?php endif; ?>
+                        </span>
+                    </label>
+                <?php endforeach; ?>
+            </div>
 
-            <label>OTP Code</label>
-            <input type="text" name="otp_code" maxlength="6" required placeholder="Enter 6-digit OTP">
-
-            <label>New Password</label>
-            <input type="password" name="new_password" required placeholder="Enter new password">
-
-            <label>Confirm New Password</label>
-            <input type="password" name="confirm_new_password" required placeholder="Confirm new password">
-
-            <button type="submit" class="main-btn">Reset Password</button>
+            <button type="submit" class="main-btn">Send OTP</button>
         </form>
 
         <div class="links">
-            <form action="/NexGen/CODE/PHP/send_forgot_otp.php" method="POST" class="inline-form">
-                <button type="submit" class="link-btn">Resend OTP</button>
-            </form>
+            <a href="/NexGen/CODE/PHP/forgot_password.php">Start Over</a>
             <a href="/NexGen/CODE/PHP/index.php">Back to Login</a>
         </div>
     </div>

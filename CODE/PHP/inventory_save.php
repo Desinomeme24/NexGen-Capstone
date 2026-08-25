@@ -12,11 +12,12 @@ $btStmt=$conn->prepare('SELECT business_type FROM businesses WHERE id=? LIMIT 1'
 $isBatchTracked=nxIsBatchTrackedType($businessTypeRow['business_type']??null);
 $product_code=trim($_POST['product_code']??''); $product_name=trim($_POST['product_name']??''); $category_id=(int)($_POST['category_id']??0);
 $brand=trim($_POST['brand']??''); $unit=trim($_POST['unit']??''); $cost_price=(float)($_POST['cost_price']??0); $selling_price=(float)($_POST['selling_price']??0);
+$discount_percent=max(0,min(100,(float)($_POST['discount_percent']??0)));
 $stock_quantity=(float)($_POST['stock_quantity']??0); $reorder_level=$isOwner?(float)($_POST['reorder_level']??5):5; $on_order_level=$isOwner?(float)($_POST['on_order_level']??0):0;
 $expiry_date=!empty($_POST['expiry_date'])?$_POST['expiry_date']:null; $description=trim($_POST['description']??''); $is_active=(int)($_POST['is_active']??1);
-$batch_number=trim($_POST['batch_number']??'');
+$batch_number=$isBatchTracked?nxGenerateBatchNumber():'';
 if ($product_code===''||$product_name===''||$category_id<=0||$unit==='') { $_SESSION['inventory_error']='Please fill in all required fields.'; header("Location: /NexGen/CODE/PHP/inventory_management.php"); exit(); }
-if ($isBatchTracked && ($batch_number===''||$expiry_date===null||$stock_quantity<=0)) { $_SESSION['inventory_error']='Batch number, expiry date, and a positive initial quantity are required for this business type.'; header("Location: /NexGen/CODE/PHP/inventory_management.php"); exit(); }
+if ($isBatchTracked && $stock_quantity<=0) { $_SESSION['inventory_error']='A positive initial quantity is required for this business type. Expiry date is optional.'; header("Location: /NexGen/CODE/PHP/inventory_management.php"); exit(); }
 if (min($cost_price,$selling_price,$stock_quantity,$reorder_level,$on_order_level)<0) { $_SESSION['inventory_error']='Numeric values must not be negative.'; header("Location: /NexGen/CODE/PHP/inventory_management.php"); exit(); }
 $cat=$conn->prepare('SELECT id FROM categories WHERE id=? AND business_id=?'); $cat->bind_param('ii',$category_id,$businessId); $cat->execute(); $catOk=$cat->get_result()->fetch_assoc(); $cat->close();
 if(!$catOk){$_SESSION['inventory_error']='Invalid category for this business.';header("Location: /NexGen/CODE/PHP/inventory_management.php");exit();}
@@ -29,8 +30,8 @@ try{
  // expiry - the initial batch inserted below sets the real stock via the
  // product_batches triggers, and each batch carries its own expiry date.
  $initialStock=$isBatchTracked?0:$stock_quantity; $initialExpiry=$isBatchTracked?null:$expiry_date;
- $stmt=$conn->prepare('INSERT INTO products (business_id,product_code,product_name,category_id,brand,unit,cost_price,selling_price,stock_quantity,reorder_level,on_order_level,expiry_date,product_image,description,is_active) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
- $stmt->bind_param('ississdddddsssi',$businessId,$product_code,$product_name,$category_id,$brand,$unit,$cost_price,$selling_price,$initialStock,$reorder_level,$on_order_level,$initialExpiry,$imagePath,$description,$is_active);
+ $stmt=$conn->prepare('INSERT INTO products (business_id,product_code,product_name,category_id,brand,unit,cost_price,selling_price,discount_percent,stock_quantity,reorder_level,on_order_level,expiry_date,product_image,description,is_active) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
+ $stmt->bind_param('ississddddddsssi',$businessId,$product_code,$product_name,$category_id,$brand,$unit,$cost_price,$selling_price,$discount_percent,$initialStock,$reorder_level,$on_order_level,$initialExpiry,$imagePath,$description,$is_active);
  if(!$stmt->execute())throw new Exception('Failed to save product: '.$stmt->error); $newProductId=$conn->insert_id; $stmt->close();
  if($isBatchTracked){
   $batchStmt=$conn->prepare('INSERT INTO product_batches (business_id,product_id,batch_number,expiry_date,quantity) VALUES (?,?,?,?,?)');

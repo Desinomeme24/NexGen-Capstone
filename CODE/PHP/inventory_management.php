@@ -22,11 +22,37 @@ $businessType = $businessTypeStmt->get_result()->fetch_assoc()['business_type'] 
 $businessTypeStmt->close();
 $isBatchTracked = nxIsBatchTrackedType($businessType);
 $blocksExpiredBatches = nxBlocksExpiredBatches($businessType);
+
+// Near-expiry alert window in days. Configurable in one place.
+if (!defined('NX_EXPIRY_ALERT_DAYS')) {
+    define('NX_EXPIRY_ALERT_DAYS', 30);
+}
+
+// SELF-HEAL: products.stock_quantity is kept in sync by the product_batches
+// triggers, but "exclude expired batches" is a time-based condition - a
+// batch that quietly crosses its expiry date doesn't fire any trigger by
+// itself. Re-sync it here on every page load so the displayed/counted stock
+// always reflects only non-expired, non-dropped batches, not just whatever
+// was true the last time a batch row was written.
+if ($isBatchTracked) {
+    $conn->query("
+        UPDATE products p
+        SET stock_quantity = (
+            SELECT COALESCE(SUM(pb.quantity), 0) FROM product_batches pb
+            WHERE pb.product_id = p.id AND pb.status = 'active'
+              AND (pb.expiry_date IS NULL OR pb.expiry_date >= CURDATE())
+        )
+        WHERE p.business_id = {$businessId}
+          AND EXISTS (SELECT 1 FROM product_batches WHERE product_id = p.id)
+    ");
+}
+
 $csrfAddProduct = generateCsrfToken('inventory_add_product');
 $csrfEditProduct = generateCsrfToken('inventory_edit_product');
 $csrfStock = generateCsrfToken('inventory_stock');
 $csrfCategory = generateCsrfToken('inventory_category');
 $csrfDeleteRestore = generateCsrfToken('inventory_delete_restore');
+$csrfBatchDrop = generateCsrfToken('inventory_batch_drop');
 $displayName = $_SESSION['username'] ?? 'Client';
 $fullName = $_SESSION['full_name'] ?? 'Client';
 $userId = (int)$_SESSION['user_id'];
@@ -49,7 +75,7 @@ $statusFilter = $_GET['status'] ?? '';
 // For batch-tracked products, p.expiry_date is always NULL (expiry lives on
 // each batch instead) - "effective" expiry falls back to the soonest batch
 // expiry so expired/expiring filters and the row pill still work correctly.
-$effectiveExpirySql = "COALESCE(p.expiry_date, (SELECT MIN(pb.expiry_date) FROM product_batches pb WHERE pb.product_id = p.id AND pb.business_id = p.business_id))";
+$effectiveExpirySql = "COALESCE(p.expiry_date, (SELECT MIN(pb.expiry_date) FROM product_batches pb WHERE pb.product_id = p.id AND pb.business_id = p.business_id AND pb.status = 'active'))";
 $sql = "
     SELECT p.*, c.category_name, {$effectiveExpirySql} AS effective_expiry_date
     FROM products p
@@ -81,7 +107,7 @@ if ($statusFilter === 'active') {
 } elseif ($statusFilter === 'expired') {
     $sql .= " AND {$effectiveExpirySql} IS NOT NULL AND {$effectiveExpirySql} < CURDATE()";
 } elseif ($statusFilter === 'expiring') {
-    $sql .= " AND p.is_active = 1 AND {$effectiveExpirySql} IS NOT NULL AND {$effectiveExpirySql} >= CURDATE() AND DATEDIFF({$effectiveExpirySql}, CURDATE()) <= 15";
+    $sql .= " AND p.is_active = 1 AND {$effectiveExpirySql} IS NOT NULL AND {$effectiveExpirySql} >= CURDATE() AND DATEDIFF({$effectiveExpirySql}, CURDATE()) <= " . NX_EXPIRY_ALERT_DAYS;
 }
 $sql .= " ORDER BY p.created_at DESC";
 $stmt = $conn->prepare($sql);
@@ -91,6 +117,27 @@ $result = $stmt->get_result();
 $allProducts = [];
 while ($row = $result->fetch_assoc()) { $allProducts[] = $row; }
 $stmt->close();
+
+// Expired-but-not-dropped quantity per product, kept separate from the
+// sellable stock_quantity so the row can show both numbers without
+// confusing one for the other (per-product, not per-batch, since the row
+// only has room for one expiry badge).
+$expiredQtyByProduct = [];
+if ($isBatchTracked) {
+    $expStmt = $conn->prepare("
+        SELECT product_id, SUM(quantity) AS expired_qty
+        FROM product_batches
+        WHERE business_id = ? AND status = 'active' AND expiry_date < CURDATE()
+        GROUP BY product_id
+    ");
+    $expStmt->bind_param("i", $businessId);
+    $expStmt->execute();
+    $expResult = $expStmt->get_result();
+    while ($expRow = $expResult->fetch_assoc()) {
+        $expiredQtyByProduct[(int)$expRow['product_id']] = (float)$expRow['expired_qty'];
+    }
+    $expStmt->close();
+}
 
 $totalFetchedProducts = count($allProducts);
 $productDisplayLimit = 10;
@@ -132,7 +179,7 @@ $lowStockCount=(int)($countRow['low_stock_count']??0);
 $outOfStockCount=(int)($countRow['out_of_stock_count']??0);
 
 $expiryCountRow = nxFetchOne($conn, "SELECT
-    SUM(x.effective_expiry_date IS NOT NULL AND x.effective_expiry_date>=CURDATE() AND DATEDIFF(x.effective_expiry_date,CURDATE())<=15) expiring_soon_count,
+    SUM(x.effective_expiry_date IS NOT NULL AND x.effective_expiry_date>=CURDATE() AND DATEDIFF(x.effective_expiry_date,CURDATE())<=" . NX_EXPIRY_ALERT_DAYS . ") expiring_soon_count,
     SUM(x.effective_expiry_date IS NOT NULL AND x.effective_expiry_date<CURDATE()) expired_count
     FROM (SELECT p.is_active, {$effectiveExpirySql} AS effective_expiry_date FROM products p WHERE p.business_id=?) x
     WHERE x.is_active=1", "i", [$businessId]);
@@ -149,7 +196,7 @@ $expiringSoonItems = nxFetchAll($conn, "SELECT * FROM (
             {$effectiveExpirySql} AS expiry_date
         FROM products p WHERE p.business_id=? AND p.is_active=1
     ) x
-    WHERE x.expiry_date IS NOT NULL AND x.expiry_date>=CURDATE() AND DATEDIFF(x.expiry_date,CURDATE())<=15
+    WHERE x.expiry_date IS NOT NULL AND x.expiry_date>=CURDATE() AND DATEDIFF(x.expiry_date,CURDATE())<=" . NX_EXPIRY_ALERT_DAYS . "
     ORDER BY x.expiry_date ASC, x.product_name ASC LIMIT 10", "i", [$businessId]);
 foreach ($expiringSoonItems as &$esItem) { $esItem['days_left'] = (int)floor((strtotime($esItem['expiry_date']) - strtotime(date('Y-m-d'))) / 86400); }
 unset($esItem);
@@ -171,12 +218,16 @@ $recentMovements = nxFetchAll($conn, "SELECT sm.*,p.product_name,p.product_code,
     FROM stock_movements sm INNER JOIN products p ON sm.product_id=p.id AND sm.business_id=p.business_id
     WHERE sm.business_id=? AND sm.created_at>=NOW()-INTERVAL 7 DAY ORDER BY sm.created_at DESC LIMIT 5", "i", [$businessId]);
 
-$orderHistory = nxFetchAll($conn, "SELECT sm.id, sm.product_id, sm.quantity, sm.remarks, sm.created_at,
+// Purchase order history is owner-only: only fetch it for owners so it
+// never ends up in the HTML response for employees (the trigger button
+// being hidden for employees was not enough - the data itself must not
+// be sent to the browser).
+$orderHistory = $isOwner ? nxFetchAll($conn, "SELECT sm.id, sm.product_id, sm.quantity, sm.remarks, sm.created_at,
         p.product_name, p.product_code
     FROM stock_movements sm
     INNER JOIN products p ON p.id=sm.product_id AND p.business_id=sm.business_id
     WHERE sm.business_id=? AND sm.movement_type='order_placed'
-    ORDER BY sm.created_at DESC, sm.id DESC LIMIT 20", "i", [$businessId]);
+    ORDER BY sm.created_at DESC, sm.id DESC LIMIT 20", "i", [$businessId]) : [];
 
 $popupMessage = $_SESSION['inventory_success'] ?? $_SESSION['inventory_error'] ?? "";
 $popupType = isset($_SESSION['inventory_success']) ? "success" : (isset($_SESSION['inventory_error']) ? "error" : "");
@@ -237,6 +288,9 @@ function expiryUrgency(?string $expiryDate): ?array {
     }
     if ($daysLeft <= 15) {
         return ['label' => "Expires in {$daysLeft}d", 'class' => 'expiry-notice', 'days' => $daysLeft];
+    }
+    if ($daysLeft <= NX_EXPIRY_ALERT_DAYS) {
+        return ['label' => "Expires in {$daysLeft}d", 'class' => 'expiry-upcoming', 'days' => $daysLeft];
     }
 
     return null;
@@ -776,7 +830,7 @@ if ($currentStatusForTab === '') {
                             </div>
                         </div>
                     <?php else: ?>
-                        <div class="summary-empty">No products expiring in the next 15 days.</div>
+                        <div class="summary-empty">No products expiring in the next <?php echo NX_EXPIRY_ALERT_DAYS; ?> days.</div>
                     <?php endif; ?>
                 </div>
 
@@ -855,6 +909,7 @@ if ($currentStatusForTab === '') {
                                     $invState = getInventoryState($product);
                                     $productIsArchived = ((int)$product['is_active'] === 0);
                                     $rowExpiryUrgency = expiryUrgency($product['effective_expiry_date'] ?? null);
+                                    $rowExpiredQty = $expiredQtyByProduct[(int)$product['id']] ?? 0;
                                 ?>
                                 <tr>
                                     <td class="cell-image">
@@ -872,10 +927,16 @@ if ($currentStatusForTab === '') {
                                             <?php endif; ?>
                                         </div>
                                         <div class="stock-line-row">
+                                            <span class="stock-qty-number"><?php echo formatQty($product['stock_quantity']); ?></span>
+                                            <span class="stock-dot <?php echo $stockClass; ?>" title="<?php echo htmlspecialchars($invState['label']); ?>"></span>
                                             <span class="stock-line <?php echo $stockClass; ?>">
-                                                <?php echo htmlspecialchars($invState['label']); ?> &bull; <?php echo formatQty($product['stock_quantity']); ?> <?php echo (float)$product['stock_quantity'] == 1 ? 'Left' : 'in stock'; ?>
+                                                <?php echo htmlspecialchars($invState['label']); ?> &bull; <?php echo (float)$product['stock_quantity'] == 1 ? 'Left' : 'in stock'; ?>
                                             </span>
-                                            <?php if ($rowExpiryUrgency): ?>
+                                            <?php if ($isBatchTracked && $rowExpiredQty > 0): ?>
+                                                <span class="expiry-pill expiry-expired">
+                                                    <i class="bi bi-exclamation-octagon-fill"></i> Expired: <?php echo formatQty($rowExpiredQty); ?>
+                                                </span>
+                                            <?php elseif ($rowExpiryUrgency): ?>
                                                 <span class="expiry-pill <?php echo $rowExpiryUrgency['class']; ?>">
                                                     <i class="bi bi-clock-history"></i> <?php echo htmlspecialchars($rowExpiryUrgency['label']); ?>
                                                 </span>
@@ -902,6 +963,7 @@ if ($currentStatusForTab === '') {
                                                     data-unit="<?php echo htmlspecialchars($product['unit']); ?>"
                                                     data-cost="<?php echo htmlspecialchars($product['cost_price']); ?>"
                                                     data-selling="<?php echo htmlspecialchars($product['selling_price']); ?>"
+                                                    data-discount="<?php echo htmlspecialchars($product['discount_percent'] ?? 0); ?>"
                                                     data-stock="<?php echo htmlspecialchars($product['stock_quantity']); ?>"
                                                     data-reorder="<?php echo htmlspecialchars($product['reorder_level']); ?>"
                                                     data-onorder="<?php echo htmlspecialchars($product['on_order_level'] ?? 0); ?>"
@@ -924,6 +986,18 @@ if ($currentStatusForTab === '') {
                                                     <i class="bi bi-arrow-left-right"></i>
                                                     <span>Adjust Stock</span>
                                                 </button>
+
+                                                <?php if ($isBatchTracked): ?>
+                                                    <button
+                                                        class="action-item batches-btn"
+                                                        type="button"
+                                                        data-batches-id="<?php echo (int)$product['id']; ?>"
+                                                        data-batches-name="<?php echo htmlspecialchars($product['product_name']); ?>"
+                                                    >
+                                                        <i class="bi bi-layers"></i>
+                                                        <span>View Batches</span>
+                                                    </button>
+                                                <?php endif; ?>
 
                                                 <?php if ($isOwner): ?>
                                                     <button
@@ -1056,6 +1130,57 @@ if ($currentStatusForTab === '') {
     </div>
     <?php endif; ?>
 
+    <?php if ($isBatchTracked): ?>
+    <!-- PRODUCT BATCHES MODAL -->
+    <div class="modal-overlay" id="batchesModal">
+        <div class="batches-modal">
+            <div class="modal-header">
+                <h2>Batches &mdash; <span id="batchesProductName">Product</span></h2>
+                <button type="button" class="close-modal-btn" id="closeBatchesModal">&times;</button>
+            </div>
+
+            <p class="batches-modal-hint">FEFO deduction always consumes the earliest-expiring valid batch first. Only expired batches can be dropped.</p>
+
+            <div class="table-scroll">
+                <table class="batches-modal-table">
+                    <thead>
+                        <tr>
+                            <th>Batch #</th>
+                            <th>Quantity</th>
+                            <th>Expiry Date</th>
+                            <th>Status</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody id="batchesModalBody">
+                        <tr><td colspan="5" class="batches-empty-state">Loading...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <form method="POST" action="/NexGen/CODE/PHP/inventory_batch_drop.php" id="batchDropForm" class="visually-hidden-form">
+        <input type="hidden" name="batch_id" id="batchDropId" value="">
+        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfBatchDrop); ?>">
+    </form>
+
+    <!-- DROP BATCH CONFIRMATION -->
+    <div class="drop-batch-confirm-overlay" id="dropBatchConfirmOverlay">
+        <div class="drop-batch-confirm-card">
+            <div class="drop-batch-confirm-icon">
+                <i class="bi bi-exclamation-triangle-fill"></i>
+            </div>
+            <h3>Drop this batch?</h3>
+            <p>Batch <strong id="dropBatchConfirmNumber"></strong> will be set to 0 quantity and marked as dropped. This cannot be undone, but the record is kept for history.</p>
+            <div class="drop-batch-confirm-actions">
+                <button type="button" class="drop-batch-cancel-btn" id="dropBatchCancelBtn">Cancel</button>
+                <button type="button" class="drop-batch-confirm-btn" id="dropBatchConfirmBtn">Drop Batch</button>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+
     <!-- ADD PRODUCT MODAL -->
     <div class="modal-overlay" id="productModal">
         <div class="product-modal">
@@ -1144,6 +1269,11 @@ if ($currentStatusForTab === '') {
                             <label>Selling Price</label>
                             <input type="number" step="0.01" min="0" name="selling_price" required>
                         </div>
+
+                        <div class="form-group">
+                            <label>Discount %</label>
+                            <input type="number" step="0.01" min="0" max="100" name="discount_percent" value="0">
+                        </div>
                     </div>
                 </div>
 
@@ -1152,19 +1282,15 @@ if ($currentStatusForTab === '') {
                     <div class="form-fields">
                         <?php if ($isBatchTracked): ?>
                             <div class="form-group full-width">
-                                <label class="field-help">This business tracks stock per batch. Set up the product's first batch below - more batches can be added later via Adjust Stock.</label>
-                            </div>
-                            <div class="form-group">
-                                <label>Batch Number</label>
-                                <input type="text" name="batch_number" placeholder="e.g. B-2026-08-01" required>
+                                <label class="field-help">This business tracks stock per batch. Set up the product's first batch below - the batch number is generated automatically, more batches can be added later via Adjust Stock.</label>
                             </div>
                             <div class="form-group">
                                 <label>Initial Quantity</label>
                                 <input type="number" min="0.001" step="0.001" name="stock_quantity" required>
                             </div>
                             <div class="form-group">
-                                <label>Expiry Date</label>
-                                <input type="date" name="expiry_date" required>
+                                <label>Expiry Date <span class="field-optional">(optional)</span></label>
+                                <input type="date" name="expiry_date">
                             </div>
                         <?php else: ?>
                             <div class="form-group">
@@ -1319,6 +1445,11 @@ if ($currentStatusForTab === '') {
                             <label>Selling Price</label>
                             <input type="number" step="0.01" min="0" name="selling_price" id="edit_selling_price" required>
                         </div>
+
+                        <div class="form-group">
+                            <label>Discount %</label>
+                            <input type="number" step="0.01" min="0" max="100" name="discount_percent" id="edit_discount_percent" value="0">
+                        </div>
                     </div>
                 </div>
 
@@ -1428,14 +1559,10 @@ if ($currentStatusForTab === '') {
 
                 <?php if ($isBatchTracked): ?>
                 <div class="form-group full-width" id="stockBatchFieldsWrap">
-                    <label class="field-help">This business tracks stock per batch. For <strong>Stock In</strong>, enter the new batch below - a Stock Out is drawn automatically from the soonest-expiring batch first.</label>
+                    <label class="field-help">This business tracks stock per batch. For <strong>Stock In</strong>, a new batch is created automatically below (batch number is system-generated) - a Stock Out is drawn automatically from the soonest-expiring batch first.</label>
                 </div>
                 <div class="form-group">
-                    <label>Batch Number</label>
-                    <input type="text" name="batch_number" id="stock_batch_number" placeholder="e.g. B-2026-08-01">
-                </div>
-                <div class="form-group">
-                    <label>Expiry Date</label>
+                    <label>Expiry Date <span class="field-optional">(optional)</span></label>
                     <input type="date" name="batch_expiry_date" id="stock_batch_expiry_date">
                 </div>
                 <?php endif; ?>
@@ -1536,11 +1663,7 @@ if ($currentStatusForTab === '') {
 
                 <?php if ($isBatchTracked): ?>
                 <div class="form-group">
-                    <label>Batch Number</label>
-                    <input type="text" name="batch_number" id="receive_batch_number" placeholder="e.g. B-2026-08-01">
-                </div>
-                <div class="form-group">
-                    <label>Expiry Date</label>
+                    <label>Expiry Date <span class="field-optional">(optional)</span></label>
                     <input type="date" name="batch_expiry_date" id="receive_batch_expiry_date">
                 </div>
                 <?php endif; ?>
@@ -1596,45 +1719,6 @@ if ($currentStatusForTab === '') {
 
 <?php include 'chatbot.php'; ?>
 <script src="/NexGen/CODE/JS/inventory_management.js?v=<?php echo time(); ?>"></script>
-
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    const openPo = document.getElementById('openPoHistoryModal');
-    const closePo = document.getElementById('closePoHistoryModal');
-    const poModal = document.getElementById('poHistoryModal');
-
-    function openPoHistory() {
-        if (!poModal) return;
-        poModal.classList.add('show');
-        poModal.setAttribute('aria-hidden', 'false');
-        document.body.style.overflow = 'hidden';
-    }
-
-    function closePoHistory() {
-        if (!poModal) return;
-        poModal.classList.remove('show');
-        poModal.setAttribute('aria-hidden', 'true');
-        document.body.style.overflow = '';
-    }
-
-    if (openPo) openPo.addEventListener('click', openPoHistory);
-    if (closePo) closePo.addEventListener('click', closePoHistory);
-
-    if (poModal) {
-        poModal.addEventListener('click', function (event) {
-            if (event.target === poModal) {
-                closePoHistory();
-            }
-        });
-    }
-
-    document.addEventListener('keydown', function (event) {
-        if (event.key === 'Escape' && poModal && poModal.classList.contains('show')) {
-            closePoHistory();
-        }
-    });
-});
-</script>
 
 </body>
 </html>

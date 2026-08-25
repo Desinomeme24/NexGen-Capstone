@@ -29,6 +29,23 @@ const categoryModal = document.getElementById("categoryModal");
 const openCategoryModal = document.getElementById("openCategoryModal");
 const closeCategoryModal = document.getElementById("closeCategoryModal");
 
+const batchesModal = document.getElementById("batchesModal");
+const closeBatchesModal = document.getElementById("closeBatchesModal");
+const batchesModalBody = document.getElementById("batchesModalBody");
+const batchesProductName = document.getElementById("batchesProductName");
+const batchDropForm = document.getElementById("batchDropForm");
+const batchDropId = document.getElementById("batchDropId");
+
+const dropBatchConfirmOverlay = document.getElementById(
+  "dropBatchConfirmOverlay",
+);
+const dropBatchConfirmNumber = document.getElementById(
+  "dropBatchConfirmNumber",
+);
+const dropBatchCancelBtn = document.getElementById("dropBatchCancelBtn");
+const dropBatchConfirmBtn = document.getElementById("dropBatchConfirmBtn");
+let pendingDropBatchId = null;
+
 const productImageInput = document.getElementById("product_image");
 const previewImage = document.getElementById("previewImage");
 
@@ -557,6 +574,142 @@ if (closePlaceOrderModal && placeOrderModal) {
   });
 }
 
+if (closeBatchesModal && batchesModal) {
+  closeBatchesModal.addEventListener("click", function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    closeModal(batchesModal);
+  });
+}
+
+/* PRODUCT BATCHES: view a product's individual batches, drop expired ones */
+function escapeHtml(value) {
+  return String(value == null ? "" : value).replace(
+    /[&<>"']/g,
+    (ch) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
+        ch
+      ],
+  );
+}
+
+function renderBatchesTable(batches) {
+  if (!batchesModalBody) return;
+
+  if (!batches.length) {
+    batchesModalBody.innerHTML =
+      '<tr><td colspan="5" class="batches-empty-state">No batches recorded for this product yet.</td></tr>';
+    return;
+  }
+
+  batchesModalBody.innerHTML = batches
+    .map((batch) => {
+      let statusLabel = "Valid";
+      let statusClass = "batch-valid";
+      if (batch.status === "dropped") {
+        statusLabel = "Dropped";
+        statusClass = "batch-dropped";
+      } else if (batch.is_expired) {
+        statusLabel = "Expired";
+        statusClass = "batch-expired";
+      }
+
+      const expiryText = batch.expiry_date
+        ? new Date(batch.expiry_date + "T00:00:00").toLocaleDateString(
+            "en-US",
+            { year: "numeric", month: "short", day: "numeric" },
+          )
+        : "No expiry";
+
+      const safeBatchNumber = escapeHtml(batch.batch_number);
+      const dropCell = batch.can_drop
+        ? `<button type="button" class="batch-drop-btn" data-drop-batch-id="${batch.id}" data-drop-batch-number="${safeBatchNumber}">Drop</button>`
+        : "";
+
+      return `<tr>
+        <td>${safeBatchNumber}</td>
+        <td>${escapeHtml(batch.quantity)}</td>
+        <td>${expiryText}</td>
+        <td><span class="batch-status-pill ${statusClass}">${statusLabel}</span></td>
+        <td>${dropCell}</td>
+      </tr>`;
+    })
+    .join("");
+}
+
+function openBatchesModal(productId, productName) {
+  if (batchesProductName) batchesProductName.textContent = productName || "Product";
+  if (batchesModalBody) {
+    batchesModalBody.innerHTML =
+      '<tr><td colspan="5" class="batches-empty-state">Loading...</td></tr>';
+  }
+  closeAllMenus();
+  openModal(batchesModal);
+
+  fetch(
+    `/NexGen/CODE/PHP/inventory_batches.php?product_id=${encodeURIComponent(productId)}`,
+    { headers: { "X-Requested-With": "XMLHttpRequest" } },
+  )
+    .then((res) => res.json())
+    .then((data) => {
+      if (!data.success) {
+        if (batchesModalBody) {
+          batchesModalBody.innerHTML = `<tr><td colspan="5" class="batches-empty-state">${data.message || "Failed to load batches."}</td></tr>`;
+        }
+        return;
+      }
+      renderBatchesTable(data.batches || []);
+    })
+    .catch(() => {
+      if (batchesModalBody) {
+        batchesModalBody.innerHTML =
+          '<tr><td colspan="5" class="batches-empty-state">Failed to load batches. Please try again.</td></tr>';
+      }
+    });
+}
+
+function openDropBatchConfirm(batchId, batchNumber) {
+  if (!dropBatchConfirmOverlay) return;
+  pendingDropBatchId = batchId;
+  if (dropBatchConfirmNumber) dropBatchConfirmNumber.textContent = batchNumber;
+  dropBatchConfirmOverlay.classList.add("show");
+}
+
+function closeDropBatchConfirm() {
+  if (!dropBatchConfirmOverlay) return;
+  pendingDropBatchId = null;
+  dropBatchConfirmOverlay.classList.remove("show");
+}
+
+if (dropBatchCancelBtn) {
+  dropBatchCancelBtn.addEventListener("click", closeDropBatchConfirm);
+}
+
+if (dropBatchConfirmOverlay) {
+  dropBatchConfirmOverlay.addEventListener("click", function (e) {
+    if (e.target === dropBatchConfirmOverlay) closeDropBatchConfirm();
+  });
+}
+
+document.addEventListener("keydown", function (e) {
+  if (
+    e.key === "Escape" &&
+    dropBatchConfirmOverlay &&
+    dropBatchConfirmOverlay.classList.contains("show")
+  ) {
+    closeDropBatchConfirm();
+  }
+});
+
+if (dropBatchConfirmBtn) {
+  dropBatchConfirmBtn.addEventListener("click", function () {
+    if (pendingDropBatchId && batchDropForm && batchDropId) {
+      batchDropId.value = pendingDropBatchId;
+      batchDropForm.submit();
+    }
+  });
+}
+
 [
   productModal,
   editProductModal,
@@ -564,6 +717,7 @@ if (closePlaceOrderModal && placeOrderModal) {
   categoryModal,
   receiveShipmentModal,
   placeOrderModal,
+  batchesModal,
 ].forEach((modal) => {
   if (!modal) return;
 
@@ -631,12 +785,57 @@ if (editProductImageInput && editPreviewImage) {
   });
 }
 
+/* PURCHASE ORDER HISTORY MODAL
+   Delegated on document (not bound to the trigger button directly) because
+   the button lives inside #inventoryDynamicArea, which gets replaced by
+   refreshInventoryContent() when switching between "Show All Products" and
+   "Show Top 10 Products" - a direct listener on the old button node would be
+   lost after that swap. */
+function openPoHistoryModal() {
+  const poModal = document.getElementById("poHistoryModal");
+  if (!poModal) return;
+  poModal.classList.add("show");
+  poModal.setAttribute("aria-hidden", "false");
+  document.body.style.overflow = "hidden";
+}
+
+function closePoHistoryModal() {
+  const poModal = document.getElementById("poHistoryModal");
+  if (!poModal) return;
+  poModal.classList.remove("show");
+  poModal.setAttribute("aria-hidden", "true");
+  document.body.style.overflow = "";
+}
+
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  const poModal = document.getElementById("poHistoryModal");
+  if (poModal && poModal.classList.contains("show")) {
+    closePoHistoryModal();
+  }
+});
+
 /* GLOBAL CLICK HANDLER */
 document.addEventListener("click", (event) => {
   const filterLink = event.target.closest("[data-filter-link]");
   if (filterLink) {
     event.preventDefault();
     refreshInventoryContent(filterLink.href);
+    return;
+  }
+
+  if (event.target.closest("#openPoHistoryModal")) {
+    openPoHistoryModal();
+    return;
+  }
+
+  if (event.target.closest("#closePoHistoryModal")) {
+    closePoHistoryModal();
+    return;
+  }
+
+  if (event.target.id === "poHistoryModal") {
+    closePoHistoryModal();
     return;
   }
 
@@ -673,6 +872,7 @@ document.addEventListener("click", (event) => {
     setValue("edit_unit", editButton.dataset.unit);
     setValue("edit_cost_price", editButton.dataset.cost);
     setValue("edit_selling_price", editButton.dataset.selling);
+    setValue("edit_discount_percent", editButton.dataset.discount);
     setValue("edit_stock_quantity", editButton.dataset.stock);
     setValue("edit_reorder_level", editButton.dataset.reorder);
     setValue("edit_on_order_level", editButton.dataset.onorder);
@@ -711,6 +911,24 @@ document.addEventListener("click", (event) => {
     toggleStockOrderFields();
     closeAllMenus();
     openModal(stockModal);
+    return;
+  }
+
+  const batchesButton = event.target.closest(".batches-btn");
+  if (batchesButton) {
+    openBatchesModal(
+      batchesButton.dataset.batchesId,
+      batchesButton.dataset.batchesName,
+    );
+    return;
+  }
+
+  const dropBatchButton = event.target.closest("[data-drop-batch-id]");
+  if (dropBatchButton) {
+    openDropBatchConfirm(
+      dropBatchButton.dataset.dropBatchId,
+      dropBatchButton.dataset.dropBatchNumber || "this batch",
+    );
     return;
   }
 

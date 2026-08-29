@@ -1,5 +1,6 @@
 <?php
 session_start();
+require_once 'config.php';
 
 $popupMessage = "";
 $popupType = "";
@@ -14,7 +15,13 @@ if (isset($_SESSION['success'])) {
     unset($_SESSION['error']);
 }
 
-$resetEmail = $_SESSION['reset_email'] ?? '';
+if (empty($_SESSION['fp_selected_user_id'])) {
+    $_SESSION['error'] = 'Please start the password reset process again.';
+    header('Location: /NexGen/CODE/PHP/forgot_password.php');
+    exit();
+}
+
+$resetEmail = $_SESSION['fp_email'] ?? '';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -45,7 +52,7 @@ $resetEmail = $_SESSION['reset_email'] ?? '';
 
         <form action="/NexGen/CODE/PHP/process_reset_password.php" method="POST">
             <label>Email Address</label>
-            <input type="email" name="email" required value="<?php echo htmlspecialchars($resetEmail); ?>" placeholder="Enter your email">
+            <input type="email" value="<?php echo htmlspecialchars($resetEmail); ?>" readonly>
 
             <label>OTP Code</label>
             <input type="text" name="otp_code" maxlength="6" required placeholder="Enter 6-digit OTP">
@@ -60,7 +67,9 @@ $resetEmail = $_SESSION['reset_email'] ?? '';
         </form>
 
         <div class="links">
-            <a href="/NexGen/CODE/PHP/forgot_password.php">Resend OTP</a>
+            <form action="/NexGen/CODE/PHP/send_forgot_otp.php" method="POST" class="inline-form">
+                <button type="submit" class="link-btn">Resend OTP</button>
+            </form>
             <a href="/NexGen/CODE/PHP/index.php">Back to Login</a>
         </div>
     </div>

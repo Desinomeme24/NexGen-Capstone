@@ -1,5 +1,6 @@
 <?php
 session_start();
+require_once 'config.php';
 
 $popupMessage = "";
 $popupType = "";
@@ -39,17 +40,16 @@ if (isset($_SESSION['success'])) {
         <img src="/NexGen/IMAGES/NGlogo.png" alt="Logo" class="forgot-logo">
 
         <h1>Forgot Password</h1>
-        <p class="subtext">Enter your username or email to receive a 6-digit OTP.</p>
+        <p class="subtext">Enter your email address to look up your account.</p>
 
-        <form action="/NexGen/CODE/PHP/send_forgot_otp.php" method="POST">
-            <label>Username or Email Address</label>
-            <input type="text" name="identifier" required placeholder="Enter your username or email">
+        <form action="/NexGen/CODE/PHP/forgot_password_lookup.php" method="POST">
+            <label>Email Address</label>
+            <input type="email" name="email" required placeholder="Enter your email address">
 
-            <button type="submit" class="main-btn">Send OTP</button>
+            <button type="submit" class="main-btn">Continue</button>
         </form>
 
         <div class="links">
-            <a href="/NexGen/CODE/PHP/reset_password.php">Already have OTP?</a>
             <a href="/NexGen/CODE/PHP/index.php">Back to Login</a>
         </div>
     </div>

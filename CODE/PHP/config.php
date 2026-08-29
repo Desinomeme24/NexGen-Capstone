@@ -3,30 +3,83 @@
    NEXTGEN CONFIG / SECURITY / HELPERS
    ========================================================================= */
 
-/* SESSION SECURITY: set ini before starting session */
+/* SESSION SECURITY: set cookie controls before starting the session. */
+$nxForceHttps = filter_var((string)(getenv('NEXGEN_FORCE_HTTPS') ?: '0'), FILTER_VALIDATE_BOOLEAN);
+$nxRequestIsHttps = $nxForceHttps
+    || (!empty($_SERVER['HTTPS']) && strtolower((string)$_SERVER['HTTPS']) !== 'off')
+    || (int)($_SERVER['SERVER_PORT'] ?? 0) === 443;
+
 if (session_status() === PHP_SESSION_NONE) {
     if (!headers_sent()) {
         ini_set('session.use_only_cookies', '1');
+        ini_set('session.use_trans_sid', '0');
         ini_set('session.cookie_httponly', '1');
         ini_set('session.use_strict_mode', '1');
+        ini_set('session.cookie_secure', $nxRequestIsHttps ? '1' : '0');
+        ini_set('session.cookie_samesite', 'Lax');
+        ini_set('session.cookie_path', '/');
         ini_set('session.gc_maxlifetime', '600');
     }
     session_start();
 }
 
-/* DATABASE CONNECTION */
-$host = "localhost";
-$dbname = "nexgen_db";
-$dbuser = "root";
-$dbpass = "";
+/* SECURITY: prevent the browser from caching authenticated pages. Without
+   this, hitting Back after logging out (or switching accounts on a shared
+   till/PC) can redisplay a previous user's cached page - including data
+   like Purchase Order History or receivables - straight from disk/memory
+   cache instead of re-requesting it from the server. */
+if (!headers_sent()) {
+    header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
+    header('Pragma: no-cache');
+    header('X-Content-Type-Options: nosniff');
+    header('X-Frame-Options: SAMEORIGIN');
+    header("Content-Security-Policy: frame-ancestors 'self'; base-uri 'self'; object-src 'none'; form-action 'self'");
+    header('Referrer-Policy: strict-origin-when-cross-origin');
+    header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
 
-$conn = new mysqli($host, $dbuser, $dbpass, $dbname);
-
-if ($conn->connect_error) {
-    die("Database connection failed: " . $conn->connect_error);
+    if ($nxRequestIsHttps && strtolower((string)(getenv('NEXGEN_ENV') ?: 'development')) === 'production') {
+        header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
+    }
 }
 
-$conn->set_charset("utf8mb4");
+/* DATABASE CONNECTION */
+$host = (string)(getenv('NEXGEN_DB_HOST') ?: 'localhost');
+$dbname = (string)(getenv('NEXGEN_DB_NAME') ?: 'nexgen_db');
+$dbuser = (string)(getenv('NEXGEN_DB_USER') ?: 'root');
+$dbPasswordEnv = getenv('NEXGEN_DB_PASSWORD');
+$dbpass = $dbPasswordEnv === false ? '' : (string)$dbPasswordEnv;
+$nxEnvironment = strtolower((string)(getenv('NEXGEN_ENV') ?: 'development'));
+
+if ($nxEnvironment === 'production') {
+    error_reporting(E_ALL);
+    ini_set('display_errors', '0');
+    ini_set('display_startup_errors', '0');
+    ini_set('log_errors', '1');
+}
+
+if ($nxEnvironment === 'production' && ($dbuser === 'root' || $dbpass === '')) {
+    error_log('NexGen refused an unsafe production database configuration.');
+    http_response_code(503);
+    exit('The service is temporarily unavailable.');
+}
+
+try {
+    $conn = new mysqli($host, $dbuser, $dbpass, $dbname);
+} catch (Throwable $e) {
+    error_log('NexGen database connection failed: ' . $e->getMessage());
+    http_response_code(503);
+    exit('The service is temporarily unavailable.');
+}
+
+try {
+    if (!$conn->set_charset('utf8mb4')) {
+        throw new RuntimeException('Unable to configure the database connection character set.');
+    }
+} catch (Throwable $e) {
+    error_log('NexGen database connection setup failed: ' . $e->getMessage());
+    http_response_code(503);
+    exit('The service is temporarily unavailable.');
+}
 date_default_timezone_set('Asia/Manila');
 
 /* SESSION SECURITY: timeout constant */
@@ -44,10 +97,356 @@ if (!function_exists('e')) {
     }
 }
 
+if (!function_exists('formatQty')) {
+    /* Formats a decimal(12,3) quantity for display: trims trailing zeros so a
+       whole number like 10.000 shows as "10" while a fractional quantity like
+       2.500 shows as "2.5" - keeps piece-counted products (groceries, school
+       supplies) looking like plain integers without needing per-SME-type
+       display logic. */
+    function formatQty($value): string
+    {
+        $formatted = number_format((float)$value, 3, '.', '');
+        $formatted = rtrim($formatted, '0');
+        $formatted = rtrim($formatted, '.');
+        return $formatted === '' ? '0' : $formatted;
+    }
+}
+
+/* =========================================================================
+   ADAPTIVE SME-TYPE / BATCH INVENTORY HELPERS
+   ========================================================================= */
+if (!function_exists('nxIsBatchTrackedType')) {
+    /* Which SME types manage stock as per-batch/per-expiry lots (product_batches)
+       instead of a single flat stock_quantity number. */
+    function nxIsBatchTrackedType(?string $businessType): bool
+    {
+        return in_array($businessType, ['Mini Grocery / Sari-Sari Store', 'Pharmacy / Drugstore'], true);
+    }
+}
+
+if (!function_exists('nxBlocksExpiredBatches')) {
+    /* Pharmacy/Drugstore may never sell or count expired batches as available
+       stock. Mini Grocery still allows it - an owner is expected to manually
+       pull expired stock rather than have the system block the sale outright. */
+    function nxBlocksExpiredBatches(?string $businessType): bool
+    {
+        return $businessType === 'Pharmacy / Drugstore';
+    }
+}
+
+if (!function_exists('nxGenerateBatchNumber')) {
+    /* Batch numbers are system-generated, not typed by users - avoids typos/
+       duplicates and matches the same auto-numbering approach already used
+       for sales_no. Timestamp + a short random suffix keeps it unique even
+       if two batches are created for the same product in the same second. */
+    function nxGenerateBatchNumber(): string
+    {
+        return 'B-' . date('Ymd-His') . '-' . bin2hex(random_bytes(2));
+    }
+}
+
+if (!function_exists('nxDeductFefo')) {
+    /**
+     * FEFO (first-expiry-first-out) stock deduction for a batch-tracked product.
+     * Consumes the soonest-expiring batch(es) first. Depleted batches are removed;
+     * products.stock_quantity is kept in sync automatically by the
+     * trg_product_batches_after_update/delete triggers. Must run inside the
+     * caller's transaction - throws on failure so the caller's rollback applies.
+     */
+    function nxDeductFefo(mysqli $conn, int $businessId, int $productId, float $quantity, bool $blockExpired): void
+    {
+        // status = 'active' excludes batches already dropped as expired/disposed -
+        // those sit at quantity 0 and must never be touched again (deleting a
+        // depleted-looking row here would erase the drop's history).
+        // Batches with no expiry date sort last (MySQL puts NULL first in ASC
+        // order by default, which is the opposite of "deducted last").
+        // A NULL expiry means "never expires" - it must stay sellable even
+        // when blocking expired stock, so it's never excluded by this clause.
+        $expiryClause = $blockExpired ? "AND (expiry_date IS NULL OR expiry_date >= CURDATE())" : "";
+        $batchStmt = $conn->prepare("
+            SELECT id, quantity
+            FROM product_batches
+            WHERE product_id = ? AND business_id = ? AND status = 'active' {$expiryClause}
+            ORDER BY (expiry_date IS NULL), expiry_date ASC, id ASC
+            FOR UPDATE
+        ");
+        if (!$batchStmt) {
+            throw new Exception('Failed to prepare batch lock query.');
+        }
+        $batchStmt->bind_param("ii", $productId, $businessId);
+        $batchStmt->execute();
+        $batches = $batchStmt->get_result()->fetch_all(MYSQLI_ASSOC);
+        $batchStmt->close();
+
+        $remaining = $quantity;
+
+        foreach ($batches as $batch) {
+            if ($remaining <= 0.0005) {
+                break;
+            }
+
+            $batchQty = (float) $batch['quantity'];
+            $take = min($batchQty, $remaining);
+            $newQty = $batchQty - $take;
+
+            if ($newQty <= 0.0005) {
+                $del = $conn->prepare("DELETE FROM product_batches WHERE id = ?");
+                if (!$del) {
+                    throw new Exception('Failed to prepare batch delete query.');
+                }
+                $del->bind_param("i", $batch['id']);
+                if (!$del->execute()) {
+                    throw new Exception('Failed to consume depleted batch.');
+                }
+                $del->close();
+            } else {
+                $upd = $conn->prepare("UPDATE product_batches SET quantity = ? WHERE id = ?");
+                if (!$upd) {
+                    throw new Exception('Failed to prepare batch update query.');
+                }
+                $upd->bind_param("di", $newQty, $batch['id']);
+                if (!$upd->execute()) {
+                    throw new Exception('Failed to deduct from batch.');
+                }
+                $upd->close();
+            }
+
+            $remaining -= $take;
+        }
+
+        if ($remaining > 0.0005) {
+            throw new Exception($blockExpired
+                ? 'This product is expired and cannot be sold. Please remove it or check for a newer batch.'
+                : 'Not enough stock available for this product.');
+        }
+    }
+}
+
 if (!function_exists('isStrongPassword')) {
     function isStrongPassword(string $password): bool
     {
-        return (bool) preg_match('/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/', $password);
+        $characterLength = function_exists('mb_strlen')
+            ? mb_strlen($password, 'UTF-8')
+            : strlen($password);
+        $byteLength = strlen($password);
+
+        if ($characterLength < 12 || $byteLength > 64 || preg_match('/[\x00-\x1F\x7F]/', $password)) {
+            return false;
+        }
+
+        return (bool) preg_match('/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9])/u', $password);
+    }
+}
+
+if (!function_exists('nxHashPassword')) {
+    function nxHashPassword(string $password): string
+    {
+        if (!isStrongPassword($password)) {
+            throw new InvalidArgumentException('Password does not meet the required security policy.');
+        }
+
+        if (defined('PASSWORD_ARGON2ID')) {
+            $hash = password_hash($password, PASSWORD_ARGON2ID, [
+                'memory_cost' => 19456,
+                'time_cost' => 2,
+                'threads' => 1,
+            ]);
+        } else {
+            $hash = password_hash($password, PASSWORD_DEFAULT);
+        }
+
+        if (!is_string($hash) || $hash === '') {
+            throw new RuntimeException('Unable to protect the password securely.');
+        }
+
+        return $hash;
+    }
+}
+
+if (!function_exists('nxSecurityRateLimitSchemaReady')) {
+    function nxSecurityRateLimitSchemaReady(mysqli $conn): bool
+    {
+        static $ready = null;
+
+        if ($ready !== null) {
+            return $ready;
+        }
+
+        try {
+            $result = $conn->query(
+                "SELECT COUNT(*) AS total
+                 FROM information_schema.tables
+                 WHERE table_schema = DATABASE()
+                   AND table_name = 'security_rate_limits'"
+            );
+            $ready = $result instanceof mysqli_result
+                && (int)($result->fetch_assoc()['total'] ?? 0) === 1;
+        } catch (Throwable $e) {
+            error_log('NexGen rate-limit schema check failed: ' . $e->getMessage());
+            $ready = false;
+        }
+
+        return $ready;
+    }
+}
+
+if (!function_exists('nxConsumeSecurityRateLimit')) {
+    function nxConsumeSecurityRateLimit(
+        mysqli $conn,
+        string $action,
+        string $identifier,
+        int $maxAttempts,
+        int $windowSeconds,
+        int $blockSeconds
+    ): array {
+        if (
+            $action === '' || $identifier === '' || $maxAttempts < 1
+            || $windowSeconds < 1 || $blockSeconds < 1
+            || !nxSecurityRateLimitSchemaReady($conn)
+        ) {
+            return ['allowed' => false, 'retry_after' => 0, 'configured' => false];
+        }
+
+        $bucketKey = hash('sha256', $action . "\0" . $identifier);
+        $now = time();
+
+        try {
+            $conn->begin_transaction();
+
+            $select = $conn->prepare(
+                "SELECT attempts,
+                        UNIX_TIMESTAMP(window_started_at) AS window_started_ts,
+                        UNIX_TIMESTAMP(blocked_until) AS blocked_until_ts
+                 FROM security_rate_limits
+                 WHERE bucket_key = ?
+                 FOR UPDATE"
+            );
+            if (!$select) {
+                throw new RuntimeException('Unable to prepare rate-limit lookup.');
+            }
+            $select->bind_param('s', $bucketKey);
+            $select->execute();
+            $row = $select->get_result()->fetch_assoc();
+            $select->close();
+
+            if (!$row) {
+                $insert = $conn->prepare(
+                    "INSERT INTO security_rate_limits
+                        (bucket_key, action_name, attempts, window_started_at, blocked_until)
+                     VALUES (?, ?, 1, FROM_UNIXTIME(?), NULL)"
+                );
+                if (!$insert) {
+                    throw new RuntimeException('Unable to prepare rate-limit record.');
+                }
+                $insert->bind_param('ssi', $bucketKey, $action, $now);
+                $insert->execute();
+                $insert->close();
+                $conn->commit();
+
+                return ['allowed' => true, 'retry_after' => 0, 'configured' => true];
+            }
+
+            $blockedUntil = (int)($row['blocked_until_ts'] ?? 0);
+            if ($blockedUntil > $now) {
+                $conn->commit();
+                return [
+                    'allowed' => false,
+                    'retry_after' => $blockedUntil - $now,
+                    'configured' => true,
+                ];
+            }
+
+            $windowStarted = (int)($row['window_started_ts'] ?? $now);
+            $attempts = (int)($row['attempts'] ?? 0);
+            if (($now - $windowStarted) >= $windowSeconds) {
+                $windowStarted = $now;
+                $attempts = 1;
+            } else {
+                $attempts++;
+            }
+
+            $allowed = $attempts <= $maxAttempts;
+            $newBlockedUntil = $allowed ? 0 : ($now + $blockSeconds);
+            $update = $conn->prepare(
+                "UPDATE security_rate_limits
+                 SET attempts = ?,
+                     window_started_at = FROM_UNIXTIME(?),
+                     blocked_until = CASE WHEN ? > 0 THEN FROM_UNIXTIME(?) ELSE NULL END
+                 WHERE bucket_key = ?"
+            );
+            if (!$update) {
+                throw new RuntimeException('Unable to prepare rate-limit update.');
+            }
+            $update->bind_param(
+                'iiiis',
+                $attempts,
+                $windowStarted,
+                $newBlockedUntil,
+                $newBlockedUntil,
+                $bucketKey
+            );
+            $update->execute();
+            $update->close();
+            $conn->commit();
+
+            return [
+                'allowed' => $allowed,
+                'retry_after' => $allowed ? 0 : $blockSeconds,
+                'configured' => true,
+            ];
+        } catch (Throwable $e) {
+            try {
+                $conn->rollback();
+            } catch (Throwable $ignored) {
+            }
+            error_log('NexGen rate-limit operation failed: ' . $e->getMessage());
+
+            return ['allowed' => false, 'retry_after' => 0, 'configured' => false];
+        }
+    }
+}
+
+if (!function_exists('nxMaskUsername')) {
+    /* Masks a username for display when a forgot-password lookup matches more
+       than one account under the same email (e.g. an SME owner's branch
+       accounts) - shows enough to be recognizable without exposing the full
+       username to anyone who isn't already looking at their own inbox. */
+    function nxMaskUsername(string $username): string
+    {
+        $len = strlen($username);
+
+        if ($len <= 2) {
+            return str_repeat('*', $len);
+        }
+
+        if ($len <= 4) {
+            return substr($username, 0, 1) . str_repeat('*', $len - 1);
+        }
+
+        return substr($username, 0, 2) . str_repeat('*', $len - 3) . substr($username, -1);
+    }
+}
+
+if (!function_exists('nxMaskEmail')) {
+    /* Masks an email for display after an OTP is sent (e.g. "jo***@gmail.com")
+       - lets the user confirm where the code went without echoing the full
+       address back on screen. */
+    function nxMaskEmail(string $email): string
+    {
+        $parts = explode('@', $email, 2);
+
+        if (count($parts) !== 2 || $parts[1] === '') {
+            return $email;
+        }
+
+        [$local, $domain] = $parts;
+        $len = strlen($local);
+
+        $maskedLocal = $len <= 2
+            ? str_repeat('*', $len)
+            : substr($local, 0, 2) . str_repeat('*', max(1, $len - 2));
+
+        return $maskedLocal . '@' . $domain;
     }
 }
 
@@ -69,8 +468,6 @@ if (!function_exists('generateImageCaptcha')) {
         }
 
         $baseDir = __DIR__ . '/../../IMAGES/captcha';
-        $webBase = '/NexGen/IMAGES/captcha';
-
         if (!is_dir($baseDir)) {
             return [
                 'success' => false,
@@ -153,23 +550,26 @@ if (!function_exists('generateImageCaptcha')) {
         $distractors = array_slice($otherImages, 0, $distractorCount);
 
         $items = [];
+        $imagePaths = [];
 
         foreach ($correctImages as $imgPath) {
+            $token = bin2hex(random_bytes(16));
             $items[] = [
-                'id' => sha1($imgPath),
-                'category' => $targetCategory,
-                'relative_path' => $webBase . '/' . $targetCategory . '/' . basename($imgPath),
+                'id' => $token,
+                'relative_path' => '/NexGen/CODE/PHP/captcha_image.php?form=' . rawurlencode($formKey) . '&id=' . rawurlencode($token),
                 'is_correct' => true
             ];
+            $imagePaths[$token] = $imgPath;
         }
 
         foreach ($distractors as $item) {
+            $token = bin2hex(random_bytes(16));
             $items[] = [
-                'id' => sha1($item['path']),
-                'category' => $item['category'],
-                'relative_path' => $webBase . '/' . $item['category'] . '/' . basename($item['path']),
+                'id' => $token,
+                'relative_path' => '/NexGen/CODE/PHP/captcha_image.php?form=' . rawurlencode($formKey) . '&id=' . rawurlencode($token),
                 'is_correct' => false
             ];
+            $imagePaths[$token] = $item['path'];
         }
 
         shuffle($items);
@@ -180,6 +580,8 @@ if (!function_exists('generateImageCaptcha')) {
 
         $_SESSION['image_captcha'][$formKey] = [
             'target' => $targetCategory,
+            'expires_at' => time() + 300,
+            'image_paths' => $imagePaths,
             'correct_ids' => array_values(array_map(
                 fn($item) => $item['id'],
                 array_filter($items, fn($item) => $item['is_correct'] === true)
@@ -202,21 +604,60 @@ if (!function_exists('validateImageCaptchaSelection')) {
             session_start();
         }
 
+        if (empty($_SESSION['image_captcha']) || !isset($_SESSION['image_captcha'][$formKey])) {
+            return false;
+        }
+
+        $captcha = $_SESSION['image_captcha'][$formKey];
+        unset($_SESSION['image_captcha'][$formKey]);
+
         if (
-            empty($_SESSION['image_captcha']) ||
-            !isset($_SESSION['image_captcha'][$formKey]['correct_ids'])
+            empty($captcha['correct_ids']) || !is_array($captcha['correct_ids'])
+            || (int)($captcha['expires_at'] ?? 0) < time()
         ) {
             return false;
         }
 
-        $expected = $_SESSION['image_captcha'][$formKey]['correct_ids'];
-        unset($_SESSION['image_captcha'][$formKey]);
+        $expected = array_values(array_map('strval', $captcha['correct_ids']));
 
         $selectedIds = array_values(array_unique(array_map('strval', $selectedIds)));
+        if (count($selectedIds) > 9) {
+            return false;
+        }
         sort($selectedIds);
         sort($expected);
 
         return $selectedIds === $expected;
+    }
+}
+
+if (!function_exists('nxResolveCaptchaImagePath')) {
+    function nxResolveCaptchaImagePath(string $formKey, string $imageToken): ?string
+    {
+        if (
+            !preg_match('/^[a-z0-9_-]{1,50}$/', $formKey)
+            || !preg_match('/^[a-f0-9]{32}$/', $imageToken)
+            || empty($_SESSION['image_captcha'][$formKey])
+        ) {
+            return null;
+        }
+
+        $captcha = $_SESSION['image_captcha'][$formKey];
+        if (
+            (int)($captcha['expires_at'] ?? 0) < time()
+            || empty($captcha['image_paths'][$imageToken])
+        ) {
+            return null;
+        }
+
+        $baseDirectory = realpath(__DIR__ . '/../../IMAGES/captcha');
+        $imagePath = realpath((string)$captcha['image_paths'][$imageToken]);
+        if ($baseDirectory === false || $imagePath === false || !is_file($imagePath)) {
+            return null;
+        }
+
+        $basePrefix = rtrim($baseDirectory, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+        return str_starts_with($imagePath, $basePrefix) ? $imagePath : null;
     }
 }
 
@@ -228,6 +669,16 @@ if (!function_exists('generateCsrfToken')) {
     {
         if (empty($_SESSION['csrf_tokens']) || !is_array($_SESSION['csrf_tokens'])) {
             $_SESSION['csrf_tokens'] = [];
+        }
+
+        // Reuse the existing token for this form if one is already pending.
+        // Pages like inventory_management.php re-run this on every AJAX
+        // filter/tab refresh (not just full loads) to keep their static
+        // modals' hidden tokens working - minting a brand-new token every
+        // time silently invalidated any modal that was already open,
+        // showing "session expired" even though the session was fine.
+        if (!empty($_SESSION['csrf_tokens'][$formName])) {
+            return $_SESSION['csrf_tokens'][$formName];
         }
 
         $token = bin2hex(random_bytes(32));
@@ -389,9 +840,9 @@ if (!function_exists('nxFileStartsWithPdfSignature')) {
 if (!function_exists('nxScanFileForDangerousPatterns')) {
     function nxScanFileForDangerousPatterns(string $tmpPath): bool
     {
-        $content = @file_get_contents($tmpPath, false, null, 0, 4096);
+        $content = @file_get_contents($tmpPath);
         if ($content === false) {
-            return false;
+            return true;
         }
 
         $patterns = [
@@ -402,7 +853,13 @@ if (!function_exists('nxScanFileForDangerousPatterns')) {
             '/eval\s*\(/i',
             '/base64_decode\s*\(/i',
             '/cmd\.exe/i',
-            '/powershell/i'
+            '/powershell/i',
+            '/\/JavaScript\b/i',
+            '/\/JS\s/i',
+            '/\/OpenAction\b/i',
+            '/\/Launch\b/i',
+            '/\/EmbeddedFile\b/i',
+            '/\/RichMedia\b/i'
         ];
 
         foreach ($patterns as $pattern) {
@@ -423,6 +880,7 @@ if (!function_exists('nxValidateSecureUpload')) {
         $maxSizeBytes = (int)($options['max_size'] ?? (5 * 1024 * 1024));
         $requireImage = !empty($options['require_image']);
         $allowPdf = !empty($options['allow_pdf']);
+        $mimeExtensionMap = $options['mime_extension_map'] ?? [];
 
         if (!isset($file['error']) || $file['error'] !== UPLOAD_ERR_OK) {
             return [false, 'Upload failed.'];
@@ -463,7 +921,14 @@ if (!function_exists('nxValidateSecureUpload')) {
             return [false, 'Detected file type is not allowed.'];
         }
 
-        if ($requireImage) {
+        if (
+            !empty($mimeExtensionMap)
+            && (!isset($mimeExtensionMap[$extension]) || !in_array($mime, $mimeExtensionMap[$extension], true))
+        ) {
+            return [false, 'The filename extension does not match the detected file type.'];
+        }
+
+        if ($requireImage || str_starts_with($mime, 'image/')) {
             $imageInfo = @getimagesize($tmpPath);
             if ($imageInfo === false) {
                 return [false, 'Uploaded file is not a valid image.'];
@@ -482,46 +947,136 @@ if (!function_exists('nxValidateSecureUpload')) {
     }
 }
 
+if (!function_exists('nxPrivateValidIdDirectory')) {
+    function nxPrivateValidIdDirectory(): string
+    {
+        $configured = trim((string)(getenv('NEXGEN_PRIVATE_UPLOAD_DIR') ?: ''));
+        if ($configured !== '') {
+            return rtrim($configured, "\\/") . DIRECTORY_SEPARATOR . 'valid_ids';
+        }
+
+        return dirname(__DIR__, 4) . DIRECTORY_SEPARATOR . 'nexgen_private'
+            . DIRECTORY_SEPARATOR . 'valid_ids';
+    }
+}
+
+if (!function_exists('nxCreatePrivateValidIdReference')) {
+    function nxCreatePrivateValidIdReference(string $filename): string
+    {
+        if (!preg_match('/^valid_id_[a-f0-9]{24}\.(?:jpe?g|png|pdf)$/', $filename)) {
+            throw new InvalidArgumentException('Invalid private document filename.');
+        }
+
+        return 'private-valid-id:' . $filename;
+    }
+}
+
+if (!function_exists('nxResolveValidIdPath')) {
+    function nxResolveValidIdPath(string $storedReference): ?string
+    {
+        $filename = '';
+        $baseDirectory = '';
+
+        if (str_starts_with($storedReference, 'private-valid-id:')) {
+            $filename = substr($storedReference, strlen('private-valid-id:'));
+            $baseDirectory = nxPrivateValidIdDirectory();
+        } elseif (str_starts_with($storedReference, 'uploads/valid_ids/')) {
+            // Backward-compatible access for files created before private storage.
+            $filename = basename($storedReference);
+            $baseDirectory = __DIR__ . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'valid_ids';
+        } else {
+            return null;
+        }
+
+        if (!preg_match('/^valid_id_[a-f0-9]{24}\.(?:jpe?g|png|gif|webp|pdf)$/', $filename)) {
+            return null;
+        }
+
+        $realBase = realpath($baseDirectory);
+        $candidate = $baseDirectory . DIRECTORY_SEPARATOR . $filename;
+        $realCandidate = realpath($candidate);
+        if ($realBase === false || $realCandidate === false || !is_file($realCandidate)) {
+            return null;
+        }
+
+        $basePrefix = rtrim($realBase, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+        if (!str_starts_with($realCandidate, $basePrefix)) {
+            return null;
+        }
+
+        return $realCandidate;
+    }
+}
+
 /* =========================================================================
    GENERAL ACTIVITY LOGS
    ========================================================================= */
 if (!function_exists('logActivity')) {
     function logActivity(mysqli $conn, ?int $userId, string $username, string $role, string $eventType, string $targetType, int $targetId, string $details): void
     {
-        $ipAddress = $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
-        $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? 'UNKNOWN';
+        /* Activity logging must never break the user's requested action. The
+           original config referenced activity_logs even though the supplied
+           database dump did not create it. PHP 8.2 may throw from prepare()
+           when the table is missing, so first verify the optional table and
+           contain any logging-only database failure. */
+        static $activityLogsAvailable = null;
 
-        $sql = "INSERT INTO activity_logs (
-                    actor_user_id,
-                    actor_username,
-                    actor_role,
-                    event_type,
-                    target_type,
-                    target_id,
-                    details,
-                    ip_address,
-                    user_agent
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        try {
+            if ($activityLogsAvailable === null) {
+                $check = $conn->query(
+                    "SELECT 1
+                     FROM information_schema.tables
+                     WHERE table_schema = DATABASE()
+                       AND table_name = 'activity_logs'
+                     LIMIT 1"
+                );
+                $activityLogsAvailable = $check instanceof mysqli_result && $check->num_rows === 1;
+            }
 
-        $stmt = $conn->prepare($sql);
-        if (!$stmt) {
+            if (!$activityLogsAvailable) {
+                return;
+            }
+
+            $ipAddress = $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
+            $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? 'UNKNOWN';
+
+            $sql = "INSERT INTO activity_logs (
+                        actor_user_id,
+                        actor_username,
+                        actor_role,
+                        event_type,
+                        target_type,
+                        target_id,
+                        details,
+                        ip_address,
+                        user_agent
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+            $stmt = $conn->prepare($sql);
+            if (!$stmt) {
+                return;
+            }
+
+            $stmt->bind_param(
+                "issssisss",
+                $userId,
+                $username,
+                $role,
+                $eventType,
+                $targetType,
+                $targetId,
+                $details,
+                $ipAddress,
+                $userAgent
+            );
+            $stmt->execute();
+            $stmt->close();
+        } catch (Throwable $e) {
+            /* This is a secondary audit write. The main business action has
+               already succeeded and must not be reported as failed solely
+               because logging is temporarily unavailable. */
             return;
         }
-
-        $stmt->bind_param(
-            "issssisss",
-            $userId,
-            $username,
-            $role,
-            $eventType,
-            $targetType,
-            $targetId,
-            $details,
-            $ipAddress,
-            $userAgent
-        );
-        $stmt->execute();
-        $stmt->close();
     }
 }
 

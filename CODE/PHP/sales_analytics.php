@@ -2,6 +2,7 @@
 session_start();
 require_once("config.php");
 require_once __DIR__ . '/tenant_helper.php';
+require_once __DIR__ . '/milestone_helper.php';
 $businessId = nxRequireBusinessId($conn);
 
 if (!isset($_SESSION['user_id'])) {
@@ -26,23 +27,62 @@ $userId = $_SESSION['user_id'];
 |--------------------------------------------------------------------------
 | NOTIFICATION READ TRACKING
 |--------------------------------------------------------------------------
+| Persist the read timestamp per user/module in notification_reads.
+| Important: when there is no row yet, do NOT initialize it to NOW().
+| Doing that would instantly mark already-created milestone notifications
+| as read on the user's first visit to Sales Analytics.
 */
-if (!isset($_SESSION['notifications_last_seen'])) {
-    $_SESSION['notifications_last_seen'] = date('Y-m-d H:i:s');
-}
+$notifModule = 'sales_analytics';
+$userId = (int)$userId;
 
 if (isset($_GET['action']) && $_GET['action'] === 'mark_notifications_seen') {
-    $_SESSION['notifications_last_seen'] = date('Y-m-d H:i:s');
+    $seenAt = date('Y-m-d H:i:s');
+    $markStmt = $conn->prepare(
+        "INSERT INTO notification_reads (user_id, module, last_seen_at)
+         VALUES (?, ?, ?)
+         ON DUPLICATE KEY UPDATE last_seen_at = VALUES(last_seen_at)"
+    );
+
+    if (!$markStmt) {
+        header('Content-Type: application/json');
+        http_response_code(500);
+        echo json_encode([
+            'success' => false,
+            'message' => 'Unable to update notification read status.'
+        ]);
+        exit();
+    }
+
+    $markStmt->bind_param('iss', $userId, $notifModule, $seenAt);
+    $markStmt->execute();
+    $markStmt->close();
 
     header('Content-Type: application/json');
     echo json_encode([
         'success' => true,
-        'message' => 'Notifications marked as seen.'
+        'message' => 'Notifications marked as seen.',
+        'last_seen_at' => $seenAt
     ]);
     exit();
 }
 
-$notificationsLastSeen = $_SESSION['notifications_last_seen'];
+$notificationsLastSeen = '1970-01-01 00:00:00';
+$lastSeenStmt = $conn->prepare(
+    "SELECT last_seen_at
+     FROM notification_reads
+     WHERE user_id = ? AND module = ?
+     LIMIT 1"
+);
+if ($lastSeenStmt) {
+    $lastSeenStmt->bind_param('is', $userId, $notifModule);
+    $lastSeenStmt->execute();
+    $lastSeenRow = $lastSeenStmt->get_result()->fetch_assoc();
+    $lastSeenStmt->close();
+
+    if (!empty($lastSeenRow['last_seen_at'])) {
+        $notificationsLastSeen = $lastSeenRow['last_seen_at'];
+    }
+}
 
 /*
 |--------------------------------------------------------------------------
@@ -508,115 +548,121 @@ $stmtTopProducts->close();
 $notifications = [];
 $notificationCount = 0;
 
-/* Low stock - visible in modal, not counted as unread badge */
-$lowStockQuery = $conn->query("
-    SELECT product_name, stock_quantity, reorder_level
-    FROM products
-    WHERE business_id = {$businessId} AND stock_quantity > 0 AND stock_quantity <= reorder_level
-    ORDER BY stock_quantity ASC
-    LIMIT 5
+/* Sales milestones */
+/* Today/Week/Month: live tiered milestones, recorded by                    */
+/* nxCheckAndRecordMilestones() right when a sale is saved (see             */
+/* process_sale_ajax.php / process_sale.php).                               */
+/* Quarter/Semi-Annual/Annual: completed-period achievements only - they    */
+/* never fire mid-period no matter how many tiers are crossed, and only     */
+/* record once the period is fully over. We also run the completed-period   */
+/* check here on page load, so an achievement still surfaces even if no new */
+/* sale has happened yet in the period right after the one that just ended. */
+// Reconcile live Daily/Weekly/Monthly milestones on page load too.
+// This is safe because sales_milestones has a unique key and the helper uses
+// INSERT IGNORE, so an already-recorded threshold is never duplicated.
+// It also keeps the existing completed Quarter/Semi-Annual/Annual checks.
+nxCheckAndRecordMilestones($conn, $businessId, new DateTime());
+
+$periodLabels = [
+    'today' => ['title' => 'Daily Sales Milestone Reached!', 'when' => 'today'],
+    'week'  => ['title' => 'Weekly Sales Milestone Reached!', 'when' => 'this week'],
+    'month' => ['title' => 'Monthly Sales Milestone Reached!', 'when' => 'this month'],
+];
+
+$milestoneStmt = $conn->prepare("
+    SELECT period_type, period_bucket, threshold, actual_amount, reached_at
+    FROM sales_milestones
+    WHERE business_id = ?
+    ORDER BY reached_at DESC, threshold DESC
 ");
-if ($lowStockQuery) {
-    while ($row = $lowStockQuery->fetch_assoc()) {
-        $notifications[] = [
-            'type' => 'warning',
-            'icon' => 'bi-exclamation-triangle-fill',
-            'title' => 'Low Stock Alert',
-            'message' => $row['product_name'] . ' is low on stock (' . (int)$row['stock_quantity'] . ' left, reorder at ' . (int)$row['reorder_level'] . ').',
-            'time' => 'Inventory',
-            'is_unread' => false
-        ];
+if ($milestoneStmt) {
+    $milestoneStmt->bind_param("i", $businessId);
+    $milestoneStmt->execute();
+    $milestoneResult = $milestoneStmt->get_result();
+
+    $seenPeriods = [];
+    while ($row = $milestoneResult->fetch_assoc()) {
+        $periodType = $row['period_type'];
+
+        /* Only show the latest milestone/achievement per period type */
+        if (isset($seenPeriods[$periodType])) {
+            continue;
+        }
+        $seenPeriods[$periodType] = true;
+
+        $reached = (int)$row['threshold'];
+        $reachedAt = $row['reached_at'];
+        $bucket = $row['period_bucket'];
+        $isUnread = strtotime($reachedAt) > strtotime($notificationsLastSeen);
+
+        if ($isUnread) {
+            $notificationCount++;
+        }
+
+        if (in_array($periodType, ['today', 'week', 'month'], true)) {
+            /* Live milestone */
+            $periodCopy = $periodLabels[$periodType] ?? [
+                'title' => 'Sales Milestone Reached!',
+                'when' => $periodType
+            ];
+
+            $notifications[] = [
+                'type' => 'success',
+                'icon' => 'bi-trophy-fill',
+                'title' => $periodCopy['title'],
+                'message' => 'Your store reached ₱' . number_format($reached) . ' in sales ' . $periodCopy['when'] . '.',
+                'time' => date('M d, Y h:i A', strtotime($reachedAt)),
+                'is_unread' => $isUnread
+            ];
+        } else {
+            /* Completed-period achievement */
+            $actual = (float)($row['actual_amount'] ?? 0);
+            $actualLabel = nxMilestoneLabel((int)round($actual));
+
+            if ($periodType === 'quarter') {
+                preg_match('/^(\d{4})-Q(\d)$/', $bucket, $m);
+                $year = $m[1] ?? '';
+                $q = $m[2] ?? '';
+                $title = 'Quarterly Sales Achievement';
+                $message = "Your store completed Q{$q} {$year} with ₱" . number_format($actual) . " in total sales!";
+                $icon = 'bi-trophy-fill';
+            } elseif ($periodType === 'semi_annual') {
+                preg_match('/^(\d{4})-H(\d)$/', $bucket, $m);
+                $year = $m[1] ?? '';
+                $half = ($m[2] ?? '') === '1' ? 'first half' : 'second half';
+                $title = 'Semi-Annual Sales Achievement';
+                $message = "Your store generated ₱" . number_format($actual) . " in total sales during the {$half} of {$year}!";
+                $icon = 'bi-stars';
+            } else {
+                /* annual */
+                $title = 'Annual Sales Achievement';
+                $message = "Congratulations! Your store generated ₱" . number_format($actual) . " in total sales in {$bucket}!";
+                $icon = 'bi-trophy-fill';
+            }
+
+            $notifications[] = [
+                'type' => 'achievement',
+                'icon' => $icon,
+                'title' => $title,
+                'message' => $message,
+                'time' => date('M d, Y h:i A', strtotime($reachedAt)),
+                'is_unread' => $isUnread
+            ];
+        }
     }
+    $milestoneStmt->close();
 }
 
-/* Out of stock - visible in modal, not counted as unread badge */
-$outStockQuery = $conn->query("
-    SELECT product_name
-    FROM products
-    WHERE business_id = {$businessId} AND stock_quantity <= 0
-    ORDER BY updated_at DESC
-    LIMIT 5
-");
-if ($outStockQuery) {
-    while ($row = $outStockQuery->fetch_assoc()) {
-        $notifications[] = [
-            'type' => 'danger',
-            'icon' => 'bi-bell-fill',
-            'title' => 'Out of Stock',
-            'message' => $row['product_name'] . ' is currently out of stock.',
-            'time' => 'Inventory',
-            'is_unread' => false
-        ];
-    }
-}
-
-/* Recent stock movements - counted if newer than last seen */
-$movementStmt = $conn->prepare("
-    SELECT sm.movement_type, sm.quantity, sm.created_at, p.product_name
-    FROM stock_movements sm
-    INNER JOIN products p ON p.id = sm.product_id AND p.business_id = {$businessId}
-    WHERE sm.business_id = {$businessId}
-    ORDER BY sm.created_at DESC
-    LIMIT 6
-");
-$movementStmt->execute();
-$movementResult = $movementStmt->get_result();
-
-while ($row = $movementResult->fetch_assoc()) {
-    $actionText = $row['movement_type'] === 'stock_in' ? 'Stock In' : 'Stock Out';
-    $isUnread = strtotime($row['created_at']) > strtotime($notificationsLastSeen);
-
-    if ($isUnread) {
-        $notificationCount++;
-    }
-
-    $notifications[] = [
-        'type' => $row['movement_type'] === 'stock_in' ? 'success' : 'danger',
-        'icon' => $row['movement_type'] === 'stock_in' ? 'bi-box-seam-fill' : 'bi-arrow-down-square-fill',
-        'title' => $actionText . ' Recorded',
-        'message' => $actionText . ' for ' . $row['product_name'] . ' (' . (int)$row['quantity'] . ' item/s).',
-        'time' => date('M d, Y h:i A', strtotime($row['created_at'])),
-        'is_unread' => $isUnread
-    ];
-}
-$movementStmt->close();
-
-/* Recently added products - counted if newer than last seen */
-$newProductStmt = $conn->prepare("
-    SELECT product_name, created_at
-    FROM products
-    WHERE business_id = {$businessId}
-    ORDER BY created_at DESC
-    LIMIT 4
-");
-$newProductStmt->execute();
-$newProductResult = $newProductStmt->get_result();
-
-while ($row = $newProductResult->fetch_assoc()) {
-    $isUnread = strtotime($row['created_at']) > strtotime($notificationsLastSeen);
-
-    if ($isUnread) {
-        $notificationCount++;
-    }
-
-    $notifications[] = [
-        'type' => 'info',
-        'icon' => 'bi-plus-circle-fill',
-        'title' => 'New Product Added',
-        'message' => $row['product_name'] . ' was added to inventory.',
-        'time' => date('M d, Y', strtotime($row['created_at'])),
-        'is_unread' => $isUnread
-    ];
-}
-$newProductStmt->close();
+/* Sales Analytics notifications are intentionally milestone-only.
+   Inventory alerts belong in Inventory Management and are not shown here. */
 
 $displayNotifications = $notifications;
 if (empty($displayNotifications)) {
     $displayNotifications[] = [
         'type' => 'empty',
         'icon' => 'bi-info-circle-fill',
-        'title' => 'No Notifications Yet',
-        'message' => 'No stock changes, alerts, or new products available yet.',
+        'title' => 'No Milestones Yet',
+        'message' => 'No sales milestones have been reached yet.',
         'time' => 'Just now',
         'is_unread' => false
     ];
@@ -651,7 +697,7 @@ if (isset($_SESSION['success'])) {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="/NexGen/CODE/STYLE/header.css">
-    <link rel="stylesheet" href="/NexGen/CODE/STYLE/sales_analytics.css?v=2">
+    <link rel="stylesheet" href="/NexGen/CODE/STYLE/sales_analytics.css?v=responsive20260826">
     <link rel="stylesheet" href="/NexGen/CODE/STYLE/module_footer.css">
 </head>
 <body>
@@ -1009,7 +1055,7 @@ if (isset($_SESSION['success'])) {
                     <div class="notif-header-icon"><i class="bi bi-bell-fill"></i></div>
                     <div>
                         <h4>Notifications</h4>
-                        <p><?php echo $notificationCount; ?> unread update<?php echo $notificationCount === 1 ? '' : 's'; ?></p>
+                        <p id="notifUnreadCount"><?php echo $notificationCount; ?> unread update<?php echo $notificationCount === 1 ? '' : 's'; ?></p>
                     </div>
                 </div>
                 <button type="button" class="notif-mark-read" id="markAllReadBtn">
@@ -1020,7 +1066,8 @@ if (isset($_SESSION['success'])) {
             <div class="notifications-modal-body">
                 <?php if (!empty($displayNotifications)): ?>
                     <?php foreach ($displayNotifications as $item): ?>
-                        <div class="notification-card notif-<?php echo htmlspecialchars($item['type']); ?>">
+                        <?php $cardReadClass = empty($item['is_unread']) ? ' notif-read' : ''; ?>
+                        <div class="notification-card notif-<?php echo htmlspecialchars($item['type']); ?><?php echo $cardReadClass; ?>">
                             <div class="notification-card-icon <?php echo htmlspecialchars($item['type']); ?>">
                                 <i class="<?php echo htmlspecialchars($item['icon']); ?>"></i>
                             </div>
@@ -1127,15 +1174,48 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    // Mark all notifications as read (visual only)
+    // Mark all notifications as read and persist the timestamp in the database.
     var markAllBtn = document.getElementById('markAllReadBtn');
     if (markAllBtn) {
         markAllBtn.addEventListener('click', function () {
-            document.querySelectorAll('.notification-card').forEach(function (card) {
-                card.classList.add('notif-read');
-            });
-            var badge = document.querySelector('.icon-badge');
-            if (badge) badge.style.display = 'none';
+            markAllBtn.disabled = true;
+
+            fetch('/NexGen/CODE/PHP/sales_analytics.php?action=mark_notifications_seen', {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+                .then(function (response) {
+                    if (!response.ok) {
+                        throw new Error('Failed to update notification read status.');
+                    }
+                    return response.json();
+                })
+                .then(function (data) {
+                    if (!data.success) {
+                        throw new Error(data.message || 'Failed to mark notifications as read.');
+                    }
+
+                    document.querySelectorAll('#notificationsModal .notification-card').forEach(function (card) {
+                        card.classList.add('notif-read');
+                    });
+
+                    document.querySelectorAll('.topbar-icon-btn .icon-badge').forEach(function (badge) {
+                        badge.remove();
+                    });
+
+                    var unreadCount = document.getElementById('notifUnreadCount');
+                    if (unreadCount) {
+                        unreadCount.textContent = '0 unread updates';
+                    }
+                })
+                .catch(function (error) {
+                    console.error('Failed to mark Sales Analytics notifications as read:', error);
+                })
+                .finally(function () {
+                    markAllBtn.disabled = false;
+                });
         });
     }
 });
@@ -1149,6 +1229,6 @@ document.addEventListener('DOMContentLoaded', function () {
 <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
 <script src="/NexGen/CODE/JS/header.js"></script>
-<script src="/NexGen/CODE/JS/sales_analytics.js?v=wave2026eval"></script>
+<script src="/NexGen/CODE/JS/sales_analytics.js?v=responsive20260826"></script>
 </body>
 </html>

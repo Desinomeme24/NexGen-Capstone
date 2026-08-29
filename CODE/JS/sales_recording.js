@@ -1,39 +1,55 @@
 document.addEventListener("DOMContentLoaded", function () {
   const saleModal = document.getElementById("saleModal");
-  const customerModal = document.getElementById("customerModal");
-  const openCustomerBtn = document.getElementById("openCustomerBtn");
-  const closeCustomerBtn = document.getElementById("closeCustomerBtn");
 
   const itemsContainer = document.getElementById("itemsContainer");
+  const productCombobox = document.getElementById("productCombobox");
+  const productSearchInput = document.getElementById("productSearchInput");
+  const productSearchResults = document.getElementById("productSearchResults");
+  const selectedProductIdInput = document.getElementById("selectedProductId");
+  const clearProductSearchBtn = document.getElementById("clearProductSearch");
+  const productEntryQty = document.getElementById("productEntryQty");
+  const addProductBtn = document.getElementById("addProductBtn");
   const grandTotalEl = document.getElementById("grandTotal");
   const saleForm = document.getElementById("saleForm");
-  const customerForm = document.getElementById("customerForm");
   const saveSaleBtn = document.getElementById("saveSaleBtn");
-  const saveCustomerBtn = document.getElementById("saveCustomerBtn");
-  const customerSelect = document.getElementById("customerSelect");
   const paymentStatus = document.getElementById("paymentStatus");
   const orderStatus = document.getElementById("orderStatus");
   const amountPaidGroup = document.getElementById("amountPaidGroup");
-  const dueDateGroup = document.getElementById("dueDateGroup");
   const amountPaidInput = document.getElementById("amountPaidInput");
-  const dueDateInput = document.getElementById("dueDateInput");
+  const checkoutSummaryGrid = document.querySelector(".checkout-summary-grid");
 
-  const paymentStatusContext = document.getElementById("paymentStatusContext");
-  const phoneGroup = document.getElementById("phoneGroup");
-  const emailGroup = document.getElementById("emailGroup");
-  const addressGroup = document.getElementById("addressGroup");
-  const phoneField = document.getElementById("phoneField");
-  const emailField = document.getElementById("emailField");
-  const addressField = document.getElementById("addressField");
+  const salesAccess = window.salesAccess || {};
+  const hasAccountsReceivable = salesAccess.accountsReceivable === true;
+  const customers = Array.isArray(salesAccess.customers)
+    ? salesAccess.customers
+    : [];
+  const customerInfoCard = document.getElementById("customerInfoCard");
+  const customerChoice = document.getElementById("customerChoice");
+  const customerIdInput = document.getElementById("customerId");
+  const dueDateInput = document.getElementById("dueDateInput");
+  const selectedCustomerSummary = document.getElementById(
+    "selectedCustomerSummary",
+  );
+  const newCustomerFields = document.getElementById("newCustomerFields");
+  const customerNameInput = document.getElementById("customerNameInput");
+  const customerPhoneInput = document.getElementById("customerPhoneInput");
+  const customerEmailInput = document.getElementById("customerEmailInput");
+  const customerAddressInput = document.getElementById("customerAddressInput");
 
   const saleConfirmOverlay = document.getElementById("saleConfirmOverlay");
   const saleConfirmCancel = document.getElementById("saleConfirmCancel");
   const saleConfirmYes = document.getElementById("saleConfirmYes");
 
   const products = Array.isArray(window.products) ? window.products : [];
+  let selectedProduct = null;
+  let visibleSearchProducts = [];
+  let activeSearchIndex = -1;
+  let previousPaymentStatus = paymentStatus?.value || "Paid";
+  let saleModalReturnFocus = null;
+  let saleConfirmReturnFocus = null;
+  let saleSubmissionInProgress = false;
 
   if (saleForm) saleForm.noValidate = true;
-  if (customerForm) customerForm.noValidate = true;
 
   function safeText(value) {
     return String(value ?? "");
@@ -42,6 +58,149 @@ document.addEventListener("DOMContentLoaded", function () {
   function safeNumber(value, fallback = 0) {
     const num = Number(value);
     return Number.isFinite(num) ? num : fallback;
+  }
+
+  function escapeHtml(value) {
+    return safeText(value)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+  const customersById = new Map(
+    customers.map((customer) => [safeText(customer.id), customer]),
+  );
+
+  function isCreditSale() {
+    return (
+      hasAccountsReceivable &&
+      ["Unpaid", "Partially Paid"].includes(paymentStatus?.value || "Paid")
+    );
+  }
+
+  function clearNewCustomerInputs() {
+    [
+      customerNameInput,
+      customerPhoneInput,
+      customerEmailInput,
+      customerAddressInput,
+    ].forEach((input) => {
+      if (input) input.value = "";
+    });
+  }
+
+  function clearCustomerSelection() {
+    if (customerChoice) customerChoice.value = "";
+    if (customerIdInput) customerIdInput.value = "0";
+    if (dueDateInput) dueDateInput.value = "";
+    clearNewCustomerInputs();
+    if (selectedCustomerSummary) selectedCustomerSummary.hidden = true;
+    if (newCustomerFields) newCustomerFields.hidden = true;
+  }
+
+  function renderSelectedCustomer(customer) {
+    const fields = {
+      selectedCustomerName: customer?.customer_name || "—",
+      selectedCustomerPhone: customer?.phone || "Not provided",
+      selectedCustomerEmail: customer?.email || "Not provided",
+      selectedCustomerAddress: customer?.address || "Not provided",
+    };
+
+    Object.entries(fields).forEach(([id, value]) => {
+      const element = document.getElementById(id);
+      if (element) element.textContent = safeText(value);
+    });
+  }
+
+  function syncCustomerChoice() {
+    if (!customerChoice || !customerIdInput) return;
+
+    const selectedValue = customerChoice.value;
+    const isNewCustomer = selectedValue === "new";
+    const selectedCustomer = customersById.get(selectedValue);
+
+    customerIdInput.value = selectedCustomer ? selectedValue : "0";
+    if (newCustomerFields) newCustomerFields.hidden = !isNewCustomer;
+    if (selectedCustomerSummary) {
+      selectedCustomerSummary.hidden = !selectedCustomer;
+    }
+
+    if (selectedCustomer) {
+      renderSelectedCustomer(selectedCustomer);
+      clearNewCustomerInputs();
+    }
+
+    if (!isNewCustomer) {
+      clearNewCustomerInputs();
+    }
+
+    if (customerNameInput) customerNameInput.required = isNewCustomer;
+  }
+
+  function syncCustomerSection(clearWhenDisabled = false) {
+    if (!hasAccountsReceivable || !customerInfoCard) return;
+
+    const enabled = isCreditSale();
+    customerInfoCard.hidden = !enabled;
+    if (dueDateInput) dueDateInput.required = enabled;
+
+    if (!enabled && clearWhenDisabled) {
+      clearCustomerSelection();
+    } else if (enabled) {
+      syncCustomerChoice();
+    }
+  }
+
+  function validateCustomerDetails() {
+    if (!isCreditSale()) return true;
+
+    if (!dueDateInput?.value || !dueDateInput.checkValidity()) {
+      showToast("Choose a valid due date for this receivable.", "warning");
+      dueDateInput?.focus();
+      return false;
+    }
+
+    const choice = customerChoice?.value || "";
+    if (!choice) {
+      showToast(
+        "Select an existing customer or choose Create New Customer.",
+        "warning",
+      );
+      customerChoice?.focus();
+      return false;
+    }
+
+    if (choice === "new") {
+      const name = customerNameInput?.value.trim() || "";
+      if (name.length < 2) {
+        showToast("Enter the customer's full name.", "warning");
+        customerNameInput?.focus();
+        return false;
+      }
+
+      if (
+        customerPhoneInput?.value &&
+        !/^[0-9+().\- ]{7,20}$/.test(customerPhoneInput.value)
+      ) {
+        showToast("Enter a valid customer phone number.", "warning");
+        customerPhoneInput.focus();
+        return false;
+      }
+
+      if (customerEmailInput?.value && !customerEmailInput.checkValidity()) {
+        showToast("Enter a valid customer email address.", "warning");
+        customerEmailInput.focus();
+        return false;
+      }
+    } else if (!customersById.has(choice)) {
+      showToast("The selected customer is no longer available.", "warning");
+      customerChoice?.focus();
+      return false;
+    }
+
+    return true;
   }
 
   function getToastRoot() {
@@ -113,101 +272,72 @@ document.addEventListener("DOMContentLoaded", function () {
 
   function openSaleModal() {
     if (!saleModal) return;
+    saleModalReturnFocus = document.activeElement;
     saleModal.classList.add("show");
+    saleModal.setAttribute("aria-hidden", "false");
+    document.body.classList.add("sale-app-open");
     document.body.style.overflow = "hidden";
     if (typeof goToWizardStep === "function") {
       goToWizardStep(1);
     }
+    requestAnimationFrame(() => {
+      saleModal.querySelector(".modal-close")?.focus({ preventScroll: true });
+    });
   }
 
   function closeSaleModal() {
     if (!saleModal) return;
     saleModal.classList.remove("show");
-    if (customerModal) customerModal.classList.remove("show");
+    saleModal.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("sale-app-open");
     closeSaleConfirm();
-    document.body.style.overflow = "auto";
+    document.body.style.overflow = "";
+    if (saleModalReturnFocus instanceof HTMLElement) {
+      saleModalReturnFocus.focus({ preventScroll: true });
+    }
+    saleModalReturnFocus = null;
   }
 
   function openSaleConfirm() {
-    if (!saleConfirmOverlay) return;
-    saleConfirmOverlay.classList.add("show");
-    document.body.style.overflow = "hidden";
-  }
-
-  function closeSaleConfirm() {
-    if (!saleConfirmOverlay) return;
-    saleConfirmOverlay.classList.remove("show");
-
-    if (
-      (saleModal && saleModal.classList.contains("show")) ||
-      (customerModal && customerModal.classList.contains("show"))
-    ) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "auto";
-    }
-  }
-
-  function applyCustomerFieldRules() {
-    if (!paymentStatus) return;
-
-    const status = paymentStatus.value;
-
-    if (paymentStatusContext) {
-      paymentStatusContext.value = status;
-    }
-
-    const isPaid = status === "Paid";
-
-    if (phoneGroup) phoneGroup.style.display = isPaid ? "none" : "block";
-    if (emailGroup) emailGroup.style.display = isPaid ? "none" : "block";
-    if (addressGroup) addressGroup.style.display = isPaid ? "none" : "block";
-
-    if (phoneField && isPaid) phoneField.value = "";
-    if (emailField && isPaid) emailField.value = "";
-    if (addressField && isPaid) addressField.value = "";
-  }
-
-  function syncOrderStatusWithPayment() {
-    if (!paymentStatus || !orderStatus) return;
-    const status = paymentStatus.value;
-    orderStatus.value = status === "Paid" ? "Fulfilled" : "Pending";
-  }
-
-  function openCustomerModal() {
-    if (!customerModal) {
-      showToast("Customer modal not found.", "error");
+    if (!saleConfirmOverlay || !saleConfirmYes) {
+      if (window.confirm("Are you sure you want to save this new sale?")) {
+        void doSubmitSaleAjax();
+      }
       return;
     }
 
-    applyCustomerFieldRules();
-    customerModal.classList.add("show");
+    if (saleConfirmOverlay.classList.contains("show")) return;
+
+    saleConfirmReturnFocus = document.activeElement;
+    saleConfirmOverlay.classList.add("show");
+    saleConfirmOverlay.setAttribute("aria-hidden", "false");
     document.body.style.overflow = "hidden";
+    requestAnimationFrame(() => {
+      saleConfirmYes.focus({ preventScroll: true });
+    });
   }
 
-  function closeCustomerModal() {
-    if (!customerModal) return;
-    customerModal.classList.remove("show");
+  function closeSaleConfirm({ restoreFocus = true } = {}) {
+    if (!saleConfirmOverlay) return;
+    saleConfirmOverlay.classList.remove("show");
+    saleConfirmOverlay.setAttribute("aria-hidden", "true");
 
     if (saleModal && saleModal.classList.contains("show")) {
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "auto";
     }
+
+    if (restoreFocus && saleConfirmReturnFocus instanceof HTMLElement) {
+      saleConfirmReturnFocus.focus({ preventScroll: true });
+    }
+    saleConfirmReturnFocus = null;
   }
 
-  if (openCustomerBtn) {
-    openCustomerBtn.addEventListener("click", function (e) {
-      e.preventDefault();
-      openCustomerModal();
-    });
-  }
-
-  if (closeCustomerBtn) {
-    closeCustomerBtn.addEventListener("click", function (e) {
-      e.preventDefault();
-      closeCustomerModal();
-    });
+  function syncOrderStatusWithPayment() {
+    if (!paymentStatus || !orderStatus) return;
+    const status = paymentStatus.value;
+    orderStatus.value = status === "Paid" ? "Fulfilled" : "Pending";
   }
 
   if (saleConfirmCancel) {
@@ -232,14 +362,6 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
-  if (customerModal) {
-    customerModal.addEventListener("click", function (e) {
-      if (e.target === customerModal) {
-        closeCustomerModal();
-      }
-    });
-  }
-
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape") {
       const quickViewModal = document.getElementById("quickViewModal");
@@ -254,11 +376,6 @@ document.addEventListener("DOMContentLoaded", function () {
         return;
       }
 
-      if (customerModal && customerModal.classList.contains("show")) {
-        closeCustomerModal();
-        return;
-      }
-
       if (saleModal && saleModal.classList.contains("show")) {
         closeSaleModal();
       }
@@ -269,92 +386,279 @@ document.addEventListener("DOMContentLoaded", function () {
     return Number(value).toFixed(2);
   }
 
-  function buildProductSelect(selectEl) {
-    selectEl.innerHTML = "";
+  const searchableProducts = products.map((product) => {
+    const discount = Math.min(
+      Math.max(safeNumber(product.discount_percent), 0),
+      100,
+    );
+    const basePrice = safeNumber(product.selling_price);
 
-    const defaultOption = document.createElement("option");
-    defaultOption.value = "";
-    defaultOption.textContent = "Select Product";
-    selectEl.appendChild(defaultOption);
+    return {
+      id: safeText(product.id),
+      code: safeText(product.product_code),
+      name: safeText(product.product_name),
+      imageUrl:
+        safeText(product.image_url) || "/NexGen/IMAGES/default-product.png",
+      stock: safeNumber(product.stock_quantity),
+      basePrice,
+      discount,
+      netPrice: Number((basePrice * (1 - discount / 100)).toFixed(2)),
+    };
+  });
 
-    products.forEach((product) => {
-      const option = document.createElement("option");
-      option.value = safeText(product.id);
-      option.dataset.price = String(safeNumber(product.selling_price));
-      option.dataset.stock = String(safeNumber(product.stock_quantity));
-      option.textContent = `${safeText(product.product_name)} (Stock: ${safeNumber(product.stock_quantity)} | ₱${safeNumber(product.selling_price).toFixed(2)})`;
-      selectEl.appendChild(option);
-    });
+  const productsById = new Map(
+    searchableProducts.map((product) => [product.id, product]),
+  );
+
+  function updateSearchResultHighlight() {
+    if (!productSearchResults) return;
+    productSearchResults
+      .querySelectorAll(".product-search-option")
+      .forEach((option, index) => {
+        const active = index === activeSearchIndex;
+        option.classList.toggle("is-active", active);
+        option.setAttribute("aria-selected", active ? "true" : "false");
+        if (active) option.scrollIntoView({ block: "nearest" });
+      });
   }
 
-  function addItemRow() {
+  function closeProductSearchResults() {
+    if (!productSearchResults || !productSearchInput) return;
+    productSearchResults.classList.remove("show");
+    productSearchInput.setAttribute("aria-expanded", "false");
+    activeSearchIndex = -1;
+  }
+
+  function renderProductSearchResults(query = "") {
+    if (!productSearchResults || !productSearchInput) return;
+
+    const normalizedQuery = safeText(query).trim().toLowerCase();
+    visibleSearchProducts = searchableProducts
+      .filter((product) => {
+        if (!normalizedQuery) return true;
+        return (
+          product.name.toLowerCase().includes(normalizedQuery) ||
+          product.code.toLowerCase().includes(normalizedQuery)
+        );
+      })
+      .slice(0, 12);
+    activeSearchIndex = -1;
+
+    if (!visibleSearchProducts.length) {
+      productSearchResults.innerHTML = `
+        <div class="product-search-empty">
+          <i class="bi bi-search"></i>
+          <span>No matching product found.</span>
+        </div>`;
+    } else {
+      productSearchResults.innerHTML = visibleSearchProducts
+        .map((product) => {
+          const unavailable = product.stock <= 0;
+          const discountPill =
+            product.discount > 0
+              ? `<span class="product-result-discount">-${escapeHtml(product.discount)}%</span>`
+              : "";
+          return `
+            <button
+              type="button"
+              class="product-search-option"
+              data-product-id="${escapeHtml(product.id)}"
+              role="option"
+              aria-selected="false"
+              ${unavailable ? "disabled" : ""}>
+              <img src="${escapeHtml(product.imageUrl)}" alt="">
+              <span class="product-result-copy">
+                <strong>${escapeHtml(product.name)}</strong>
+                <small>${escapeHtml(product.code || "No product code")} &bull; Stock: ${escapeHtml(product.stock)}</small>
+              </span>
+              <span class="product-result-price">
+                ${discountPill}
+                <strong>₱${formatMoney(product.netPrice)}</strong>
+              </span>
+            </button>`;
+        })
+        .join("");
+    }
+
+    productSearchResults.querySelectorAll("img").forEach((image) => {
+      image.addEventListener(
+        "error",
+        function () {
+          image.src = "/NexGen/IMAGES/default-product.png";
+        },
+        { once: true },
+      );
+    });
+
+    productSearchResults.classList.add("show");
+    productSearchInput.setAttribute("aria-expanded", "true");
+  }
+
+  function clearProductSelection({ keepFocus = false } = {}) {
+    selectedProduct = null;
+    if (selectedProductIdInput) selectedProductIdInput.value = "";
+    if (productSearchInput) productSearchInput.value = "";
+    if (productEntryQty) {
+      productEntryQty.value = "1";
+      productEntryQty.removeAttribute("max");
+    }
+    if (clearProductSearchBtn) {
+      clearProductSearchBtn.classList.remove("show");
+    }
+    closeProductSearchResults();
+    if (keepFocus && productSearchInput) productSearchInput.focus();
+  }
+
+  function selectSearchProduct(product) {
+    if (!product || product.stock <= 0) return;
+    selectedProduct = product;
+    if (selectedProductIdInput) selectedProductIdInput.value = product.id;
+    if (productSearchInput) productSearchInput.value = product.name;
+    if (productEntryQty) {
+      productEntryQty.value = "1";
+      productEntryQty.max = String(product.stock);
+    }
+    if (clearProductSearchBtn) clearProductSearchBtn.classList.add("show");
+    closeProductSearchResults();
+    productEntryQty?.focus();
+    productEntryQty?.select();
+  }
+
+  function resolveTypedProduct() {
+    if (selectedProduct) return selectedProduct;
+    const query = safeText(productSearchInput?.value).trim().toLowerCase();
+    if (!query) return null;
+    return (
+      searchableProducts.find(
+        (product) =>
+          product.name.toLowerCase() === query ||
+          product.code.toLowerCase() === query,
+      ) || null
+    );
+  }
+
+  function updateItemsEmptyState() {
     if (!itemsContainer) return;
+    const hasRows = Boolean(itemsContainer.querySelector(".item-row"));
+    const existingEmpty = itemsContainer.querySelector(".items-empty-state");
+
+    if (hasRows && existingEmpty) {
+      existingEmpty.remove();
+    } else if (!hasRows && !existingEmpty) {
+      itemsContainer.innerHTML = `
+        <div class="items-empty-state" id="itemsEmptyState">
+          <i class="bi bi-basket"></i>
+          <span>Search for a product above to begin the sale.</span>
+        </div>`;
+    }
+  }
+
+  function createItemRow(product, quantity) {
+    if (!itemsContainer || !product) return null;
+    updateItemsEmptyState();
+    itemsContainer.querySelector(".items-empty-state")?.remove();
 
     const row = document.createElement("div");
     row.className = "item-row";
+    row.dataset.productId = product.id;
+    row.dataset.productName = product.name;
+    row.dataset.productCode = product.code;
+    row.dataset.productImage = product.imageUrl;
+    row.dataset.basePrice = String(product.basePrice);
+    row.dataset.discount = String(product.discount);
+    row.dataset.stock = String(product.stock);
 
-    const col1 = document.createElement("div");
-    const productSelect = document.createElement("select");
-    productSelect.name = "product_id[]";
-    productSelect.className = "product-select";
-    buildProductSelect(productSelect);
-    col1.appendChild(productSelect);
+    const discountNote =
+      product.discount > 0
+        ? `<small class="item-discount-note">-${escapeHtml(product.discount)}% product discount applied</small>`
+        : `<small class="item-stock-note">Stock: ${escapeHtml(product.stock)}</small>`;
 
-    const col2 = document.createElement("div");
-    const qtyInput = document.createElement("input");
-    qtyInput.type = "number";
-    qtyInput.name = "quantity[]";
-    qtyInput.className = "qty-input";
-    qtyInput.min = "1";
-    qtyInput.value = "1";
-    col2.appendChild(qtyInput);
+    row.innerHTML = `
+      <div class="item-product-cell" data-label="Product">
+        <img class="item-product-image" src="${escapeHtml(product.imageUrl)}" alt="">
+        <div class="item-product-copy">
+          <strong>${escapeHtml(product.name)}</strong>
+          <span>${escapeHtml(product.code || "No product code")}</span>
+          ${discountNote}
+        </div>
+        <input type="hidden" name="product_id[]" class="product-id-input" value="${escapeHtml(product.id)}">
+      </div>
+      <div class="item-qty-cell" data-label="Qty">
+        <input type="number" name="quantity[]" class="qty-input" min="0.001" max="${escapeHtml(product.stock)}" step="any" inputmode="decimal" value="${escapeHtml(quantity)}">
+      </div>
+      <div class="item-price-cell" data-label="Unit Price">
+        <input type="text" name="unit_price[]" class="price-input readonly-box" value="${formatMoney(product.basePrice)}" readonly>
+      </div>
+      <div class="item-subtotal-cell" data-label="Subtotal">
+        <input type="text" class="subtotal-input readonly-box" value="0.00" readonly>
+      </div>
+      <div class="item-remove-cell" data-label="Remove">
+        <button type="button" class="row-remove" aria-label="Remove ${escapeHtml(product.name)}"><i class="bi bi-trash3"></i></button>
+      </div>
+      <input type="hidden" name="discount_percent[]" class="discount-percent-input" value="${escapeHtml(product.discount)}">
+      <input type="hidden" name="line_subtotal[]" class="line-subtotal-input" value="0.00">
+    `;
 
-    const col3 = document.createElement("div");
-    const priceInput = document.createElement("input");
-    priceInput.type = "number";
-    priceInput.step = "0.01";
-    priceInput.name = "unit_price[]";
-    priceInput.className = "price-input";
-    priceInput.min = "0";
-    priceInput.value = "0.00";
-    col3.appendChild(priceInput);
-
-    const col4 = document.createElement("div");
-    const subtotalInput = document.createElement("input");
-    subtotalInput.type = "text";
-    subtotalInput.className = "subtotal-input readonly-box";
-    subtotalInput.value = "0.00";
-    subtotalInput.readOnly = true;
-    col4.appendChild(subtotalInput);
-
-    const col5 = document.createElement("div");
-    const removeBtn = document.createElement("button");
-    removeBtn.type = "button";
-    removeBtn.className = "row-remove";
-    removeBtn.textContent = "×";
-    col5.appendChild(removeBtn);
-
-    row.appendChild(col1);
-    row.appendChild(col2);
-    row.appendChild(col3);
-    row.appendChild(col4);
-    row.appendChild(col5);
+    const image = row.querySelector(".item-product-image");
+    image?.addEventListener(
+      "error",
+      function () {
+        image.src = "/NexGen/IMAGES/default-product.png";
+      },
+      { once: true },
+    );
 
     itemsContainer.appendChild(row);
-    calculateGrandTotal();
+    calculateRow(row);
+    return row;
   }
 
-  function updatePrice(selectEl) {
-    const row = selectEl.closest(".item-row");
-    if (!row) return;
+  function addSelectedProductToList() {
+    const product = resolveTypedProduct();
+    if (!product) {
+      showToast("Search for and select a product first.", "warning");
+      productSearchInput?.focus();
+      renderProductSearchResults(productSearchInput?.value || "");
+      return;
+    }
 
-    const selectedOption = selectEl.options[selectEl.selectedIndex];
-    const price = selectedOption
-      ? selectedOption.getAttribute("data-price") || 0
-      : 0;
+    if (product.stock <= 0) {
+      showToast(`${product.name} is out of stock.`, "error");
+      return;
+    }
 
-    row.querySelector(".price-input").value = parseFloat(price).toFixed(2);
-    calculateRow(row);
+    const quantity = safeNumber(productEntryQty?.value);
+    if (quantity <= 0) {
+      showToast("Quantity must be greater than zero.", "warning");
+      productEntryQty?.focus();
+      return;
+    }
+
+    const existingRow = Array.from(
+      itemsContainer?.querySelectorAll(".item-row") || [],
+    ).find((row) => row.dataset.productId === product.id);
+    const existingQty = safeNumber(
+      existingRow?.querySelector(".qty-input")?.value,
+    );
+    const requestedQty = existingQty + quantity;
+
+    if (requestedQty > product.stock) {
+      showToast(
+        `Only ${product.stock} unit(s) of ${product.name} are available.`,
+        "error",
+      );
+      return;
+    }
+
+    if (existingRow) {
+      const rowQtyInput = existingRow.querySelector(".qty-input");
+      if (rowQtyInput) rowQtyInput.value = String(requestedQty);
+      calculateRow(existingRow);
+    } else {
+      createItemRow(product, quantity);
+    }
+
+    clearProductSelection({ keepFocus: window.innerWidth > 700 });
   }
 
   function calculateRow(rowOrElement) {
@@ -365,24 +669,46 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const qty = parseFloat(row.querySelector(".qty-input").value) || 0;
     const price = parseFloat(row.querySelector(".price-input").value) || 0;
-    const subtotal = qty * price;
+    const stock = safeNumber(row.dataset.stock);
+    const discount = Math.min(
+      Math.max(safeNumber(row.dataset.discount), 0),
+      100,
+    );
+    const subtotal = qty * price * (1 - discount / 100);
+
+    row.classList.toggle("has-stock-error", qty > stock || qty <= 0);
+    row
+      .querySelector(".qty-input")
+      ?.setAttribute(
+        "aria-invalid",
+        qty > stock || qty <= 0 ? "true" : "false",
+      );
 
     row.querySelector(".subtotal-input").value = formatMoney(subtotal);
+    const discountInput = row.querySelector(".discount-percent-input");
+    const lineSubtotalInput = row.querySelector(".line-subtotal-input");
+    if (discountInput) discountInput.value = String(discount);
+    if (lineSubtotalInput) lineSubtotalInput.value = formatMoney(subtotal);
+
+    const discountNote = row.querySelector(".item-discount-note");
+    if (discountNote) {
+      discountNote.textContent =
+        discount > 0 ? `-${discount}% discount applied` : "";
+    }
+
     calculateGrandTotal();
   }
 
   function calculateGrandTotal() {
-    let total = 0;
-
-    document.querySelectorAll(".subtotal-input").forEach((input) => {
-      total += parseFloat(input.value) || 0;
-    });
+    const totals = getSaleTotals();
+    const total = totals.total;
 
     if (grandTotalEl) {
       grandTotalEl.textContent = formatMoney(total);
     }
 
-    togglePaymentFields();
+    togglePaymentFields(total);
+    updateChangeDue();
     renderLiveReceipt();
 
     if (typeof wizardCurrentStep !== "undefined" && wizardCurrentStep === 3) {
@@ -390,48 +716,98 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   }
 
+  function getSaleTotals() {
+    let subtotal = 0;
+    let total = 0;
+
+    document.querySelectorAll(".item-row").forEach((row) => {
+      const qty = safeNumber(row.querySelector(".qty-input")?.value);
+      const basePrice = safeNumber(row.dataset.basePrice);
+      const lineTotal = safeNumber(row.querySelector(".subtotal-input")?.value);
+      subtotal += qty * basePrice;
+      total += lineTotal;
+    });
+
+    return {
+      subtotal,
+      discount: Math.max(subtotal - total, 0),
+      total,
+    };
+  }
+
+  function updateChangeDue() {
+    const total = getGrandTotalValue();
+    const amountPaid = safeNumber(amountPaidInput?.value);
+    const status = paymentStatus?.value || "Paid";
+    const isPaid = status === "Paid";
+    const settlement = isPaid
+      ? Math.max(amountPaid - total, 0)
+      : Math.max(total - amountPaid, 0);
+    const changeDueEl = document.getElementById("changeDue");
+    const settlementLabel = document.getElementById("settlementLabel");
+    const reviewSettlementLabel = document.getElementById(
+      "reviewSettlementLabel",
+    );
+    const settlementCard = document.getElementById("settlementCard");
+
+    if (changeDueEl) changeDueEl.textContent = formatMoney(settlement);
+    if (settlementLabel)
+      settlementLabel.textContent = isPaid ? "Change Due" : "Balance Due";
+    if (reviewSettlementLabel)
+      reviewSettlementLabel.textContent = isPaid ? "Change Due" : "Balance Due";
+    settlementCard?.classList.toggle("is-balance", !isPaid);
+    return settlement;
+  }
+
   function renderLiveReceipt() {
     const receiptLines = document.getElementById("receiptLines");
     const receiptTotalEl = document.getElementById("receiptTotal");
+    const receiptSubtotalEl = document.getElementById("receiptSubtotal");
+    const receiptDiscountEl = document.getElementById("receiptDiscount");
+    const receiptItemCountEl = document.getElementById("receiptItemCount");
+    const receiptRowCountEl = document.getElementById("receiptRowCount");
     if (!receiptLines) return;
 
     const rows = document.querySelectorAll(".item-row");
-    let total = 0;
     let html = "";
+    let itemCount = 0;
 
     rows.forEach((row) => {
-      const select = row.querySelector(".product-select");
       const qtyInput = row.querySelector(".qty-input");
       const subtotalInput = row.querySelector(".subtotal-input");
-      if (!select || !select.value) return;
-
-      const rawName =
-        select.options[select.selectedIndex]?.textContent || "Item";
-      const name = rawName.split(" (Stock:")[0];
+      const name = row.dataset.productName || "Item";
+      const discount = safeNumber(row.dataset.discount);
       const qty = qtyInput ? qtyInput.value : "1";
+      itemCount += safeNumber(qty);
       const subtotal = subtotalInput ? parseFloat(subtotalInput.value) || 0 : 0;
-      total += subtotal;
+      const discountBadge =
+        discount > 0
+          ? `<small class="receipt-line-discount">-${escapeHtml(discount)}%</small>`
+          : "";
 
-      html += `<div class="receipt-line"><span>${safeText(name)} &times; ${safeText(qty)}</span><span>₱${formatMoney(subtotal)}</span></div>`;
+      html += `<div class="receipt-line"><span>${escapeHtml(name)} &times; ${escapeHtml(qty)} ${discountBadge}</span><span>₱${formatMoney(subtotal)}</span></div>`;
     });
 
     receiptLines.innerHTML =
       html ||
       '<p class="receipt-empty">No items yet — add a product to see it here.</p>';
-    if (receiptTotalEl) receiptTotalEl.textContent = formatMoney(total);
+    const totals = getSaleTotals();
+    if (receiptItemCountEl)
+      receiptItemCountEl.textContent = safeText(itemCount);
+    if (receiptRowCountEl)
+      receiptRowCountEl.textContent = safeText(rows.length);
+    if (receiptSubtotalEl)
+      receiptSubtotalEl.textContent = formatMoney(totals.subtotal);
+    if (receiptDiscountEl)
+      receiptDiscountEl.textContent = formatMoney(totals.discount);
+    if (receiptTotalEl) receiptTotalEl.textContent = formatMoney(totals.total);
   }
 
   function removeRow(button) {
-    const rows = document.querySelectorAll(".item-row");
-
-    if (rows.length <= 1) {
-      showToast("At least one item row is required.", "warning");
-      return;
-    }
-
     const row = button.closest(".item-row");
     if (row) {
       row.remove();
+      updateItemsEmptyState();
       calculateGrandTotal();
     }
   }
@@ -443,8 +819,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (itemsContainer) {
       itemsContainer.innerHTML = "";
-      addItemRow();
+      updateItemsEmptyState();
     }
+
+    clearProductSelection();
 
     if (grandTotalEl) {
       grandTotalEl.textContent = "0.00";
@@ -456,9 +834,10 @@ document.addEventListener("DOMContentLoaded", function () {
     if (attachReceiptText)
       attachReceiptText.textContent = "Attach Receipt Photo (optional)";
 
-    applyCustomerFieldRules();
     syncOrderStatusWithPayment();
     togglePaymentFields();
+    syncCustomerSection(true);
+    updateChangeDue();
     renderLiveReceipt();
 
     if (typeof goToWizardStep === "function") {
@@ -472,34 +851,52 @@ document.addEventListener("DOMContentLoaded", function () {
     );
   }
 
-  function togglePaymentFields() {
+  function togglePaymentFields(totalOverride) {
     if (!paymentStatus) return;
 
-    const status = paymentStatus.value;
-    const total = getGrandTotalValue();
+    const total =
+      typeof totalOverride === "number" ? totalOverride : getGrandTotalValue();
+    const status = paymentStatus.value || "Paid";
+    const statusChanged = status !== previousPaymentStatus;
 
-    if (status === "Paid") {
-      if (amountPaidGroup) amountPaidGroup.style.display = "block";
-      if (dueDateGroup) dueDateGroup.style.display = "none";
-      if (amountPaidInput)
-        amountPaidInput.value = total > 0 ? formatMoney(total) : "0.00";
-      if (dueDateInput) dueDateInput.value = "";
-    } else if (status === "Unpaid") {
-      if (amountPaidGroup) amountPaidGroup.style.display = "block";
-      if (dueDateGroup) dueDateGroup.style.display = "block";
-      if (amountPaidInput) amountPaidInput.value = "0.00";
-    } else if (status === "Partially Paid") {
-      if (amountPaidGroup) amountPaidGroup.style.display = "block";
-      if (dueDateGroup) dueDateGroup.style.display = "block";
+    if (checkoutSummaryGrid) {
+      checkoutSummaryGrid.dataset.paymentStatus = status;
+    }
 
-      const current = parseFloat(amountPaidInput?.value || "0") || 0;
-      if (current >= total && total > 0 && amountPaidInput) {
+    if (amountPaidGroup) {
+      const shouldShow = status !== "Unpaid";
+      amountPaidGroup.hidden = !shouldShow;
+      amountPaidGroup.style.display = shouldShow ? "flex" : "none";
+    }
+
+    if (amountPaidInput) {
+      const currentAmount = safeNumber(amountPaidInput.value);
+      amountPaidInput.readOnly = status === "Unpaid";
+      amountPaidInput.removeAttribute("max");
+
+      if (status === "Paid") {
+        amountPaidInput.min = "0";
+        if (statusChanged || currentAmount < total || currentAmount <= 0) {
+          amountPaidInput.value = total > 0 ? formatMoney(total) : "0.00";
+        }
+      } else if (status === "Partially Paid") {
+        amountPaidInput.min = "0.01";
+        if (total > 0.01) {
+          amountPaidInput.max = formatMoney(total - 0.01);
+        }
+        if (statusChanged || currentAmount >= total) {
+          amountPaidInput.value = "0.00";
+        }
+      } else {
+        amountPaidInput.min = "0";
         amountPaidInput.value = "0.00";
       }
     }
 
-    applyCustomerFieldRules();
     syncOrderStatusWithPayment();
+    syncCustomerSection(statusChanged && status === "Paid");
+    previousPaymentStatus = status;
+    updateChangeDue();
   }
 
   function validateSaleForm() {
@@ -508,6 +905,11 @@ document.addEventListener("DOMContentLoaded", function () {
     const payment = paymentStatus ? paymentStatus.value : "Paid";
     const total = getGrandTotalValue();
     const amountPaid = parseFloat(amountPaidInput?.value || "0") || 0;
+
+    if (!validateCustomerDetails()) {
+      goToWizardStep(1);
+      return false;
+    }
 
     if (total <= 0) {
       showToast(
@@ -525,26 +927,19 @@ document.addEventListener("DOMContentLoaded", function () {
 
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i];
-      const productSelect = row.querySelector(".product-select");
+      const productIdInput = row.querySelector(".product-id-input");
       const qtyInput = row.querySelector(".qty-input");
       const priceInput = row.querySelector(".price-input");
 
-      if (!productSelect || !productSelect.value) {
+      if (!productIdInput?.value || !productsById.has(productIdInput.value)) {
         showToast(`Please select a product for item ${i + 1}.`, "warning");
         return false;
       }
 
       const qty = parseFloat(qtyInput?.value || "0") || 0;
       const price = parseFloat(priceInput?.value || "0") || 0;
-      const stock =
-        parseFloat(
-          productSelect.options[productSelect.selectedIndex]?.getAttribute(
-            "data-stock",
-          ) || "0",
-        ) || 0;
-      const productName =
-        productSelect.options[productSelect.selectedIndex]?.textContent ||
-        `item ${i + 1}`;
+      const stock = safeNumber(row.dataset.stock);
+      const productName = row.dataset.productName || `item ${i + 1}`;
 
       if (qty <= 0) {
         showToast(
@@ -568,104 +963,37 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     }
 
-    if (
-      (payment === "Unpaid" || payment === "Partially Paid") &&
-      (!customerSelect || !customerSelect.value)
-    ) {
-      showToast(
-        "Please select or add a customer for unpaid or partially paid sales.",
-        "warning",
-      );
-      return false;
-    }
-
-    if (
-      (payment === "Unpaid" || payment === "Partially Paid") &&
-      !dueDateInput?.value
-    ) {
-      showToast(
-        "Please select a due date for unpaid or partially paid sales.",
-        "warning",
-      );
-      return false;
-    }
-
     if (payment === "Paid") {
-      if (Math.abs(amountPaid - total) > 0.009) {
+      if (amountPaid + 0.009 < total) {
         showToast(
-          "For paid sales, the amount paid must match the grand total.",
+          "For paid sales, the amount paid must cover the grand total.",
           "warning",
         );
         return false;
       }
-    }
-
-    if (payment === "Unpaid") {
-      if (amountPaid > 0) {
-        showToast(
-          "For unpaid sales, amount paid must stay at 0.00.",
-          "warning",
-        );
-        return false;
-      }
-    }
-
-    if (payment === "Partially Paid") {
+    } else if (payment === "Partially Paid") {
       if (amountPaid <= 0 || amountPaid >= total) {
         showToast(
-          "For partially paid sales, amount paid must be more than 0 and less than the grand total.",
+          "For a partially paid sale, enter an amount greater than zero and lower than the total.",
           "warning",
         );
+        amountPaidInput?.focus();
+        goToWizardStep(2);
         return false;
       }
+    } else if (payment === "Unpaid" && amountPaid !== 0) {
+      if (amountPaidInput) amountPaidInput.value = "0.00";
     }
 
     syncOrderStatusWithPayment();
     return true;
   }
 
-  function validateCustomerForm() {
-    if (!customerForm) return false;
-
-    const status = paymentStatus ? paymentStatus.value : "Paid";
-    const customerNameField = document.getElementById("customerNameField");
-
-    if (!customerNameField || !customerNameField.value.trim()) {
-      showToast("Please enter the customer name.", "warning");
-      return false;
-    }
-
-    if (status === "Unpaid" || status === "Partially Paid") {
-      if (!phoneField?.value.trim()) {
-        showToast(
-          "Phone is required for unpaid or partially paid customers.",
-          "warning",
-        );
-        return false;
-      }
-
-      if (!emailField?.value.trim()) {
-        showToast(
-          "Email is required for unpaid or partially paid customers.",
-          "warning",
-        );
-        return false;
-      }
-
-      if (!addressField?.value.trim()) {
-        showToast(
-          "Address is required for unpaid or partially paid customers.",
-          "warning",
-        );
-        return false;
-      }
-    }
-
-    return true;
-  }
-
   async function doSubmitSaleAjax() {
-    if (!saleForm) return;
+    if (!saleForm || saleSubmissionInProgress) return;
+
+    saleSubmissionInProgress = true;
+    let saleSaved = false;
 
     syncOrderStatusWithPayment();
 
@@ -673,7 +1001,14 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (saveSaleBtn) {
       saveSaleBtn.disabled = true;
-      saveSaleBtn.textContent = "Saving...";
+      saveSaleBtn.setAttribute("aria-busy", "true");
+      saveSaleBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Saving...';
+    }
+    if (saleConfirmYes) {
+      saleConfirmYes.disabled = true;
+      saleConfirmYes.setAttribute("aria-busy", "true");
+      saleConfirmYes.innerHTML =
+        '<i class="bi bi-hourglass-split"></i> Saving...';
     }
 
     try {
@@ -693,10 +1028,12 @@ document.addEventListener("DOMContentLoaded", function () {
       }
 
       if (data.success) {
+        saleSaved = true;
         showToast(data.message || "Sale saved successfully.", "success", 4200);
 
         if (saveSaleBtn) {
-          saveSaleBtn.textContent = "Saved Successfully";
+          saveSaleBtn.innerHTML =
+            '<i class="bi bi-check-circle-fill"></i> Saved Successfully';
         }
 
         setTimeout(() => {
@@ -719,19 +1056,27 @@ document.addEventListener("DOMContentLoaded", function () {
         4200,
       );
     } finally {
-      setTimeout(() => {
-        if (saveSaleBtn) {
-          saveSaleBtn.disabled = false;
-          saveSaleBtn.textContent = "Save Sale";
-        }
-      }, 1200);
+      saleSubmissionInProgress = false;
+
+      if (!saleSaved && saveSaleBtn) {
+        saveSaleBtn.disabled = false;
+        saveSaleBtn.removeAttribute("aria-busy");
+        saveSaleBtn.innerHTML = '<i class="bi bi-check-circle"></i> Save Sale';
+      }
+
+      if (saleConfirmYes) {
+        saleConfirmYes.disabled = false;
+        saleConfirmYes.removeAttribute("aria-busy");
+        saleConfirmYes.innerHTML =
+          '<i class="bi bi-check-circle"></i> Save Sale';
+      }
     }
   }
 
   async function submitSaleAjax(e) {
     e.preventDefault();
 
-    if (!saleForm) return;
+    if (!saleForm || saleSubmissionInProgress) return;
     if (!validateSaleForm()) return;
 
     openSaleConfirm();
@@ -739,133 +1084,148 @@ document.addEventListener("DOMContentLoaded", function () {
 
   if (saleConfirmYes) {
     saleConfirmYes.addEventListener("click", async function () {
-      closeSaleConfirm();
+      if (saleSubmissionInProgress) return;
+      closeSaleConfirm({ restoreFocus: false });
       await doSubmitSaleAjax();
     });
   }
 
-  async function submitCustomerAjax(e) {
-    e.preventDefault();
-
-    if (!customerForm) {
-      showToast("Customer form not found.", "error");
-      return;
-    }
-
-    if (!validateCustomerForm()) return;
-
-    const formData = new FormData(customerForm);
-
-    if (saveCustomerBtn) {
-      saveCustomerBtn.disabled = true;
-      saveCustomerBtn.textContent = "Saving...";
-    }
-
-    try {
-      const response = await fetch("/NexGen/CODE/PHP/customer_save.php", {
-        method: "POST",
-        body: formData,
-        headers: {
-          "X-Requested-With": "XMLHttpRequest",
-          Accept: "application/json",
-        },
-      });
-
-      const rawText = await response.text();
-      let data;
-
-      try {
-        data = JSON.parse(rawText);
-      } catch (jsonError) {
-        console.error("Invalid JSON response:", rawText);
-        throw new Error(
-          "Server returned an invalid response while saving customer.",
-        );
-      }
-
-      if (data.success) {
-        if (!customerSelect) {
-          throw new Error("Customer dropdown not found.");
-        }
-
-        const existingOption = Array.from(customerSelect.options).find(
-          (option) => option.value === String(data.customer.id),
-        );
-
-        if (!existingOption) {
-          const option = document.createElement("option");
-          option.value = String(data.customer.id);
-          option.textContent = `${safeText(data.customer.customer_name)} (${safeText(data.customer.customer_code)})`;
-          customerSelect.appendChild(option);
-        }
-
-        customerSelect.value = String(data.customer.id);
-
-        customerForm.reset();
-        closeCustomerModal();
-        showToast(data.message || "Customer added successfully.", "success");
-      } else {
-        showToast(data.message || "Failed to add customer.", "error");
-      }
-    } catch (error) {
-      console.error("Customer AJAX error:", error);
-      showToast(
-        error.message || "An error occurred while saving the customer.",
-        "error",
-      );
-    } finally {
-      if (saveCustomerBtn) {
-        saveCustomerBtn.disabled = false;
-        saveCustomerBtn.textContent = "Save Customer";
-      }
-    }
-  }
-
   if (itemsContainer) {
-    itemsContainer.addEventListener("change", function (e) {
-      if (e.target.classList.contains("product-select")) {
-        updatePrice(e.target);
-      }
-    });
-
     itemsContainer.addEventListener("input", function (e) {
-      if (
-        e.target.classList.contains("qty-input") ||
-        e.target.classList.contains("price-input")
-      ) {
+      if (e.target.classList.contains("qty-input")) {
         calculateRow(e.target);
       }
     });
 
     itemsContainer.addEventListener("click", function (e) {
-      if (e.target.classList.contains("row-remove")) {
-        removeRow(e.target);
-      }
+      const removeButton = e.target.closest(".row-remove");
+      if (removeButton) removeRow(removeButton);
     });
   }
+
+  if (productSearchInput) {
+    productSearchInput.addEventListener("focus", function () {
+      renderProductSearchResults(productSearchInput.value);
+    });
+
+    productSearchInput.addEventListener("input", function () {
+      if (
+        selectedProduct &&
+        productSearchInput.value.trim() !== selectedProduct.name
+      ) {
+        selectedProduct = null;
+        if (selectedProductIdInput) selectedProductIdInput.value = "";
+      }
+      clearProductSearchBtn?.classList.toggle(
+        "show",
+        productSearchInput.value.length > 0,
+      );
+      renderProductSearchResults(productSearchInput.value);
+    });
+
+    productSearchInput.addEventListener("keydown", function (e) {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        if (!productSearchResults?.classList.contains("show")) {
+          renderProductSearchResults(productSearchInput.value);
+        }
+        if (!visibleSearchProducts.length) return;
+        const direction = e.key === "ArrowDown" ? 1 : -1;
+        activeSearchIndex =
+          (activeSearchIndex + direction + visibleSearchProducts.length) %
+          visibleSearchProducts.length;
+        updateSearchResultHighlight();
+        return;
+      }
+
+      if (e.key === "Enter") {
+        e.preventDefault();
+        if (
+          activeSearchIndex >= 0 &&
+          visibleSearchProducts[activeSearchIndex]
+        ) {
+          selectSearchProduct(visibleSearchProducts[activeSearchIndex]);
+          return;
+        }
+
+        const exactProduct = resolveTypedProduct();
+        if (exactProduct) {
+          selectSearchProduct(exactProduct);
+        } else {
+          renderProductSearchResults(productSearchInput.value);
+        }
+      }
+
+      if (e.key === "Escape") closeProductSearchResults();
+    });
+  }
+
+  productSearchResults?.addEventListener("click", function (e) {
+    const option = e.target.closest(".product-search-option");
+    if (!option || option.disabled) return;
+    selectSearchProduct(productsById.get(option.dataset.productId));
+  });
+
+  clearProductSearchBtn?.addEventListener("click", function () {
+    clearProductSelection({ keepFocus: true });
+    renderProductSearchResults();
+  });
+
+  addProductBtn?.addEventListener("click", addSelectedProductToList);
+
+  productEntryQty?.addEventListener("keydown", function (e) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      addSelectedProductToList();
+    }
+  });
+
+  document.addEventListener("click", function (e) {
+    if (!productCombobox?.contains(e.target)) closeProductSearchResults();
+  });
 
   if (saleForm) {
     saleForm.addEventListener("submit", submitSaleAjax);
   }
 
-  if (customerForm) {
-    customerForm.addEventListener("submit", submitCustomerAjax);
-  }
+  saveSaleBtn?.addEventListener("click", function (event) {
+    event.preventDefault();
+    if (!saleForm || saleSubmissionInProgress) return;
+
+    if (typeof saleForm.requestSubmit === "function") {
+      saleForm.requestSubmit();
+    } else {
+      saleForm.dispatchEvent(
+        new Event("submit", { bubbles: true, cancelable: true }),
+      );
+    }
+  });
+
+  customerChoice?.addEventListener("change", function () {
+    syncCustomerChoice();
+    if (customerChoice.value === "new") {
+      customerNameInput?.focus();
+    }
+  });
 
   if (paymentStatus) {
     paymentStatus.addEventListener("change", function () {
       togglePaymentFields();
-      applyCustomerFieldRules();
       syncOrderStatusWithPayment();
+      updateChangeDue();
     });
   }
 
   if (amountPaidInput) {
     amountPaidInput.addEventListener("input", function () {
       const status = paymentStatus ? paymentStatus.value : "Paid";
-      if (!orderStatus) return;
-
-      orderStatus.value = status === "Paid" ? "Fulfilled" : "Pending";
+      if (orderStatus) {
+        orderStatus.value = status === "Paid" ? "Fulfilled" : "Pending";
+      }
+      updateChangeDue();
+      if (typeof wizardCurrentStep !== "undefined" && wizardCurrentStep === 3) {
+        renderWizardReview();
+      }
     });
   }
 
@@ -1020,6 +1380,134 @@ document.addEventListener("DOMContentLoaded", function () {
 
   renderSalesPage();
 
+  /* ================= SALES SEARCH (AJAX, submit-only) ================= */
+  const salesSearchForm = document.querySelector(".sales-search-form");
+  const salesSearchInput = document.getElementById("salesSearchInput");
+  const salesSearchButton = salesSearchForm?.querySelector(".search-btn");
+  const salesSearchFeedback = document.getElementById("salesSearchFeedback");
+  const salesRecordCount = document.getElementById("salesRecordCount");
+
+  function syncSearchState(searchValue) {
+    document
+      .querySelectorAll('input[type="hidden"][name="search"]')
+      .forEach((input) => {
+        input.value = searchValue;
+      });
+
+    document.querySelectorAll('a[href*="search="]').forEach((link) => {
+      try {
+        const url = new URL(link.getAttribute("href"), window.location.href);
+        url.searchParams.set("search", searchValue);
+        link.setAttribute("href", url.pathname + url.search + url.hash);
+      } catch (error) {
+        console.warn("Unable to synchronize a sales filter link.", error);
+      }
+    });
+  }
+
+  function setSalesSearchLoading(isLoading) {
+    salesGrid?.setAttribute("aria-busy", isLoading ? "true" : "false");
+    salesGrid?.classList.toggle("is-loading", isLoading);
+
+    if (salesSearchButton) {
+      salesSearchButton.disabled = isLoading;
+      salesSearchButton.classList.toggle("is-loading", isLoading);
+      salesSearchButton.innerHTML = isLoading
+        ? '<i class="bi bi-arrow-repeat" aria-hidden="true"></i>'
+        : '<i class="bi bi-arrow-right-circle" aria-hidden="true"></i>';
+      salesSearchButton.setAttribute(
+        "aria-label",
+        isLoading ? "Searching sales" : "Search sales",
+      );
+    }
+
+    if (salesSearchFeedback) {
+      if (isLoading) {
+        salesSearchFeedback.textContent = "Searching sales…";
+      } else if (salesSearchFeedback.textContent === "Searching sales…") {
+        salesSearchFeedback.textContent = "";
+      }
+    }
+  }
+
+  salesSearchForm?.addEventListener("submit", async function (event) {
+    event.preventDefault();
+    if (!salesGrid || salesSearchButton?.disabled) return;
+
+    const requestUrl = new URL(
+      salesSearchForm.action || window.location.href,
+      window.location.href,
+    );
+    requestUrl.search = new URLSearchParams(
+      new FormData(salesSearchForm),
+    ).toString();
+    const searchValue = salesSearchInput?.value.trim() || "";
+
+    setSalesSearchLoading(true);
+
+    try {
+      const response = await fetch(requestUrl.toString(), {
+        method: "GET",
+        credentials: "same-origin",
+        headers: {
+          "X-Requested-With": "XMLHttpRequest",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("The sales search could not be completed.");
+      }
+
+      if (
+        response.redirected &&
+        new URL(response.url).pathname !== requestUrl.pathname
+      ) {
+        window.location.assign(response.url);
+        return;
+      }
+
+      const responseHtml = await response.text();
+      const responseDocument = new DOMParser().parseFromString(
+        responseHtml,
+        "text/html",
+      );
+      const replacementGrid = responseDocument.getElementById("salesGrid");
+      const replacementCount =
+        responseDocument.getElementById("salesRecordCount");
+
+      if (!replacementGrid || !replacementCount) {
+        throw new Error("The server returned an incomplete sales list.");
+      }
+
+      salesGrid.innerHTML = replacementGrid.innerHTML;
+      if (salesRecordCount) {
+        salesRecordCount.textContent = replacementCount.textContent;
+      }
+
+      salesCurrentPage = 1;
+      renderSalesPage();
+      syncSearchState(searchValue);
+      window.history.replaceState(
+        {},
+        "",
+        requestUrl.pathname + requestUrl.search,
+      );
+
+      const recordCount = getSaleCards().length;
+      if (salesSearchFeedback) {
+        salesSearchFeedback.textContent = `${recordCount} sales record${recordCount === 1 ? "" : "s"} found.`;
+      }
+    } catch (error) {
+      console.error("Sales search error:", error);
+      showToast(
+        error.message || "Unable to search sales. Please try again.",
+        "error",
+      );
+    } finally {
+      setSalesSearchLoading(false);
+    }
+  });
+
   /* ================= QUICK VIEW MODAL ================= */
   const quickViewModal = document.getElementById("quickViewModal");
 
@@ -1048,6 +1536,7 @@ document.addEventListener("DOMContentLoaded", function () {
     setText("qvSalesNo", card.dataset.salesNo || "—");
     setText("qvDate", card.dataset.date || "—");
     setText("qvCashier", card.dataset.cashier || "—");
+    setText("qvCustomer", card.dataset.customer || "Walk-in customer");
     setText("qvQty", card.dataset.qty || "0");
     setText("qvMethod", card.dataset.paymentMethod || "—");
     setText("qvItems", card.dataset.items || "—");
@@ -1118,51 +1607,143 @@ document.addEventListener("DOMContentLoaded", function () {
     if (wizardBackBtn) wizardBackBtn.classList.toggle("hidden", step === 1);
     if (wizardNextBtn)
       wizardNextBtn.classList.toggle("hidden", step === WIZARD_TOTAL_STEPS);
+    if (saveSaleBtn)
+      saveSaleBtn.classList.toggle("hidden", step !== WIZARD_TOTAL_STEPS);
 
     if (step === 3) {
       renderWizardReview();
     }
+
+    if (saleModal?.classList.contains("show")) {
+      const activePanel = Array.from(wizardStepPanels).find(
+        (panel) => parseInt(panel.dataset.step, 10) === step,
+      );
+      activePanel?.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }
+
+  function canOpenWizardStep(step) {
+    if (step > 1 && !validateCustomerDetails()) {
+      goToWizardStep(1);
+      customerInfoCard?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return false;
+    }
+
+    if (step >= 3 && !document.querySelector(".item-row")) {
+      showToast(
+        "Add at least one product before reviewing the sale.",
+        "warning",
+      );
+      goToWizardStep(2);
+      productSearchInput?.focus();
+      return false;
+    }
+    return true;
   }
 
   function renderWizardReview() {
     if (!reviewGrid) return;
 
     const methodEl = document.getElementById("paymentMethod");
+    const salesNoEl = saleForm?.querySelector('input[name="sales_no"]');
+    const cashierEl = document.getElementById("cashierDisplay");
     const paymentVal = paymentStatus ? paymentStatus.value : "—";
     const methodVal = methodEl ? methodEl.value : "—";
-    const orderVal = orderStatus ? orderStatus.value : "—";
+    const salesNoVal = salesNoEl?.value || "—";
+    const cashierVal = cashierEl?.value || "Current User";
+    const selectedCustomer = customersById.get(customerChoice?.value || "");
     const customerVal =
-      customerSelect && customerSelect.value
-        ? customerSelect.options[customerSelect.selectedIndex]?.textContent ||
-          "Selected"
-        : "Walk-in";
-    const itemCount = document.querySelectorAll(
-      ".item-row .product-select",
-    ).length;
-    const filledItemCount = Array.from(
-      document.querySelectorAll(".item-row .product-select"),
-    ).filter((s) => s.value).length;
-    const total = getGrandTotalValue();
-    const amountPaidVal = amountPaidInput ? amountPaidInput.value : "0.00";
-    const dueDateVal =
-      dueDateInput && dueDateInput.value ? dueDateInput.value : "—";
+      selectedCustomer?.customer_name || customerNameInput?.value.trim() || "—";
+    const dueDateVal = dueDateInput?.value || "—";
+
+    const customerReviewRows = isCreditSale()
+      ? `
+            <div class="review-row review-row-customer"><i class="bi bi-person-vcard"></i><div><span>Customer</span><strong>${escapeHtml(customerVal)}</strong></div></div>
+            <div class="review-row review-row-due-date"><i class="bi bi-calendar-check"></i><div><span>Due Date</span><strong>${escapeHtml(dueDateVal)}</strong></div></div>
+        `
+      : "";
 
     reviewGrid.innerHTML = `
-            <div class="review-row"><span>Payment Status</span><strong>${safeText(paymentVal)}</strong></div>
-            <div class="review-row"><span>Payment Method</span><strong>${safeText(methodVal)}</strong></div>
-            <div class="review-row"><span>Order Status</span><strong>${safeText(orderVal)}</strong></div>
-            <div class="review-row"><span>Customer</span><strong>${safeText(customerVal)}</strong></div>
-            <div class="review-row"><span>Amount Paid</span><strong>₱${safeText(amountPaidVal)}</strong></div>
-            <div class="review-row"><span>Due Date</span><strong>${safeText(dueDateVal)}</strong></div>
-            <div class="review-row full-span"><span>Items</span><strong>${filledItemCount} of ${itemCount} row${itemCount === 1 ? "" : "s"} completed</strong></div>
+            <div class="review-row review-row-status"><i class="bi bi-credit-card"></i><div><span>Payment Status</span><strong>${escapeHtml(paymentVal)}</strong></div></div>
+            <div class="review-row review-row-method"><i class="bi bi-cash-coin"></i><div><span>Payment Method</span><strong>${escapeHtml(methodVal)}</strong></div></div>
+            <div class="review-row review-row-sales-no"><i class="bi bi-hash"></i><div><span>Sales No.</span><strong>${escapeHtml(salesNoVal)}</strong></div></div>
+            <div class="review-row review-row-cashier"><i class="bi bi-person-badge"></i><div><span>Cashier</span><strong>${escapeHtml(cashierVal)}</strong></div></div>
+            ${customerReviewRows}
         `;
 
-    if (reviewTotalEl) reviewTotalEl.textContent = formatMoney(total);
+    const reviewItemsBody = document.getElementById("reviewItemsBody");
+    let reviewItemsHtml = "";
+
+    document.querySelectorAll(".item-row").forEach((row) => {
+      const productId = row.dataset.productId;
+      if (!productId || !productsById.has(productId)) return;
+
+      const name = row.dataset.productName || "Product";
+      const code = row.dataset.productCode || "No product code";
+      const imageUrl =
+        row.dataset.productImage || "/NexGen/IMAGES/default-product.png";
+      const qty = safeNumber(row.querySelector(".qty-input")?.value);
+      const price = safeNumber(row.querySelector(".price-input")?.value);
+      const discount = Math.min(
+        Math.max(safeNumber(row.dataset.discount), 0),
+        100,
+      );
+      const lineTotal = safeNumber(row.querySelector(".subtotal-input")?.value);
+
+      reviewItemsHtml += `
+        <div class="review-item-row">
+          <div class="review-product-summary">
+            <img src="${escapeHtml(imageUrl)}" alt="">
+            <span><strong>${escapeHtml(name)}</strong><small>${escapeHtml(code)}</small></span>
+          </div>
+          <span data-label="Qty">${escapeHtml(qty)}</span>
+          <span data-label="Unit Price">₱${formatMoney(price)}</span>
+          <span data-label="Discount" class="review-item-discount">${discount > 0 ? `-${escapeHtml(discount)}%` : "—"}</span>
+          <span data-label="Subtotal">₱${formatMoney(lineTotal)}</span>
+        </div>`;
+    });
+
+    if (reviewItemsBody) {
+      reviewItemsBody.innerHTML =
+        reviewItemsHtml ||
+        '<p class="review-items-empty">No products selected.</p>';
+      reviewItemsBody.querySelectorAll("img").forEach((image) => {
+        image.addEventListener(
+          "error",
+          function () {
+            image.src = "/NexGen/IMAGES/default-product.png";
+          },
+          { once: true },
+        );
+      });
+    }
+
+    const totals = getSaleTotals();
+    const amountPaid = safeNumber(amountPaidInput?.value);
+    const changeDue = updateChangeDue();
+    const setMoney = (id, value) => {
+      const element = document.getElementById(id);
+      if (element) element.textContent = formatMoney(value);
+    };
+
+    setMoney("reviewSubtotal", totals.subtotal);
+    setMoney("reviewDiscount", totals.discount);
+    setMoney("reviewAmountPaid", amountPaid);
+    setMoney("reviewChangeDue", changeDue);
+    if (reviewTotalEl) reviewTotalEl.textContent = formatMoney(totals.total);
+
+    const receiptInput = document.getElementById("receiptImageInput");
+    const reviewReceiptFile = document.getElementById("reviewReceiptFile");
+    if (reviewReceiptFile) {
+      reviewReceiptFile.textContent =
+        receiptInput?.files?.[0]?.name || "No receipt photo attached";
+    }
   }
 
   if (wizardNextBtn) {
     wizardNextBtn.addEventListener("click", function () {
-      goToWizardStep(wizardCurrentStep + 1);
+      const nextStep = wizardCurrentStep + 1;
+      if (canOpenWizardStep(nextStep)) goToWizardStep(nextStep);
     });
   }
 
@@ -1174,7 +1755,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
   wizardDots.forEach((dot) => {
     dot.addEventListener("click", function () {
-      goToWizardStep(parseInt(dot.getAttribute("data-goto"), 10) || 1);
+      const targetStep = parseInt(dot.getAttribute("data-goto"), 10) || 1;
+      if (canOpenWizardStep(targetStep)) goToWizardStep(targetStep);
     });
   });
 
@@ -1185,29 +1767,33 @@ document.addEventListener("DOMContentLoaded", function () {
   if (receiptImageInput && attachReceiptText) {
     receiptImageInput.addEventListener("change", function () {
       if (receiptImageInput.files && receiptImageInput.files[0]) {
-        attachReceiptText.textContent = receiptImageInput.files[0].name;
+        const file = receiptImageInput.files[0];
+        if (file.size > 5 * 1024 * 1024) {
+          receiptImageInput.value = "";
+          attachReceiptText.textContent = "Attach Receipt Photo (optional)";
+          showToast("Receipt photo must be 5MB or smaller.", "warning");
+          return;
+        }
+        attachReceiptText.textContent = file.name;
       } else {
         attachReceiptText.textContent = "Attach Receipt Photo (optional)";
       }
+      if (wizardCurrentStep === 3) renderWizardReview();
     });
   }
 
   window.openSaleModal = openSaleModal;
   window.closeSaleModal = closeSaleModal;
-  window.openCustomerModal = openCustomerModal;
-  window.closeCustomerModal = closeCustomerModal;
-  window.addItemRow = addItemRow;
-  window.updatePrice = updatePrice;
   window.calculateRow = calculateRow;
   window.removeRow = removeRow;
   window.openQuickView = openQuickView;
   window.closeQuickView = closeQuickView;
   window.goToWizardStep = goToWizardStep;
 
-  addItemRow();
-  applyCustomerFieldRules();
+  updateItemsEmptyState();
   syncOrderStatusWithPayment();
   togglePaymentFields();
+  syncCustomerSection();
   renderLiveReceipt();
   goToWizardStep(1);
 

@@ -2,9 +2,10 @@
 session_start();
 require_once("config.php");
 require_once __DIR__ . '/tenant_helper.php';
+require_once __DIR__ . '/ar_helper.php';
 $businessId = nxRequireBusinessId($conn);
 require_once(__DIR__ . "/audit_helper.php");
-set_audit_context($conn); 
+set_audit_context($conn);
 
 
 if (!isset($_SESSION['user_id'])) {
@@ -12,8 +13,8 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['owner', 'employee'], true)) {
-    $_SESSION['error'] = 'Unauthorized access.';
+if (!nxArEnabled()) {
+    $_SESSION['error'] = 'You do not have access to Accounts Receivable.';
     header("Location: /NexGen/CODE/PHP/dashboard.php");
     exit();
 }
@@ -27,6 +28,12 @@ if ($id <= 0) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!validateCsrfToken('receivable_payment_form', $_POST['csrf_token'] ?? null)) {
+        $_SESSION['error'] = 'Your session expired. Please try again.';
+        header("Location: /NexGen/CODE/PHP/receivable_payment.php?id=" . $id);
+        exit();
+    }
+
     $additional_payment = (float)($_POST['additional_payment'] ?? 0);
     $notes = trim($_POST['notes'] ?? '');
 
@@ -601,14 +608,45 @@ if (!$data) {
             body{align-items:flex-start;padding:18px 12px}
             .card{padding:22px 16px;border-radius:24px}
             .card-header{align-items:flex-start}
-            .info-stats{grid-template-columns:1fr}
+            .info{padding:16px 14px 8px}
+            .info-line{
+                display:grid;
+                grid-template-columns:110px minmax(0,1fr);
+                align-items:start;
+                justify-content:start;
+                gap:10px;
+                padding-bottom:11px;
+                margin-bottom:11px;
+            }
+            .info-line .value{
+                justify-self:start;
+                min-width:0;
+                text-align:left;
+                overflow-wrap:anywhere;
+            }
+            .info-stats{
+                grid-template-columns:1fr;
+                gap:8px;
+            }
+            .info-stat{
+                padding:12px 14px;
+                text-align:left;
+            }
+            .stat-label{margin-bottom:4px}
             .actions{flex-direction:column}
+        }
+
+        @media(max-width:380px){
+            .info-line{grid-template-columns:94px minmax(0,1fr);gap:8px}
+            .info-line .label{font-size:.75rem}
+            .info-line .value{font-size:.9rem}
         }
     </style>
 </head>
 <body>
     <form method="POST" class="card">
         <input type="hidden" name="id" value="<?php echo (int)$data['id']; ?>">
+        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(generateCsrfToken('receivable_payment_form')); ?>">
 
         <div class="card-header">
             <div class="icon-wrap"><i class="bi bi-cash-stack"></i></div>

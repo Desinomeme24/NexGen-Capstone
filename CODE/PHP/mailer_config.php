@@ -8,8 +8,8 @@ require_once __DIR__ . '/PHPMailer/src/Exception.php';
 require_once __DIR__ . '/PHPMailer/src/PHPMailer.php';
 require_once __DIR__ . '/PHPMailer/src/SMTP.php';
 
-const NEXGEN_MAIL_USERNAME = 'YOUR_GMAIL@gmail.com';
-const NEXGEN_MAIL_APP_PASSWORD = 'YOUR_NEW_16_CHARACTER_APP_PASSWORD';
+const NEXGEN_MAIL_USERNAME = 'nexgeneration2026@gmail.com';
+const NEXGEN_MAIL_APP_PASSWORD = 'rbvwpabkiitlwhri';
 
 function createMailer(): PHPMailer
 {

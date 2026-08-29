@@ -2471,3 +2471,32 @@ html[data-theme="light"] .footer-social a:hover {
   color: #0a1128;
   border-color: #f7ca84;
 }
+
+/* Keep native select menus readable in the default dark theme.
+   The workspace picker is rendered by the shared header, so these
+   rules intentionally target selects anywhere on the dashboard page. */
+html:not([data-theme="light"]) body select {
+  color-scheme: dark;
+  background-color: #10275f !important;
+  color: #f8fbff !important;
+  border-color: rgba(127, 166, 255, 0.42) !important;
+}
+
+html:not([data-theme="light"]) body select option,
+html:not([data-theme="light"]) body select optgroup {
+  background-color: #10275f !important;
+  color: #f8fbff !important;
+}
+
+html:not([data-theme="light"]) body select option:checked {
+  background: #31549a linear-gradient(0deg, #31549a, #31549a) !important;
+  color: #ffffff !important;
+}
+
+html:not([data-theme="light"]) body select option:disabled {
+  color: #91a7d2 !important;
+}
+
+html[data-theme="light"] body select {
+  color-scheme: light;
+}

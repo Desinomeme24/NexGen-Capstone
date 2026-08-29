@@ -1,6 +1,9 @@
 <?php
-session_start();
-include 'config.php';
+require_once __DIR__ . '/config.php';
+
+if (isset($_SESSION['user_id'])) {
+    enforceSessionTimeout();
+}
 
 /* CAPTCHA: Generate manual image captcha for login and signup */
 $loginCaptcha = generateImageCaptcha('login_form');
@@ -14,6 +17,7 @@ $popupMessage = "";
 $popupType = "";
 $openLoginAfterLoad = false;
 $openSignupAfterLoad = false;
+$openForgotAfterLoad = false;
 
 if (isset($_GET['open']) && $_GET['open'] === 'signup') {
     $openSignupAfterLoad = true;
@@ -21,6 +25,10 @@ if (isset($_GET['open']) && $_GET['open'] === 'signup') {
 
 if (isset($_GET['open']) && $_GET['open'] === 'login') {
     $openLoginAfterLoad = true;
+}
+
+if (isset($_GET['open']) && $_GET['open'] === 'forgot') {
+    $openForgotAfterLoad = true;
 }
 
 /* LOCKOUT: Real-time countdown data */
@@ -86,12 +94,23 @@ if (isset($_SESSION['error'])) {
     unset($_SESSION['error']);
     unset($_SESSION['form_type']);
 }
+
+/* Release PHP's per-session file lock before the browser requests CAPTCHA
+   images. Otherwise concurrent image requests queue behind the page request. */
+if (session_status() === PHP_SESSION_ACTIVE) {
+    session_write_close();
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<?php include __DIR__ . '/theme_init.php'; ?>
+<?php
+include __DIR__ . '/theme_init.php';
+if (session_status() === PHP_SESSION_ACTIVE) {
+    session_write_close();
+}
+?>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NexGen — Where The Expertise Creates Excellence</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2800,7 +2819,7 @@ if (isset($_SESSION['error'])) {
     flex-direction: column;
     justify-content: center;
   }
-  .signup-form-panel { flex: 1.3; max-height: 85vh; overflow-y: auto; padding: 25px 35px; }
+  .signup-form-panel { flex: 1.3; max-height: 85vh; overflow-y: auto; padding: 25px 35px; justify-content: flex-start; }
 
   .login-info-panel, .signup-info-panel {
     flex: 0.8;
@@ -3430,6 +3449,213 @@ html[data-theme="light"] .trust-card {
 html[data-theme="light"] .trust-card .trust-title { color: #0b1f73; }
 html[data-theme="light"] .trust-card .trust-desc { color: #2d4570; }
 
+/* ========== FORGOT PASSWORD MODAL ========== */
+.modal-box.forgot-modern-box {
+  max-width: 460px;
+  padding: 36px 34px;
+  background: var(--bg-mid);
+  border: 1px solid var(--line-bright);
+  box-shadow: 0 15px 45px rgba(0,0,0,0.45);
+  border-radius: 28px;
+  color: var(--text-main);
+}
+.forgot-modern-box h2 {
+  font-size: 26px;
+  font-weight: 800;
+  font-family: var(--font-display);
+  text-align: center;
+  margin-bottom: 6px;
+}
+.forgot-modern-box .forgot-subtext {
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+.forgot-modern-box .glass-field-icon { color: var(--text-faint); }
+.forgot-modern-box .password-toggle-btn { color: var(--text-faint) !important; }
+.forgot-modern-box .password-toggle-btn svg { fill: var(--text-faint) !important; }
+.forgot-step { display: flex; flex-direction: column; }
+.forgot-step[hidden] { display: none !important; }
+
+.forgot-inline-alert {
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 13px;
+  margin-bottom: 14px;
+  line-height: 1.4;
+  display: none;
+}
+.forgot-inline-alert.show { display: block; }
+.forgot-inline-alert.error { background: rgba(220,70,70,0.15); border: 1px solid rgba(220,70,70,0.4); color: #ff9a9a; }
+.forgot-inline-alert.success { background: rgba(16,160,80,0.15); border: 1px solid rgba(16,160,80,0.4); color: #7be3ab; }
+
+.forgot-account-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 18px; }
+.forgot-account-option {
+  display: flex; align-items: center; gap: 12px;
+  padding: 13px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line-bright);
+  background: rgba(255,255,255,0.05);
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--text-main);
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+.forgot-account-option:hover { border-color: var(--accent-dim); }
+.forgot-account-option input[type="radio"] { width: auto; accent-color: var(--accent-dim); }
+.forgot-account-option .account-business { color: var(--text-faint); font-size: 12px; display: block; margin-top: 2px; }
+
+.forgot-otp-input {
+  letter-spacing: 6px;
+  text-align: center;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.forgot-resend-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+.forgot-resend-btn {
+  background: none; border: none; padding: 0;
+  color: var(--accent-dim); font-weight: 700; cursor: pointer; font-size: 13px;
+  font-family: var(--font-body);
+}
+.forgot-resend-btn:disabled { color: var(--text-faint); cursor: default; }
+
+.forgot-step-links { display:flex; justify-content:center; gap:16px; margin-top:18px; font-size:13px; }
+.forgot-step-links button {
+  background:none; border:none; padding:0; cursor:pointer;
+  color: var(--text-faint); font-weight:700; font-size:13px; text-decoration:none; font-family: var(--font-body);
+}
+.forgot-step-links button:hover { color: var(--text-main); }
+
+.forgot-masked-email { text-align:center; font-size:13px; color:var(--text-muted); margin-bottom:16px; }
+.forgot-masked-email strong { color: var(--text-main); }
+
+@media (max-width: 480px) {
+  .modal-box.forgot-modern-box { padding: 28px 22px; max-width: 92vw; }
+}
+
+html[data-theme="light"] .modal-box.forgot-modern-box {
+  background: #fff;
+  border: none;
+  box-shadow: 0 15px 35px rgba(0,0,0,0.2);
+  color: #333;
+}
+html[data-theme="light"] .forgot-modern-box .forgot-subtext,
+html[data-theme="light"] .forgot-masked-email { color: #666; }
+html[data-theme="light"] .forgot-masked-email strong { color: #222; }
+html[data-theme="light"] .forgot-account-option {
+  background: #f4f7f6;
+  border-color: #eee;
+  color: #333;
+}
+html[data-theme="light"] .forgot-account-option .account-business { color: #888; }
+html[data-theme="light"] .forgot-resend-row { color: #777; }
+html[data-theme="light"] .forgot-resend-btn { color: #3554b8; }
+html[data-theme="light"] .forgot-resend-btn:disabled { color: #aaa; }
+html[data-theme="light"] .forgot-step-links button { color: #777; }
+html[data-theme="light"] .forgot-step-links button:hover { color: #333; }
+html[data-theme="light"] .forgot-inline-alert.error { background: rgba(220,70,70,0.08); border-color: rgba(220,70,70,0.35); color:#a12525; }
+html[data-theme="light"] .forgot-inline-alert.success { background: rgba(16,160,80,0.08); border-color: rgba(16,160,80,0.35); color:#0d7a3f; }
+
+/* Keep every registration field readable in all interaction states.
+   These rules intentionally come last so older light-form declarations do
+   not turn focused or browser-autofilled fields white while dark mode is on. */
+.signup-modern-box .signup-form-panel input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+.signup-modern-box .signup-form-panel select,
+.signup-modern-box .signup-form-panel textarea {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+  color: var(--text-main) !important;
+  caret-color: var(--text-main);
+  color-scheme: dark;
+}
+
+.signup-modern-box .signup-form-panel input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"])::placeholder,
+.signup-modern-box .signup-form-panel textarea::placeholder {
+  color: var(--text-muted) !important;
+  opacity: 0.78;
+}
+
+.signup-modern-box .signup-form-panel input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):focus,
+.signup-modern-box .signup-form-panel select:focus,
+.signup-modern-box .signup-form-panel textarea:focus {
+  background-color: rgba(255, 255, 255, 0.09) !important;
+  color: var(--text-main) !important;
+  border-color: rgba(247, 202, 132, 0.75);
+  box-shadow: 0 0 0 3px rgba(247, 202, 132, 0.14);
+}
+
+.signup-modern-box .signup-form-panel select option {
+  background-color: var(--bg-mid) !important;
+  color: var(--text-main) !important;
+}
+
+.signup-modern-box .signup-form-panel input:-webkit-autofill,
+.signup-modern-box .signup-form-panel input:-webkit-autofill:hover,
+.signup-modern-box .signup-form-panel input:-webkit-autofill:focus,
+.signup-modern-box .signup-form-panel input:autofill {
+  -webkit-text-fill-color: var(--text-main) !important;
+  caret-color: var(--text-main);
+  -webkit-box-shadow: 0 0 0 1000px #1d2d50 inset !important;
+  box-shadow: 0 0 0 1000px #1d2d50 inset !important;
+}
+
+.signup-modern-box .signup-form-panel input[type="file"] {
+  color: var(--text-muted) !important;
+}
+
+html[data-theme="light"] .signup-modern-box .signup-form-panel input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+html[data-theme="light"] .signup-modern-box .signup-form-panel select,
+html[data-theme="light"] .signup-modern-box .signup-form-panel textarea {
+  background-color: #f4f7f6 !important;
+  color: #333 !important;
+  caret-color: #333;
+  color-scheme: light;
+}
+
+html[data-theme="light"] .signup-modern-box .signup-form-panel input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"])::placeholder,
+html[data-theme="light"] .signup-modern-box .signup-form-panel textarea::placeholder {
+  color: #777 !important;
+  opacity: 1;
+}
+
+html[data-theme="light"] .signup-modern-box .signup-form-panel input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]):focus,
+html[data-theme="light"] .signup-modern-box .signup-form-panel select:focus,
+html[data-theme="light"] .signup-modern-box .signup-form-panel textarea:focus {
+  background-color: #fff !important;
+  color: #222 !important;
+  border-color: #3554b8;
+  box-shadow: 0 0 0 3px rgba(53, 84, 184, 0.12);
+}
+
+html[data-theme="light"] .signup-modern-box .signup-form-panel select option {
+  background-color: #fff !important;
+  color: #222 !important;
+}
+
+html[data-theme="light"] .signup-modern-box .signup-form-panel input:-webkit-autofill,
+html[data-theme="light"] .signup-modern-box .signup-form-panel input:-webkit-autofill:hover,
+html[data-theme="light"] .signup-modern-box .signup-form-panel input:-webkit-autofill:focus,
+html[data-theme="light"] .signup-modern-box .signup-form-panel input:autofill {
+  -webkit-text-fill-color: #222 !important;
+  caret-color: #222;
+  -webkit-box-shadow: 0 0 0 1000px #f4f7f6 inset !important;
+  box-shadow: 0 0 0 1000px #f4f7f6 inset !important;
+}
+
+html[data-theme="light"] .signup-modern-box .signup-form-panel input[type="file"] {
+  color: #666 !important;
+}
+
 </style>
 </head>
 <body>
@@ -3484,7 +3710,7 @@ html[data-theme="light"] .trust-card .trust-desc { color: #2d4570; }
                     </div>
                     <p class="login-lock-note" id="loginLockNote" style="color:#dc3545; font-size:12px; margin-bottom:10px; display:none;">This specific account is temporarily locked.</p>
                     <div class="captcha-checkbox-wrap" style="margin:10px 0;"><div class="captcha-checkbox-card"><div class="captcha-checkbox-left" style="gap:8px;"><input type="checkbox" id="loginRobotCheck"><label for="loginRobotCheck" style="font-size:13px; margin:0;">I'm not a robot</label></div><div class="captcha-checkbox-right"><img src="data:image/png;base64,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" alt="reCAPTCHA" width="32" height="32" style="width:32px;height:32px;object-fit:contain;display:block;" aria-hidden="true"><span>Manual<br>Captcha</span></div></div><div class="captcha-verified-text" id="loginVerifiedText" style="color:#28a745; font-size:12px; margin-top:5px; display:none;">Captcha verified.</div></div>
-                    <div style="text-align:center; margin:10px 0 20px;"><a href="/NexGen/CODE/PHP/forgot_password.php" style="color:#777; font-size:13px; text-decoration:none;">Forgot Your Password?</a></div>
+                    <div style="text-align:center; margin:10px 0 20px;"><a href="/NexGen/CODE/PHP/forgot_password.php" id="forgotPasswordLink" style="color:#777; font-size:13px; text-decoration:none;">Forgot Your Password?</a></div>
                     <button type="submit" class="glass-login-btn" id="loginSubmitBtn">Sign In</button>
                 </form>
             </div>
@@ -3502,7 +3728,7 @@ html[data-theme="light"] .trust-card .trust-desc { color: #2d4570; }
                     <div class="signup-grid">
                         <div>
                             <label for="signupUsername">Username</label>
-                            <input type="text" name="signup_username" id="signupUsername" required placeholder="Choose a username" autocomplete="username">
+                            <input type="text" name="signup_username" id="signupUsername" required minlength="3" maxlength="50" pattern="[A-Za-z0-9_.-]{3,50}" placeholder="Choose a username" autocomplete="username">
                         </div>
 
                         <div>
@@ -3516,12 +3742,12 @@ html[data-theme="light"] .trust-card .trust-desc { color: #2d4570; }
 
                         <div class="full-width">
                             <label for="fullName">Full Name</label>
-                            <input type="text" name="fullname" id="fullName" required placeholder="Enter your complete name" autocomplete="name">
+                            <input type="text" name="fullname" id="fullName" required minlength="2" maxlength="100" placeholder="Enter your complete name" autocomplete="name">
                         </div>
 
                         <div>
                             <label for="signupEmail">Email Address</label>
-                            <input type="email" name="email" id="signupEmail" required placeholder="example@email.com" autocomplete="email">
+                            <input type="email" name="email" id="signupEmail" required maxlength="100" placeholder="example@email.com" autocomplete="email">
                         </div>
 
                         <div>
@@ -3531,7 +3757,7 @@ html[data-theme="light"] .trust-card .trust-desc { color: #2d4570; }
 
                         <div class="full-width">
                             <label for="homeAddress">Personal Address</label>
-                            <input type="text" name="address" id="homeAddress" required placeholder="Enter your residential address" autocomplete="street-address">
+                            <input type="text" name="address" id="homeAddress" required minlength="5" maxlength="500" placeholder="Enter your residential address" autocomplete="street-address">
                         </div>
 
                         <div class="full-width role-fields owner-fields" hidden>
@@ -3540,24 +3766,23 @@ html[data-theme="light"] .trust-card .trust-desc { color: #2d4570; }
 
                         <div class="full-width role-fields owner-fields" hidden>
                             <label for="businessName">Business Name</label>
-                            <input type="text" name="business_name" id="businessName" placeholder="Enter the business name">
+                            <input type="text" name="business_name" id="businessName" minlength="2" maxlength="150" placeholder="Enter the business name">
                         </div>
 
                         <div class="role-fields owner-fields" hidden>
                             <label for="businessType">Business Type</label>
                             <select name="business_type" id="businessType">
                                 <option value="">Select business type</option>
-                                <option value="Sari-Sari Store">Sari-Sari Store</option>
-                                <option value="Mini Grocery">Mini Grocery</option>
-                                <option value="Mini Market">Mini Market</option>
-                                <option value="Retail Store">Retail Store</option>
-                                <option value="Other SME">Other SME</option>
+                                <option value="Hardware / Construction Supplies">Hardware / Construction Supplies</option>
+                                <option value="Mini Grocery / Sari-Sari Store">Mini Grocery / Sari-Sari Store</option>
+                                <option value="Pharmacy / Drugstore">Pharmacy / Drugstore</option>
+                                <option value="School / Office Supplies">School / Office Supplies</option>
                             </select>
                         </div>
 
                         <div class="role-fields owner-fields" hidden>
                             <label for="businessAddress">Business Address</label>
-                            <input type="text" name="business_address" id="businessAddress" placeholder="Enter the complete business address">
+                            <input type="text" name="business_address" id="businessAddress" minlength="5" maxlength="500" placeholder="Enter the complete business address">
                         </div>
 
                         <div class="full-width role-fields employee-fields" hidden>
@@ -3566,29 +3791,36 @@ html[data-theme="light"] .trust-card .trust-desc { color: #2d4570; }
 
                         <div class="role-fields employee-fields" hidden>
                             <label for="businessCode">SME Business Code</label>
-                            <input type="text" name="business_code" id="businessCode" placeholder="Code provided by the SME owner" maxlength="20">
+                            <input type="text" name="business_code" id="businessCode" pattern="[A-Za-z0-9-]{3,20}" placeholder="Code provided by the SME owner" maxlength="20">
+                        </div>
+
+                        <div class="role-fields employee-fields" hidden>
+                            <label for="branchCode">Branch Code</label>
+                            <input type="text" name="branch_code" id="branchCode" pattern="[A-Za-z0-9-]{3,20}" placeholder="Code for the branch where you work" maxlength="20">
+                            <small class="field-help">Ask the owner for both the business code and your specific branch code.</small>
                         </div>
 
                         <div class="role-fields employee-fields" hidden>
                             <label for="employeeNumber">Employee Number</label>
-                            <input type="text" name="employee_no" id="employeeNumber" placeholder="Enter your employee number" maxlength="50">
+                            <input type="text" name="employee_no" id="employeeNumber" pattern="[A-Za-z0-9._-]{1,50}" placeholder="Enter your employee number" maxlength="50">
                         </div>
 
                         <div>
                             <label for="signupPassword">Password</label>
                             <div class="password-field-wrap">
-                                <input type="password" name="signup_password" id="signupPassword" required placeholder="Enter password" autocomplete="new-password">
+                                <input type="password" name="signup_password" id="signupPassword" required minlength="12" maxlength="64" placeholder="Enter password" autocomplete="new-password">
                                 <button type="button" class="password-toggle-btn" data-target="signupPassword" aria-label="Show or hide password">
                                     <span class="eye-icon eye-open"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6Z"></path><circle cx="12" cy="12" r="3.2"></circle></svg></span>
                                     <span class="eye-icon eye-closed" style="display:none;"><svg viewBox="0 0 24 24"><path d="M3 3l18 18"></path><path d="M10.6 6.3A11.2 11.2 0 0 1 12 6c6.4 0 10 6 10 6a17.6 17.6 0 0 1-3.1 3.8"></path><path d="M6.7 6.8C4.1 8.5 2 12 2 12a17.3 17.3 0 0 0 10 6c1.4 0 2.7-.2 3.8-.7"></path><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"></path></svg></span>
                                 </button>
                             </div>
+                            <small class="field-help">Use 12–64 characters with uppercase, lowercase, a number, and a special character.</small>
                         </div>
 
                         <div>
                             <label for="signupConfirmPassword">Confirm Password</label>
                             <div class="password-field-wrap">
-                                <input type="password" name="confirm_password" id="signupConfirmPassword" required placeholder="Repeat password" autocomplete="new-password">
+                                <input type="password" name="confirm_password" id="signupConfirmPassword" required minlength="12" maxlength="64" placeholder="Repeat password" autocomplete="new-password">
                                 <button type="button" class="password-toggle-btn" data-target="signupConfirmPassword" aria-label="Show or hide password">
                                     <span class="eye-icon eye-open"><svg viewBox="0 0 24 24"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6Z"></path><circle cx="12" cy="12" r="3.2"></circle></svg></span>
                                     <span class="eye-icon eye-closed" style="display:none;"><svg viewBox="0 0 24 24"><path d="M3 3l18 18"></path><path d="M10.6 6.3A11.2 11.2 0 0 1 12 6c6.4 0 10 6 10 6a17.6 17.6 0 0 1-3.1 3.8"></path><path d="M6.7 6.8C4.1 8.5 2 12 2 12a17.3 17.3 0 0 0 10 6c1.4 0 2.7-.2 3.8-.7"></path><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"></path></svg></span>
@@ -3598,8 +3830,8 @@ html[data-theme="light"] .trust-card .trust-desc { color: #2d4570; }
 
                         <div class="full-width">
                             <label for="validId">Valid ID or Proof of Employment</label>
-                            <input type="file" name="valid_id" id="validId" accept=".jpg,.jpeg,.png,.gif,.webp,.pdf" required>
-                            <small class="field-help">Accepted: JPG, PNG, GIF, WEBP, or PDF. Maximum size: 5 MB.</small>
+                            <input type="file" name="valid_id" id="validId" accept=".jpg,.jpeg,.png,.pdf" required>
+                            <small class="field-help">Accepted: JPG, PNG, or PDF. Maximum size: 5 MB. Files are stored privately for administrator review.</small>
                         </div>
                     </div>
                     <div class="privacy-consent-wrap" id="signupPrivacyWrap">
@@ -3616,6 +3848,76 @@ html[data-theme="light"] .trust-card .trust-desc { color: #2d4570; }
                 <h2>Welcome Back!</h2>
                 <p>To keep connected with us please login with your personal info</p>
                 <button class="btn-outline" id="goToLogin">Sign In</button>
+            </div>
+        </div>
+    </div>
+    <div class="modal" id="forgotModal" style="display:none;">
+        <div class="modal-box forgot-modern-box">
+            <button class="close-modal" id="closeForgot" type="button" style="color: var(--text-main); top: 15px; right: 20px; z-index: 10;">&times;</button>
+
+            <div class="forgot-step" id="forgotStepEmail" data-step="email">
+                <h2>Forgot Password</h2>
+                <p class="forgot-subtext">Enter your email address to look up your account.</p>
+                <div class="forgot-inline-alert" id="forgotEmailAlert"></div>
+                <form id="forgotEmailForm">
+                    <div class="glass-field">
+                        <span class="glass-field-icon"><svg viewBox="0 0 24 24" style="fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round;"><rect x="3" y="5" width="18" height="14" rx="2"></rect><path d="m4 7 8 6 8-6"></path></svg></span>
+                        <input type="email" id="forgotEmailInput" required placeholder="Enter your email address" autocomplete="email">
+                    </div>
+                    <button type="submit" class="glass-login-btn" id="forgotEmailSubmitBtn">Continue</button>
+                </form>
+                <div class="forgot-step-links">
+                    <button type="button" id="forgotBackToLoginFromEmail">Back to Login</button>
+                </div>
+            </div>
+
+            <div class="forgot-step" id="forgotStepSelect" data-step="select" hidden>
+                <h2>Select Account</h2>
+                <p class="forgot-subtext">This email is linked to more than one account. Choose which one to reset.</p>
+                <div class="forgot-inline-alert" id="forgotSelectAlert"></div>
+                <form id="forgotSelectForm">
+                    <div class="forgot-account-list" id="forgotAccountList"></div>
+                    <button type="submit" class="glass-login-btn" id="forgotSelectSubmitBtn">Send OTP</button>
+                </form>
+                <div class="forgot-step-links">
+                    <button type="button" id="forgotStartOverFromSelect">Start Over</button>
+                </div>
+            </div>
+
+            <div class="forgot-step" id="forgotStepOtp" data-step="otp" hidden>
+                <h2>Reset Password</h2>
+                <p class="forgot-masked-email">We sent a code to <strong id="forgotMaskedEmail"></strong></p>
+                <div class="forgot-inline-alert" id="forgotOtpAlert"></div>
+                <form id="forgotResetForm">
+                    <div class="glass-field">
+                        <span class="glass-field-icon"><svg viewBox="0 0 24 24" style="fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round;"><rect x="4" y="4" width="16" height="16" rx="3"></rect><path d="M9 4v16M15 4v16M4 9h16M4 15h16"></path></svg></span>
+                        <input type="text" id="forgotOtpInput" class="forgot-otp-input" maxlength="6" inputmode="numeric" pattern="[0-9]*" required placeholder="000000" autocomplete="one-time-code">
+                    </div>
+                    <div class="glass-field password-field-wrap">
+                        <span class="glass-field-icon"><svg viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="9.5" rx="2.2"></rect><path d="M8 10.5V7.8a4 4 0 0 1 8 0v2.7"></path></svg></span>
+                        <input type="password" id="forgotNewPassword" required placeholder="New password" autocomplete="new-password">
+                        <button type="button" class="password-toggle-btn" data-target="forgotNewPassword" style="background:none; border:none; color:#777; cursor:pointer; padding-right:15px;" aria-label="Show or hide password">
+                            <span class="eye-icon eye-open"><svg viewBox="0 0 24 24" style="width:20px; height:20px; fill:#777;"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6Z"></path><circle cx="12" cy="12" r="3.2"></circle></svg></span>
+                            <span class="eye-icon eye-closed" style="display:none;"><svg viewBox="0 0 24 24" style="width:20px; height:20px; fill:#777;"><path d="M3 3l18 18"></path><path d="M10.6 6.3A11.2 11.2 0 0 1 12 6c6.4 0 10 6 10 6a17.6 17.6 0 0 1-3.1 3.8"></path><path d="M6.7 6.8C4.1 8.5 2 12 2 12a17.3 17.3 0 0 0 10 6c1.4 0 2.7-.2 3.8-.7"></path><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"></path></svg></span>
+                        </button>
+                    </div>
+                    <div class="glass-field password-field-wrap">
+                        <span class="glass-field-icon"><svg viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="9.5" rx="2.2"></rect><path d="M8 10.5V7.8a4 4 0 0 1 8 0v2.7"></path></svg></span>
+                        <input type="password" id="forgotConfirmPassword" required placeholder="Confirm new password" autocomplete="new-password">
+                        <button type="button" class="password-toggle-btn" data-target="forgotConfirmPassword" style="background:none; border:none; color:#777; cursor:pointer; padding-right:15px;" aria-label="Show or hide password">
+                            <span class="eye-icon eye-open"><svg viewBox="0 0 24 24" style="width:20px; height:20px; fill:#777;"><path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6Z"></path><circle cx="12" cy="12" r="3.2"></circle></svg></span>
+                            <span class="eye-icon eye-closed" style="display:none;"><svg viewBox="0 0 24 24" style="width:20px; height:20px; fill:#777;"><path d="M3 3l18 18"></path><path d="M10.6 6.3A11.2 11.2 0 0 1 12 6c6.4 0 10 6 10 6a17.6 17.6 0 0 1-3.1 3.8"></path><path d="M6.7 6.8C4.1 8.5 2 12 2 12a17.3 17.3 0 0 0 10 6c1.4 0 2.7-.2 3.8-.7"></path><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"></path></svg></span>
+                        </button>
+                    </div>
+                    <button type="submit" class="glass-login-btn" id="forgotResetSubmitBtn">Reset Password</button>
+                </form>
+                <div class="forgot-resend-row">
+                    <span>Didn't get the code?</span>
+                    <button type="button" class="forgot-resend-btn" id="forgotResendBtn">Resend OTP</button>
+                </div>
+                <div class="forgot-step-links">
+                    <button type="button" id="forgotStartOverFromOtp">Start Over</button>
+                </div>
             </div>
         </div>
     </div>
@@ -3650,7 +3952,7 @@ html[data-theme="light"] .trust-card .trust-desc { color: #2d4570; }
                 <?php foreach ($loginCaptcha['items'] as $item): ?>
                     <label class="captcha-popup-item">
                         <input type="checkbox" name="captcha_selection[]" value="<?php echo htmlspecialchars($item['id']); ?>" form="loginForm">
-                        <img src="<?php echo htmlspecialchars($item['relative_path']); ?>" alt="Captcha image">
+                        <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" data-captcha-src="<?php echo htmlspecialchars($item['relative_path']); ?>" alt="Captcha image">
                         <span></span>
                     </label>
                 <?php endforeach; ?>
@@ -3684,7 +3986,7 @@ html[data-theme="light"] .trust-card .trust-desc { color: #2d4570; }
                 <?php foreach ($signupCaptcha['items'] as $item): ?>
                     <label class="captcha-popup-item">
                         <input type="checkbox" name="captcha_selection[]" value="<?php echo htmlspecialchars($item['id']); ?>" form="signupForm">
-                        <img src="<?php echo htmlspecialchars($item['relative_path']); ?>" alt="Captcha image">
+                        <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" data-captcha-src="<?php echo htmlspecialchars($item['relative_path']); ?>" alt="Captcha image">
                         <span></span>
                     </label>
                 <?php endforeach; ?>
@@ -3733,7 +4035,7 @@ html[data-theme="light"] .trust-card .trust-desc { color: #2d4570; }
         <h3>Login Warning</h3>
         <p id="attemptPopupMessage">Your login attempt failed.</p>
         <div class="attempts-left-highlight" id="attemptsLeftHighlight">2</div>
-        <p style="margin-top: 10px;">attempt(s) left before your account is temporarily locked.</p>
+        <p style="margin-top: 10px;">failed attempt(s) remaining before the account is automatically locked.</p>
         <button type="button" class="attempt-popup-btn" id="attemptPopupBtn">OK</button>
     </div>
 </div>
@@ -5036,6 +5338,7 @@ window.addEventListener('resize', updateAboutLines);
 document.addEventListener('DOMContentLoaded', function() {
     const loginModal = document.getElementById("loginModal");
     const signupModal = document.getElementById("signupModal");
+    const forgotModal = document.getElementById("forgotModal");
 
     const openLoginBtn = document.getElementById("openLoginBtn");
     const openLoginArea = document.getElementById("openLoginArea");
@@ -5044,9 +5347,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const closeLogin = document.getElementById("closeLogin");
     const closeSignup = document.getElementById("closeSignup");
+    const closeForgot = document.getElementById("closeForgot");
 
     const goToSignup = document.getElementById("goToSignup");
     const goToLogin = document.getElementById("goToLogin");
+    const forgotPasswordLink = document.getElementById("forgotPasswordLink");
 
     /* Guards against race conditions from rapid/overlapping clicks:
        every modal action bumps this token, and any in-flight
@@ -5113,6 +5418,7 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             if (loginModal) { loginModal.style.display = 'none'; loginModal.classList.remove('modal-open', 'modal-closing'); }
             if (signupModal) { signupModal.style.display = 'none'; signupModal.classList.remove('modal-open', 'modal-closing'); }
+            if (forgotModal) { forgotModal.style.display = 'none'; forgotModal.classList.remove('modal-open', 'modal-closing'); }
         }
     };
 
@@ -5204,8 +5510,352 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    /* ========== FORGOT PASSWORD WIZARD ========== */
+    window.openForgotModal = function() {
+        const token = ++modalActionToken;
+        const activeModal = document.querySelector('.modal.modal-open');
+        if (activeModal && activeModal !== forgotModal) {
+            activeModal.classList.remove('modal-open');
+            activeModal.classList.add('modal-closing');
+            setTimeout(() => {
+                if (token !== modalActionToken) return;
+                activeModal.classList.remove('modal-closing');
+                activeModal.style.display = 'none';
+                if (forgotModal) { resetForgotWizard(); triggerOpenModal(forgotModal); }
+            }, 350);
+        } else if (forgotModal) {
+            resetForgotWizard();
+            triggerOpenModal(forgotModal);
+        }
+    };
+
+    function closeForgotAndOpen(openFn) {
+        const token = ++modalActionToken;
+        if (forgotModal && forgotModal.classList.contains('modal-open')) {
+            forgotModal.classList.remove('modal-open');
+            forgotModal.classList.add('modal-closing');
+            setTimeout(() => {
+                if (token !== modalActionToken) return;
+                forgotModal.classList.remove('modal-closing');
+                forgotModal.style.display = 'none';
+                openFn();
+            }, 350);
+        } else {
+            openFn();
+        }
+    }
+
+    if (forgotPasswordLink) {
+        forgotPasswordLink.addEventListener('click', function(e) {
+            e.preventDefault();
+            openForgotModal();
+        });
+    }
+
+    if (closeForgot) closeForgot.addEventListener('click', closeModals);
+
+    const forgotStepEls = {
+        email: document.getElementById('forgotStepEmail'),
+        select: document.getElementById('forgotStepSelect'),
+        otp: document.getElementById('forgotStepOtp')
+    };
+    const forgotEmailForm = document.getElementById('forgotEmailForm');
+    const forgotEmailInput = document.getElementById('forgotEmailInput');
+    const forgotEmailAlert = document.getElementById('forgotEmailAlert');
+    const forgotEmailSubmitBtn = document.getElementById('forgotEmailSubmitBtn');
+    const forgotSelectForm = document.getElementById('forgotSelectForm');
+    const forgotAccountList = document.getElementById('forgotAccountList');
+    const forgotSelectAlert = document.getElementById('forgotSelectAlert');
+    const forgotSelectSubmitBtn = document.getElementById('forgotSelectSubmitBtn');
+    const forgotResetForm = document.getElementById('forgotResetForm');
+    const forgotOtpAlert = document.getElementById('forgotOtpAlert');
+    const forgotOtpInput = document.getElementById('forgotOtpInput');
+    const forgotNewPassword = document.getElementById('forgotNewPassword');
+    const forgotConfirmPassword = document.getElementById('forgotConfirmPassword');
+    const forgotResetSubmitBtn = document.getElementById('forgotResetSubmitBtn');
+    const forgotResendBtn = document.getElementById('forgotResendBtn');
+    const forgotMaskedEmail = document.getElementById('forgotMaskedEmail');
+    const forgotBackToLoginFromEmail = document.getElementById('forgotBackToLoginFromEmail');
+    const forgotStartOverFromSelect = document.getElementById('forgotStartOverFromSelect');
+    const forgotStartOverFromOtp = document.getElementById('forgotStartOverFromOtp');
+
+    let forgotCooldownInterval = null;
+
+    function showForgotStep(name) {
+        Object.keys(forgotStepEls).forEach(function(key) {
+            if (forgotStepEls[key]) forgotStepEls[key].hidden = key !== name;
+        });
+        const focusMap = { email: forgotEmailInput, otp: forgotOtpInput };
+        const focusEl = focusMap[name];
+        if (focusEl) setTimeout(() => focusEl.focus(), 50);
+    }
+
+    function setForgotAlert(el, message, type) {
+        if (!el) return;
+        el.textContent = message;
+        el.className = 'forgot-inline-alert show ' + type;
+    }
+
+    function clearForgotAlert(el) {
+        if (!el) return;
+        el.textContent = '';
+        el.className = 'forgot-inline-alert';
+    }
+
+    function resetForgotWizard() {
+        clearInterval(forgotCooldownInterval);
+        if (forgotEmailForm) forgotEmailForm.reset();
+        if (forgotSelectForm) forgotSelectForm.reset();
+        if (forgotResetForm) forgotResetForm.reset();
+        if (forgotAccountList) forgotAccountList.innerHTML = '';
+        clearForgotAlert(forgotEmailAlert);
+        clearForgotAlert(forgotSelectAlert);
+        clearForgotAlert(forgotOtpAlert);
+        if (forgotResendBtn) { forgotResendBtn.disabled = false; forgotResendBtn.textContent = 'Resend OTP'; }
+        showForgotStep('email');
+    }
+
+    function startForgotCooldown(seconds) {
+        if (!forgotResendBtn) return;
+        clearInterval(forgotCooldownInterval);
+        let remaining = Math.max(0, parseInt(seconds, 10) || 0);
+        if (remaining <= 0) {
+            forgotResendBtn.disabled = false;
+            forgotResendBtn.textContent = 'Resend OTP';
+            return;
+        }
+        forgotResendBtn.disabled = true;
+        forgotResendBtn.textContent = 'Resend OTP (' + remaining + 's)';
+        forgotCooldownInterval = setInterval(function() {
+            remaining -= 1;
+            if (remaining <= 0) {
+                clearInterval(forgotCooldownInterval);
+                forgotResendBtn.disabled = false;
+                forgotResendBtn.textContent = 'Resend OTP';
+            } else {
+                forgotResendBtn.textContent = 'Resend OTP (' + remaining + 's)';
+            }
+        }, 1000);
+    }
+
+    function escapeForgotHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str == null ? '' : String(str);
+        return div.innerHTML;
+    }
+
+    function renderForgotAccountList(candidates) {
+        if (!forgotAccountList) return;
+        forgotAccountList.innerHTML = '';
+        candidates.forEach(function(c) {
+            const label = document.createElement('label');
+            label.className = 'forgot-account-option';
+            const businessHtml = c.business_name ? '<span class="account-business">' + escapeForgotHtml(c.business_name) + '</span>' : '';
+            label.innerHTML =
+                '<input type="radio" name="selected_user_id" value="' + Number(c.id) + '" required>' +
+                '<span>' + escapeForgotHtml(c.masked_username) + businessHtml + '</span>';
+            forgotAccountList.appendChild(label);
+        });
+    }
+
+    function fpPost(url, formData) {
+        return fetch(url, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: formData
+        }).then(function(res) {
+            return res.json();
+        });
+    }
+
+    function requestForgotOtp(formData, alertEl) {
+        return fpPost('/NexGen/CODE/PHP/send_forgot_otp.php', formData)
+            .then(function(data) {
+                if (!data.success) {
+                    if (data.restart) {
+                        resetForgotWizard();
+                        setForgotAlert(forgotEmailAlert, data.message || 'Please start again.', 'error');
+                        return;
+                    }
+                    if (typeof data.cooldown_remaining === 'number') {
+                        showForgotStep('otp');
+                        setForgotAlert(forgotOtpAlert, data.message || 'Please wait before requesting another OTP.', 'error');
+                        startForgotCooldown(data.cooldown_remaining);
+                        return;
+                    }
+                    setForgotAlert(alertEl, data.message || 'Something went wrong.', 'error');
+                    return;
+                }
+                if (forgotMaskedEmail) forgotMaskedEmail.textContent = data.masked_email || '';
+                clearForgotAlert(forgotOtpAlert);
+                showForgotStep('otp');
+                startForgotCooldown(data.cooldown || 60);
+            })
+            .catch(function() {
+                setForgotAlert(alertEl, 'Something went wrong. Please try again.', 'error');
+            });
+    }
+
+    if (forgotEmailForm) {
+        forgotEmailForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            clearForgotAlert(forgotEmailAlert);
+            const fd = new FormData();
+            fd.append('email', forgotEmailInput.value.trim());
+            forgotEmailSubmitBtn.disabled = true;
+            forgotEmailSubmitBtn.textContent = 'Please wait...';
+            fpPost('/NexGen/CODE/PHP/forgot_password_lookup.php', fd)
+                .then(function(data) {
+                    if (!data.success) {
+                        setForgotAlert(forgotEmailAlert, data.message || 'Something went wrong.', 'error');
+                        return;
+                    }
+                    if (data.matched === 0) {
+                        setForgotAlert(forgotEmailAlert, data.message, 'success');
+                        return requestForgotOtp(new FormData(), forgotEmailAlert);
+                    }
+                    if (data.matched === 1) {
+                        return requestForgotOtp(new FormData(), forgotEmailAlert);
+                    }
+                    renderForgotAccountList(data.candidates || []);
+                    showForgotStep('select');
+                })
+                .catch(function() {
+                    setForgotAlert(forgotEmailAlert, 'Something went wrong. Please try again.', 'error');
+                })
+                .finally(function() {
+                    forgotEmailSubmitBtn.disabled = false;
+                    forgotEmailSubmitBtn.textContent = 'Continue';
+                });
+        });
+    }
+
+    if (forgotSelectForm) {
+        forgotSelectForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            clearForgotAlert(forgotSelectAlert);
+            const checked = forgotSelectForm.querySelector('input[name="selected_user_id"]:checked');
+            if (!checked) {
+                setForgotAlert(forgotSelectAlert, 'Please select an account.', 'error');
+                return;
+            }
+            const fd = new FormData();
+            fd.append('selected_user_id', checked.value);
+            forgotSelectSubmitBtn.disabled = true;
+            forgotSelectSubmitBtn.textContent = 'Please wait...';
+            requestForgotOtp(fd, forgotSelectAlert).finally(function() {
+                forgotSelectSubmitBtn.disabled = false;
+                forgotSelectSubmitBtn.textContent = 'Send OTP';
+            });
+        });
+    }
+
+    if (forgotResetForm) {
+        forgotResetForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            clearForgotAlert(forgotOtpAlert);
+            if (forgotNewPassword.value !== forgotConfirmPassword.value) {
+                setForgotAlert(forgotOtpAlert, 'Passwords do not match.', 'error');
+                return;
+            }
+            const fd = new FormData();
+            fd.append('otp_code', forgotOtpInput.value.trim());
+            fd.append('new_password', forgotNewPassword.value);
+            fd.append('confirm_new_password', forgotConfirmPassword.value);
+            forgotResetSubmitBtn.disabled = true;
+            forgotResetSubmitBtn.textContent = 'Please wait...';
+            fpPost('/NexGen/CODE/PHP/process_reset_password.php', fd)
+                .then(function(data) {
+                    if (!data.success) {
+                        if (data.restart) {
+                            resetForgotWizard();
+                            setForgotAlert(forgotEmailAlert, data.message || 'Please start again.', 'error');
+                            return;
+                        }
+                        setForgotAlert(forgotOtpAlert, data.message || 'Something went wrong.', 'error');
+                        return;
+                    }
+                    const successMessage = data.message || 'Password reset successful. You may now log in.';
+                    closeModals();
+                    resetForgotWizard();
+                    setTimeout(function() {
+                        openLoginModal();
+                        if (typeof nxShowPopup === 'function') nxShowPopup('success', successMessage);
+                    }, 420);
+                })
+                .catch(function() {
+                    setForgotAlert(forgotOtpAlert, 'Something went wrong. Please try again.', 'error');
+                })
+                .finally(function() {
+                    forgotResetSubmitBtn.disabled = false;
+                    forgotResetSubmitBtn.textContent = 'Reset Password';
+                });
+        });
+    }
+
+    if (forgotResendBtn) {
+        forgotResendBtn.addEventListener('click', function() {
+            if (forgotResendBtn.disabled) return;
+            clearForgotAlert(forgotOtpAlert);
+            requestForgotOtp(new FormData(), forgotOtpAlert);
+        });
+    }
+
+    if (forgotBackToLoginFromEmail) {
+        forgotBackToLoginFromEmail.addEventListener('click', function(e) {
+            e.preventDefault();
+            closeForgotAndOpen(openLoginModal);
+        });
+    }
+
+    if (forgotStartOverFromSelect) {
+        forgotStartOverFromSelect.addEventListener('click', function(e) {
+            e.preventDefault();
+            resetForgotWizard();
+        });
+    }
+
+    if (forgotStartOverFromOtp) {
+        forgotStartOverFromOtp.addEventListener('click', function(e) {
+            e.preventDefault();
+            resetForgotWizard();
+        });
+    }
+
+    window.nxShowPopup = function(type, message) {
+        const overlay = document.createElement('div');
+        overlay.className = 'popup-overlay';
+        const box = document.createElement('div');
+        box.className = 'popup-box ' + type;
+        const icon = document.createElement('div');
+        icon.className = 'popup-icon';
+        icon.textContent = type === 'success' ? '✓' : '!';
+        const heading = document.createElement('h3');
+        heading.textContent = type === 'success' ? 'Success' : 'Error';
+        const text = document.createElement('p');
+        text.textContent = message;
+        box.appendChild(icon);
+        box.appendChild(heading);
+        box.appendChild(text);
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+
+        function dismiss() {
+            box.classList.add('popup-hide');
+            overlay.classList.add('popup-overlay-hide');
+            setTimeout(function() { overlay.remove(); }, 600);
+        }
+
+        const autoTimer = setTimeout(dismiss, 7000);
+        overlay.addEventListener('click', function() {
+            clearTimeout(autoTimer);
+            dismiss();
+        });
+        box.addEventListener('click', function(e) { e.stopPropagation(); });
+    };
+
     window.addEventListener("click", function(e) {
-        if (e.target === loginModal || e.target === signupModal) {
+        if (e.target === loginModal || e.target === signupModal || e.target === forgotModal) {
             closeModals();
         }
     });
@@ -5252,6 +5902,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     <?php endif; ?>
 
+    <?php if ($openForgotAfterLoad): ?>
+        if (typeof openForgotModal === "function") {
+            setTimeout(() => openForgotModal(), 100);
+        }
+    <?php endif; ?>
+
     const cookieBanner = document.getElementById('cookieBanner');
     const acceptCookiesBtn = document.getElementById('acceptCookiesBtn');
     const declineCookiesBtn = document.getElementById('declineCookiesBtn');
@@ -5282,8 +5938,20 @@ document.addEventListener('DOMContentLoaded', function() {
     const verifyLoginCaptcha = document.getElementById('verifyLoginCaptcha');
     const loginVerifiedText = document.getElementById('loginVerifiedText');
 
+    function loadCaptchaImages(popup) {
+        if (!popup) return;
+
+        popup.querySelectorAll('img[data-captcha-src]').forEach(function(image) {
+            if (image.dataset.captchaLoaded === '1') return;
+
+            image.src = image.dataset.captchaSrc;
+            image.dataset.captchaLoaded = '1';
+        });
+    }
+
     function openLoginCaptchaModal() {
         if (loginCaptchaPopup) {
+            loadCaptchaImages(loginCaptchaPopup);
             loginCaptchaPopup.classList.add('show');
             document.body.style.overflow = 'hidden';
         }
@@ -5373,6 +6041,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function openSignupCaptchaModal() {
         if (signupCaptchaPopup) {
+            loadCaptchaImages(signupCaptchaPopup);
             signupCaptchaPopup.classList.add('show');
             document.body.style.overflow = 'hidden';
         }
@@ -5786,6 +6455,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const businessType = document.getElementById('businessType');
     const businessAddress = document.getElementById('businessAddress');
     const businessCode = document.getElementById('businessCode');
+    const branchCode = document.getElementById('branchCode');
     const employeeNumber = document.getElementById('employeeNumber');
 
     function toggleGroup(fields, show) {
@@ -5809,6 +6479,7 @@ document.addEventListener('DOMContentLoaded', function () {
         setRequired(businessType, isOwner);
         setRequired(businessAddress, isOwner);
         setRequired(businessCode, isEmployee);
+        setRequired(branchCode, isEmployee);
         setRequired(employeeNumber, isEmployee);
     }
 

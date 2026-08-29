@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once("config.php");
+require_once __DIR__ . '/tenant_helper.php';
 
 if (!isset($_SESSION['user_id'])) {
     header("Location: /NexGen/CODE/PHP/index.php");
@@ -8,6 +9,31 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 $user_id = $_SESSION['user_id'];
+$role = (string)($_SESSION['role'] ?? '');
+$isWorkspaceUser = in_array($role, ['owner', 'employee'], true);
+$isOwner = $role === 'owner';
+$workspaceSchemaReady = nxWorkspaceSchemaReady($conn);
+$workspaceRequestSchemaReady = nxWorkspaceRequestSchemaReady($conn);
+$workspaces = $isWorkspaceUser ? nxGetAccessibleWorkspaces($conn, (int)$user_id, $role) : [];
+$activeWorkspace = $isWorkspaceUser ? nxGetActiveWorkspace($conn) : [];
+$pendingWorkspaceRequest = $isOwner && $workspaceRequestSchemaReady
+    ? nxGetPendingWorkspaceRequest($conn, (int)$user_id)
+    : null;
+$ownerEntities = [];
+
+if ($isOwner) {
+    foreach ($workspaces as $workspace) {
+        $entityId = (int)($workspace['business_entity_id'] ?? 0);
+        if ($entityId > 0 && !isset($ownerEntities[$entityId])) {
+            $ownerEntities[$entityId] = [
+                'id' => $entityId,
+                'business_name' => $workspace['business_name'],
+                'business_type' => $workspace['business_type'],
+                'business_code' => $workspace['business_code'],
+            ];
+        }
+    }
+}
 
 $sql = "SELECT username, full_name, email, phone, address, profile_image, business_id FROM users WHERE id = ?";
 $stmt = $conn->prepare($sql);
@@ -45,6 +71,7 @@ $accountCsrfToken = generateCsrfToken('update_account_form');
 $directPasswordCsrfToken = generateCsrfToken('change_password_direct_form');
 $requestOtpCsrfToken = generateCsrfToken('request_password_change_form');
 $verifyOtpCsrfToken = generateCsrfToken('verify_password_otp_form');
+$workspaceCsrfToken = generateCsrfToken('workspace_action');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -55,6 +82,49 @@ $verifyOtpCsrfToken = generateCsrfToken('verify_password_otp_form');
     <?php include("theme_init.php"); ?>
     <link rel="stylesheet" href="/NexGen/CODE/STYLE/settings.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        .workspace-summary,
+        .workspace-form-card {
+            border: 1px solid rgba(121, 151, 218, 0.28);
+            border-radius: 16px;
+            padding: 18px;
+            margin-bottom: 18px;
+            background: rgba(91, 126, 205, 0.08);
+        }
+        .workspace-summary h3,
+        .workspace-form-card h3 { margin: 0 0 8px; }
+        .workspace-code-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+        .workspace-code-chip {
+            display: inline-flex;
+            gap: 6px;
+            align-items: center;
+            padding: 7px 10px;
+            border-radius: 999px;
+            background: rgba(93, 128, 214, 0.16);
+            font-size: 0.86rem;
+        }
+        .workspace-divider { height: 1px; background: rgba(121, 151, 218, 0.22); margin: 22px 0; }
+        .workspace-rule-note { font-size: 0.9rem; line-height: 1.55; opacity: 0.82; }
+        .workspace-check { display: flex; align-items: flex-start; gap: 10px; margin: 10px 0 16px; }
+        .workspace-check input { width: auto; margin-top: 4px; }
+        .workspace-request-pending {
+            border-color: rgba(247, 200, 115, 0.5);
+            background: rgba(247, 200, 115, 0.10);
+        }
+        .workspace-request-pending .workspace-code-chip {
+            background: rgba(247, 200, 115, 0.16);
+        }
+        .workspace-request-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            margin-top: 10px;
+            font-size: 0.88rem;
+            font-weight: 700;
+            color: #f7c873;
+        }
+        html[data-theme="light"] .workspace-request-status { color: #93610c; }
+    </style>
 </head>
 <body class="settings-body">
 
@@ -90,6 +160,9 @@ $verifyOtpCsrfToken = generateCsrfToken('verify_password_otp_form');
 
         <nav class="settings-nav">
             <button class="nav-item active" data-target="account-panel" type="button"><i class="bi bi-person"></i><span>Account</span></button>
+            <?php if ($isWorkspaceUser): ?>
+                <button class="nav-item" data-target="workspace-panel" type="button"><i class="bi bi-buildings"></i><span>Businesses &amp; Branches</span></button>
+            <?php endif; ?>
             <button class="nav-item" data-target="personalization-panel" type="button"><i class="bi bi-palette"></i><span>Personalization</span></button>
             <button class="nav-item" data-target="security-panel" type="button"><i class="bi bi-shield-lock"></i><span>Security &amp; Access</span></button>
         </nav>
@@ -152,6 +225,147 @@ $verifyOtpCsrfToken = generateCsrfToken('verify_password_otp_form');
                 </div>
             </form>
         </section>
+
+        <?php if ($isWorkspaceUser): ?>
+        <section class="settings-panel" id="workspace-panel">
+            <div class="panel-header panel-header-accent">
+                <h2>Businesses &amp; Branches</h2>
+                <span class="panel-accent-bar"></span>
+                <p class="panel-subtitle">Use one account to work in the correct business and branch.</p>
+            </div>
+
+            <?php if (!$workspaceSchemaReady): ?>
+                <div class="workspace-summary">
+                    <h3>Migration required</h3>
+                    <p>Run the provided multi-business and branch SQL migration before using these controls.</p>
+                </div>
+            <?php elseif (empty($activeWorkspace)): ?>
+                <div class="workspace-summary">
+                    <h3>No active workspace</h3>
+                    <p>Your account is not assigned to an active business branch. Contact the administrator.</p>
+                </div>
+            <?php else: ?>
+                <div class="workspace-summary">
+                    <h3><?php echo e($activeWorkspace['business_name']); ?> — <?php echo e($activeWorkspace['branch_name']); ?></h3>
+                    <p><?php echo e($activeWorkspace['business_type']); ?><br><?php echo e($activeWorkspace['business_address']); ?></p>
+                    <div class="workspace-code-row">
+                        <span class="workspace-code-chip"><strong>Business:</strong> <?php echo e($activeWorkspace['business_code']); ?></span>
+                        <span class="workspace-code-chip"><strong>Branch:</strong> <?php echo e($activeWorkspace['branch_code']); ?></span>
+                    </div>
+                </div>
+
+                <?php if (count($workspaces) > 1): ?>
+                    <form action="/NexGen/CODE/PHP/workspace_action.php" method="POST" class="account-form workspace-form-card" id="workspaceSwitchForm">
+                        <input type="hidden" name="csrf_token" value="<?php echo e($workspaceCsrfToken); ?>">
+                        <input type="hidden" name="action" value="switch_workspace">
+                        <input type="hidden" name="return_to" value="settings.php">
+                        <h3>Switch workspace</h3>
+                        <div class="form-group full">
+                            <label for="settingsWorkspaceSelect">Business and branch</label>
+                            <select name="business_id" id="settingsWorkspaceSelect" required>
+                                <?php foreach ($workspaces as $workspace): ?>
+                                    <option
+                                        value="<?php echo (int)$workspace['business_id']; ?>"
+                                        title="<?php echo e($workspace['business_name'] . ' — ' . $workspace['branch_name'] . ' [' . $workspace['business_code'] . ' / ' . $workspace['branch_code'] . ']'); ?>"
+                                        <?php echo (int)$workspace['business_id'] === (int)$activeWorkspace['business_id'] ? 'selected' : ''; ?>>
+                                        <?php echo e($workspace['business_name'] . ' — ' . $workspace['branch_name']); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="form-actions-left"><button type="submit" class="btn btn-save">Switch Workspace</button></div>
+                    </form>
+                <?php endif; ?>
+
+                <?php if ($isOwner): ?>
+                    <div class="workspace-divider"></div>
+                    <?php if (!$workspaceRequestSchemaReady): ?>
+                        <div class="workspace-summary">
+                            <h3>Approval migration required</h3>
+                            <p>Run the Multi-Tenancy v3 SQL migration before submitting a new business or branch request.</p>
+                        </div>
+                    <?php elseif ($pendingWorkspaceRequest): ?>
+                        <div class="workspace-summary workspace-request-pending">
+                            <h3><i class="bi bi-hourglass-split"></i> Request awaiting administrator review</h3>
+                            <p>
+                                You cannot submit another business or branch request until this request is approved or rejected.
+                            </p>
+                            <div class="workspace-code-row">
+                                <span class="workspace-code-chip"><strong>Request:</strong> <?php echo e($pendingWorkspaceRequest['request_code']); ?></span>
+                                <span class="workspace-code-chip"><strong>Type:</strong> <?php echo e($pendingWorkspaceRequest['request_type'] === 'business' ? 'New Business' : 'New Branch'); ?></span>
+                                <span class="workspace-code-chip"><strong>Submitted:</strong> <?php echo e(date('M d, Y h:i A', strtotime($pendingWorkspaceRequest['created_at']))); ?></span>
+                            </div>
+                            <span class="workspace-request-status"><i class="bi bi-clock-history"></i> Pending</span>
+                        </div>
+                    <?php else: ?>
+                    <form action="/NexGen/CODE/PHP/workspace_action.php" method="POST" class="account-form workspace-form-card" id="addBusinessForm">
+                        <input type="hidden" name="csrf_token" value="<?php echo e($workspaceCsrfToken); ?>">
+                        <input type="hidden" name="action" value="add_business">
+                        <input type="hidden" name="return_to" value="settings.php">
+                        <h3><i class="bi bi-plus-circle"></i> Request another business</h3>
+                        <div class="form-group full">
+                            <label for="newBusinessName">Business name</label>
+                            <input type="text" name="business_name" id="newBusinessName" maxlength="150" required>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="newBusinessType">SME type</label>
+                                <select name="business_type" id="newBusinessType" required>
+                                    <option value="">Select business type</option>
+                                    <option value="Hardware / Construction Supplies">Hardware / Construction Supplies</option>
+                                    <option value="Mini Grocery / Sari-Sari Store">Mini Grocery / Sari-Sari Store</option>
+                                    <option value="Pharmacy / Drugstore">Pharmacy / Drugstore</option>
+                                    <option value="School / Office Supplies">School / Office Supplies</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="newMainBranchName">First branch name</label>
+                                <input type="text" name="branch_name" id="newMainBranchName" value="Main Branch" maxlength="150" required>
+                            </div>
+                        </div>
+                        <div class="form-group full">
+                            <label for="newBusinessAddress">Business/branch address</label>
+                            <textarea name="business_address" id="newBusinessAddress" required></textarea>
+                        </div>
+                        <label class="workspace-check">
+                            <input type="checkbox" name="separate_operations" value="1">
+                            <span>This workspace must use separate operations and accounting, even if its name and SME type match one of my existing businesses.</span>
+                        </label>
+                        <div class="form-actions-left"><button type="submit" class="btn btn-save">Submit Business Request</button></div>
+                    </form>
+
+                    <form action="/NexGen/CODE/PHP/workspace_action.php" method="POST" class="account-form workspace-form-card" id="addBranchForm">
+                        <input type="hidden" name="csrf_token" value="<?php echo e($workspaceCsrfToken); ?>">
+                        <input type="hidden" name="action" value="add_branch">
+                        <input type="hidden" name="return_to" value="settings.php">
+                        <h3><i class="bi bi-diagram-3"></i> Request a branch</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="branchBusinessEntity">Existing business</label>
+                                <select name="business_entity_id" id="branchBusinessEntity" required>
+                                    <?php foreach ($ownerEntities as $entity): ?>
+                                        <option value="<?php echo (int)$entity['id']; ?>">
+                                            <?php echo e($entity['business_name'] . ' [' . $entity['business_code'] . ']'); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="newBranchName">Branch name</label>
+                                <input type="text" name="branch_name" id="newBranchName" maxlength="150" required>
+                            </div>
+                        </div>
+                        <div class="form-group full">
+                            <label for="newBranchAddress">Branch address</label>
+                            <textarea name="branch_address" id="newBranchAddress" required></textarea>
+                        </div>
+                        <div class="form-actions-left"><button type="submit" class="btn btn-save">Submit Branch Request</button></div>
+                    </form>
+                    <?php endif; ?>
+                <?php endif; ?>
+            <?php endif; ?>
+        </section>
+        <?php endif; ?>
 
         <section class="settings-panel" id="personalization-panel">
             <div class="panel-header panel-header-accent">

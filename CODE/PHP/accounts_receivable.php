@@ -2,6 +2,7 @@
 session_start();
 require_once("config.php");
 require_once __DIR__ . '/tenant_helper.php';
+require_once __DIR__ . '/ar_helper.php';
 $businessId = nxRequireBusinessId($conn);
 
 if (!isset($_SESSION['user_id'])) {
@@ -9,7 +10,7 @@ if (!isset($_SESSION['user_id'])) {
     exit();
 }
 
-if ((int)($_SESSION['can_accounts_receivable'] ?? 0) !== 1) {
+if (!nxArEnabled($conn, (int)$_SESSION['user_id'])) {
     $_SESSION['error'] = 'You do not have access to Accounts Receivable.';
     header("Location: /NexGen/CODE/PHP/dashboard.php");
     exit();
@@ -282,34 +283,56 @@ function arBadge($status) {
 function renderReceivableDynamicArea(array $summary, array $rows, array $recentPayments = [], array $aging = []): void
 {
     ?>
-    <section class="receivable-summary">
-        <div class="summary-card grad-1">
-            <span class="summary-label">Total Receivables</span>
+    <section class="receivable-summary" aria-label="Receivable overview">
+        <article class="summary-card grad-1">
+            <div class="summary-card-head">
+                <span class="summary-icon"><i class="bi bi-receipt" aria-hidden="true"></i></span>
+                <span class="summary-label">Total Receivables</span>
+            </div>
             <strong class="summary-value"><?php echo (int)($summary['total_receivables'] ?? 0); ?></strong>
-        </div>
+        </article>
 
-        <div class="summary-card grad-2">
-            <span class="summary-label">Outstanding Balance</span>
+        <article class="summary-card grad-2">
+            <div class="summary-card-head">
+                <span class="summary-icon"><i class="bi bi-wallet2" aria-hidden="true"></i></span>
+                <span class="summary-label">Outstanding Balance</span>
+            </div>
             <strong class="summary-value">₱<?php echo number_format((float)($summary['total_balance_due'] ?? 0), 2); ?></strong>
-        </div>
+        </article>
 
-        <div class="summary-card grad-4">
-            <span class="summary-label">Overdue</span>
+        <article class="summary-card grad-4">
+            <div class="summary-card-head">
+                <span class="summary-icon"><i class="bi bi-exclamation-triangle" aria-hidden="true"></i></span>
+                <span class="summary-label">Overdue</span>
+            </div>
             <strong class="summary-value"><?php echo (int)($summary['overdue_count'] ?? 0); ?></strong>
-        </div>
+        </article>
 
-        <div class="summary-card grad-3">
-            <span class="summary-label">Unpaid</span>
+        <article class="summary-card grad-3">
+            <div class="summary-card-head">
+                <span class="summary-icon"><i class="bi bi-hourglass-split" aria-hidden="true"></i></span>
+                <span class="summary-label">Unpaid</span>
+            </div>
             <strong class="summary-value"><?php echo (int)($summary['unpaid_count'] ?? 0); ?></strong>
-        </div>
+        </article>
 
-        <div class="summary-card grad-5">
-            <span class="summary-label">Partially Paid</span>
+        <article class="summary-card grad-5">
+            <div class="summary-card-head">
+                <span class="summary-icon"><i class="bi bi-pie-chart" aria-hidden="true"></i></span>
+                <span class="summary-label">Partially Paid</span>
+            </div>
             <strong class="summary-value"><?php echo (int)($summary['partial_count'] ?? 0); ?></strong>
-        </div>
+        </article>
     </section>
 
     <section class="receivable-table-card">
+        <div class="receivable-list-header">
+            <div>
+                <span class="section-kicker">Customer Ledger</span>
+                <h2>Receivable Accounts</h2>
+            </div>
+            <span class="record-count"><i class="bi bi-people" aria-hidden="true"></i> <?php echo count($rows); ?> record<?php echo count($rows) === 1 ? '' : 's'; ?></span>
+        </div>
         <div class="table-scroll table-scroll-7">
             <table class="receivable-table">
                 <thead>
@@ -330,20 +353,33 @@ function renderReceivableDynamicArea(array $summary, array $rows, array $recentP
                         <?php
                             $liveStatus = $row['live_status'] ?? $row['status'] ?? 'Unpaid';
                             $rowId = (int)($row['id'] ?? 0);
+                            $rowStatusClass = trim(preg_replace('/[^a-z0-9]+/', '-', strtolower((string)$liveStatus)), '-');
+                            $customerName = trim((string)($row['customer_name'] ?? ''));
+                            $customerInitial = $customerName !== '' ? mb_strtoupper(mb_substr($customerName, 0, 1)) : '?';
                             $totalAmount = number_format((float)($row['total_amount'] ?? 0), 2);
                             $amountPaid = number_format((float)($row['amount_paid'] ?? 0), 2);
                             $balanceDue = number_format((float)($row['balance_due'] ?? 0), 2);
                             $dueDateDisplay = !empty($row['due_date']) ? htmlspecialchars($row['due_date']) : 'N/A';
                             $invoiceDateDisplay = !empty($row['created_at']) ? htmlspecialchars(date('M d, Y', strtotime($row['created_at']))) : 'N/A';
                         ?>
-                        <tr>
-                            <td data-label="Sales No."><?php echo htmlspecialchars($row['sales_no'] ?? ''); ?></td>
-                            <td data-label="Customer"><?php echo htmlspecialchars($row['customer_name'] ?? ''); ?></td>
-                            <td data-label="Total Amount">₱<?php echo $totalAmount; ?></td>
-                            <td data-label="Amount Paid">₱<?php echo $amountPaid; ?></td>
-                            <td data-label="Balance Due">₱<?php echo $balanceDue; ?></td>
-                            <td data-label="Due Date" class="due-date-col"><?php echo $dueDateDisplay; ?></td>
-                            <td data-label="Status">
+                        <tr class="receivable-row status-<?php echo htmlspecialchars($rowStatusClass); ?>">
+                            <td data-label="Sales No." class="sales-no-cell">
+                                <span class="ar-cell-value ar-sales-number"><?php echo htmlspecialchars($row['sales_no'] ?? ''); ?></span>
+                            </td>
+                            <td data-label="Customer" class="customer-cell">
+                                <div class="customer-identity">
+                                    <span class="customer-avatar" aria-hidden="true"><?php echo htmlspecialchars($customerInitial); ?></span>
+                                    <span class="customer-details">
+                                        <strong><?php echo htmlspecialchars($customerName); ?></strong>
+                                        <small>Customer account</small>
+                                    </span>
+                                </div>
+                            </td>
+                            <td data-label="Total Amount" class="total-cell"><span class="ar-cell-value">₱<?php echo $totalAmount; ?></span></td>
+                            <td data-label="Amount Paid" class="paid-cell"><span class="ar-cell-value">₱<?php echo $amountPaid; ?></span></td>
+                            <td data-label="Balance Due" class="balance-cell"><strong class="ar-cell-value">₱<?php echo $balanceDue; ?></strong></td>
+                            <td data-label="Due Date" class="due-date-col"><span class="ar-cell-value"><i class="bi bi-calendar3" aria-hidden="true"></i><?php echo $dueDateDisplay; ?></span></td>
+                            <td data-label="Status" class="status-cell">
                                 <span class="<?php echo arBadge($liveStatus); ?>">
                                     <?php echo htmlspecialchars($liveStatus); ?>
                                 </span>
@@ -353,6 +389,8 @@ function renderReceivableDynamicArea(array $summary, array $rows, array $recentP
                                     <button
                                         type="button"
                                         class="icon-btn view"
+                                        aria-label="View receivable details for <?php echo htmlspecialchars($row['sales_no'] ?? 'this sale'); ?>"
+                                        title="View receivable details"
                                         data-id="<?php echo $rowId; ?>"
                                         data-sales-no="<?php echo htmlspecialchars($row['sales_no'] ?? ''); ?>"
                                         data-customer="<?php echo htmlspecialchars($row['customer_name'] ?? ''); ?>"
@@ -522,7 +560,7 @@ $overdueCount = (int)($summary['overdue_count'] ?? 0);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Accounts Receivable - NexGen</title>
     <link rel="stylesheet" href="/NexGen/CODE/STYLE/header.css?v=2">
-    <link rel="stylesheet" href="/NexGen/CODE/STYLE/accounts_receivable.css?v=8">
+    <link rel="stylesheet" href="/NexGen/CODE/STYLE/accounts_receivable.css?v=10">
         <link rel="stylesheet" href="/NexGen/CODE/STYLE/module_footer.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <style>
@@ -1070,6 +1108,417 @@ $overdueCount = (int)($summary['overdue_count'] ?? 0);
                 display: none;
             }
         }
+
+        /* App-style receivable detail sheet */
+        .ar-modal-grabber {
+            display: none;
+        }
+
+        .ar-modal-actions {
+            display: none;
+        }
+
+        html[data-theme="light"] .ar-modal-overlay {
+            background: rgba(15, 35, 70, 0.42);
+        }
+
+        html[data-theme="light"] .ar-modal {
+            background: linear-gradient(180deg, #ffffff, #eaf4ff);
+            border-color: rgba(59, 130, 246, 0.2);
+            color: #0b1f73;
+            box-shadow: 0 24px 60px rgba(34, 70, 120, 0.28);
+        }
+
+        html[data-theme="light"] .ar-modal-titlebar {
+            border-bottom-color: rgba(59, 130, 246, 0.14);
+        }
+
+        html[data-theme="light"] .ar-modal-eyebrow,
+        html[data-theme="light"] .ar-modal-label,
+        html[data-theme="light"] .ar-modal-customer-tag,
+        html[data-theme="light"] .ar-modal-other-date {
+            color: #55709f;
+        }
+
+        html[data-theme="light"] .ar-modal-close {
+            background: rgba(59, 130, 246, 0.1);
+            color: #0b1f73;
+        }
+
+        html[data-theme="light"] .ar-modal-summary-card,
+        html[data-theme="light"] .ar-modal-other-row {
+            background: rgba(255, 255, 255, 0.72);
+            border-color: rgba(59, 130, 246, 0.16);
+            color: #0b1f73;
+            box-shadow: 0 5px 16px rgba(57, 88, 134, 0.1);
+        }
+
+        html[data-theme="light"] .ar-modal-other-icon {
+            background: rgba(59, 130, 246, 0.1);
+        }
+
+        html[data-theme="light"] .ar-modal-table-wrap,
+        html[data-theme="light"] .ar-modal-table th,
+        html[data-theme="light"] .ar-modal-table td {
+            border-color: rgba(59, 130, 246, 0.14);
+        }
+
+        html[data-theme="light"] .ar-modal-table th {
+            background: rgba(59, 130, 246, 0.08);
+        }
+
+        html[data-theme="light"] .ar-modal-loading {
+            color: #55709f;
+        }
+
+        @keyframes arSheetIn {
+            from { transform: translateY(32px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        @media (max-width: 720px) {
+            .overdue-alert-wrap {
+                top: auto;
+                right: 10px;
+                bottom: calc(12px + env(safe-area-inset-bottom));
+                left: 10px;
+                width: auto;
+            }
+
+            .overdue-alert {
+                align-items: center;
+                padding: 12px 13px;
+                border-left-width: 4px;
+                border-radius: 16px;
+            }
+
+            .overdue-alert-icon {
+                flex-basis: 36px;
+                width: 36px;
+                height: 36px;
+                border-radius: 11px;
+                font-size: 16px;
+            }
+
+            .overdue-alert-content h4 {
+                font-size: 13px;
+            }
+
+            .overdue-alert-content p {
+                font-size: 11px;
+                line-height: 1.35;
+            }
+
+            .ar-modal-overlay {
+                align-items: flex-end;
+                padding: 0;
+                background: rgba(3, 9, 28, 0.76);
+                backdrop-filter: blur(5px);
+                -webkit-backdrop-filter: blur(5px);
+            }
+
+            .ar-modal-overlay.show .ar-modal {
+                animation: arSheetIn 0.24s ease-out both;
+            }
+
+            .ar-modal {
+                width: 100%;
+                max-width: none;
+                max-height: calc(100dvh - 58px);
+                margin: 0;
+                padding: 25px 14px max(20px, env(safe-area-inset-bottom));
+                border-right: 0;
+                border-bottom: 0;
+                border-left: 0;
+                border-radius: 26px 26px 0 0;
+                overscroll-behavior: contain;
+                box-shadow: 0 -18px 52px rgba(0, 0, 0, 0.46);
+            }
+
+            .ar-modal-grabber {
+                display: block;
+                width: 44px;
+                height: 5px;
+                margin: -13px auto 14px;
+                border-radius: 999px;
+                background: rgba(255, 255, 255, 0.3);
+            }
+
+            html[data-theme="light"] .ar-modal-grabber {
+                background: rgba(11, 31, 115, 0.2);
+            }
+
+            .ar-modal-close {
+                top: 18px;
+                right: 14px;
+                width: 40px;
+                height: 40px;
+                border-radius: 13px;
+                font-size: 1.18rem;
+                z-index: 4;
+            }
+
+            .ar-modal-titlebar {
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) auto;
+                gap: 8px;
+                margin-bottom: 14px;
+                padding: 0 48px 13px 1px;
+            }
+
+            .ar-modal-titlebar > div {
+                min-width: 0;
+            }
+
+            .ar-modal-titlebar h2 {
+                max-width: 100%;
+                overflow: hidden;
+                font-size: 1.08rem;
+                text-overflow: ellipsis;
+                white-space: nowrap;
+            }
+
+            .ar-modal-eyebrow {
+                font-size: 0.62rem;
+            }
+
+            .ar-modal-titlebar > .ar-modal-status-badge {
+                align-self: end;
+                padding: 6px 9px;
+                font-size: 0.62rem;
+            }
+
+            .ar-modal-section {
+                margin-bottom: 15px;
+            }
+
+            .ar-modal-section h3 {
+                margin-bottom: 9px;
+                font-size: 0.9rem;
+            }
+
+            .ar-modal-grid {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 8px;
+            }
+
+            .ar-modal-grid > div {
+                min-width: 0;
+                padding: 10px 11px;
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                border-radius: 13px;
+                background: rgba(255, 255, 255, 0.055);
+            }
+
+            .ar-modal-grid > div:first-child {
+                grid-column: 1 / -1;
+            }
+
+            html[data-theme="light"] .ar-modal-grid > div {
+                border-color: rgba(59, 130, 246, 0.14);
+                background: rgba(255, 255, 255, 0.62);
+            }
+
+            .ar-modal-label {
+                margin-bottom: 4px;
+                font-size: 0.61rem;
+            }
+
+            .ar-modal-value {
+                overflow-wrap: anywhere;
+                font-size: 0.83rem;
+            }
+
+            .ar-modal-summary-cards {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 8px;
+            }
+
+            .ar-modal-summary-card {
+                min-width: 0;
+                padding: 11px;
+                border-radius: 13px;
+            }
+
+            .ar-modal-summary-card.is-balance {
+                grid-column: 1 / -1;
+                background: linear-gradient(135deg, rgba(250, 204, 21, 0.13), rgba(255, 255, 255, 0.055));
+            }
+
+            html[data-theme="light"] .ar-modal-summary-card.is-balance {
+                background: linear-gradient(135deg, rgba(250, 204, 21, 0.13), rgba(255, 255, 255, 0.78));
+            }
+
+            .ar-modal-summary-card strong {
+                margin-top: 3px;
+                overflow-wrap: anywhere;
+                font-size: 0.94rem;
+            }
+
+            .ar-modal-actions {
+                display: block;
+                margin: -3px 0 15px;
+            }
+
+            .ar-modal-payment-action {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                gap: 8px;
+                width: 100%;
+                min-height: 46px;
+                padding: 10px 16px;
+                border: 1px solid rgba(246, 203, 8, 0.48);
+                border-radius: 14px;
+                background: linear-gradient(135deg, #ffdd55, #f6cb08);
+                color: #2b1a00;
+                font-family: 'Inter', sans-serif;
+                font-size: 0.84rem;
+                font-weight: 800;
+                text-decoration: none;
+                box-shadow: 0 10px 22px rgba(246, 203, 8, 0.2);
+            }
+
+            .ar-modal-payment-action.is-disabled {
+                border-color: rgba(52, 211, 153, 0.25);
+                background: rgba(52, 211, 153, 0.12);
+                color: #5eead4;
+                box-shadow: none;
+                pointer-events: none;
+            }
+
+            html[data-theme="light"] .ar-modal-payment-action.is-disabled {
+                color: #087f65;
+            }
+
+            .ar-modal-table-wrap {
+                overflow: visible;
+                border: 0;
+                border-radius: 0;
+            }
+
+            .ar-modal-table {
+                display: block;
+                width: 100%;
+                min-width: 0;
+            }
+
+            .ar-modal-table thead {
+                display: none;
+            }
+
+            .ar-modal-table tbody {
+                display: grid;
+                gap: 8px;
+            }
+
+            .ar-modal-table tbody tr {
+                display: grid;
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 0;
+                overflow: hidden;
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                border-radius: 13px;
+                background: rgba(255, 255, 255, 0.055);
+            }
+
+            html[data-theme="light"] .ar-modal-table tbody tr {
+                border-color: rgba(59, 130, 246, 0.14);
+                background: rgba(255, 255, 255, 0.64);
+            }
+
+            .ar-modal-table tbody td {
+                display: flex;
+                min-width: 0;
+                flex-direction: column;
+                gap: 3px;
+                padding: 9px 10px;
+                border: 0;
+                white-space: normal;
+            }
+
+            .ar-modal-table tbody td::before {
+                content: attr(data-label);
+                color: rgba(255, 255, 255, 0.5);
+                font-size: 0.57rem;
+                font-weight: 750;
+                letter-spacing: 0.04em;
+                text-transform: uppercase;
+            }
+
+            html[data-theme="light"] .ar-modal-table tbody td::before {
+                color: #55709f;
+            }
+
+            .ar-modal-table tbody td span,
+            .ar-modal-table tbody td strong {
+                overflow-wrap: anywhere;
+                font-size: 0.75rem;
+            }
+
+            .ar-modal-table tbody td strong {
+                color: #ffdd55;
+            }
+
+            html[data-theme="light"] .ar-modal-table tbody td strong {
+                color: #8d6212;
+            }
+
+            .ar-modal-table tbody td.ar-modal-loading {
+                display: block;
+                grid-column: 1 / -1;
+                padding: 18px 10px !important;
+                text-align: center;
+            }
+
+            .ar-modal-table tbody td.ar-modal-loading::before {
+                display: none;
+            }
+
+            .ar-modal-other-list {
+                max-height: 220px;
+                gap: 8px;
+            }
+
+            .ar-modal-other-row {
+                min-height: 58px;
+                padding: 10px 9px 10px 13px;
+                border-radius: 13px;
+            }
+
+            .ar-modal-other-side {
+                max-width: 42%;
+            }
+
+            .ar-modal-other-amount {
+                max-width: 100%;
+                overflow-wrap: anywhere;
+                text-align: right;
+            }
+        }
+
+        @media (max-width: 380px) {
+            .ar-modal {
+                padding-right: 11px;
+                padding-left: 11px;
+            }
+
+            .ar-modal-other-icon {
+                display: none;
+            }
+
+            .ar-modal-other-row {
+                gap: 7px;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .ar-modal-overlay.show .ar-modal {
+                animation: none;
+            }
+        }
     </style>
 </head>
 <body>
@@ -1111,31 +1560,48 @@ $overdueCount = (int)($summary['overdue_count'] ?? 0);
 
         <section class="receivable-hero">
             <div class="receivable-hero-text">
+                <span class="receivable-hero-kicker"><i class="bi bi-credit-card-2-front" aria-hidden="true"></i> Finance Workspace</span>
                 <h1>Accounts Receivable</h1>
+                <p>Track customer balances, due dates, and incoming payments.</p>
             </div>
         </section>
 
         <section class="receivable-toolbar-card">
+            <div class="toolbar-heading">
+                <div>
+                    <span class="section-kicker">Quick Find</span>
+                    <h2>Search &amp; filter</h2>
+                </div>
+                <span class="toolbar-heading-icon"><i class="bi bi-sliders2" aria-hidden="true"></i></span>
+            </div>
             <form method="GET" class="receivable-toolbar" id="receivableFilterForm">
-                <input
-                    type="text"
-                    name="search"
-                    class="toolbar-input"
-                    id="receivableSearchInput"
-                    placeholder="Search customer or sales no..."
-                    value="<?php echo htmlspecialchars($search); ?>"
-                >
+                <label class="toolbar-field toolbar-search-field" for="receivableSearchInput">
+                    <i class="bi bi-search" aria-hidden="true"></i>
+                    <input
+                        type="search"
+                        name="search"
+                        class="toolbar-input"
+                        id="receivableSearchInput"
+                        placeholder="Customer or sales number"
+                        value="<?php echo htmlspecialchars($search); ?>"
+                        autocomplete="off"
+                    >
+                </label>
 
-                <select name="status" class="toolbar-select" id="receivableStatusSelect">
-                    <option value="">All Status</option>
-                    <option value="Unpaid" <?php echo $statusFilter === 'Unpaid' ? 'selected' : ''; ?>>Unpaid</option>
-                    <option value="Partially Paid" <?php echo $statusFilter === 'Partially Paid' ? 'selected' : ''; ?>>Partially Paid</option>
-                    <option value="Paid" <?php echo $statusFilter === 'Paid' ? 'selected' : ''; ?>>Paid</option>
-                    <option value="Overdue" <?php echo $statusFilter === 'Overdue' ? 'selected' : ''; ?>>Overdue</option>
-                </select>
+                <label class="toolbar-field toolbar-select-field" for="receivableStatusSelect">
+                    <i class="bi bi-funnel" aria-hidden="true"></i>
+                    <select name="status" class="toolbar-select" id="receivableStatusSelect">
+                        <option value="">All Status</option>
+                        <option value="Unpaid" <?php echo $statusFilter === 'Unpaid' ? 'selected' : ''; ?>>Unpaid</option>
+                        <option value="Partially Paid" <?php echo $statusFilter === 'Partially Paid' ? 'selected' : ''; ?>>Partially Paid</option>
+                        <option value="Paid" <?php echo $statusFilter === 'Paid' ? 'selected' : ''; ?>>Paid</option>
+                        <option value="Overdue" <?php echo $statusFilter === 'Overdue' ? 'selected' : ''; ?>>Overdue</option>
+                    </select>
+                    <i class="bi bi-chevron-down toolbar-select-chevron" aria-hidden="true"></i>
+                </label>
 
-                <button type="submit" class="toolbar-btn primary-btn">Apply</button>
-                <a href="/NexGen/CODE/PHP/accounts_receivable.php" class="toolbar-btn secondary-btn" id="receivableResetBtn">Reset</a>
+                <button type="submit" class="toolbar-btn primary-btn"><i class="bi bi-check2" aria-hidden="true"></i><span>Apply</span></button>
+                <a href="/NexGen/CODE/PHP/accounts_receivable.php" class="toolbar-btn secondary-btn" id="receivableResetBtn"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i><span>Reset</span></a>
             </form>
         </section>
 
@@ -1148,6 +1614,7 @@ $overdueCount = (int)($summary['overdue_count'] ?? 0);
 
 <div class="ar-modal-overlay" id="arViewModalOverlay">
     <div class="ar-modal" role="dialog" aria-modal="true" aria-labelledby="arViewModalTitle">
+        <span class="ar-modal-grabber" aria-hidden="true"></span>
         <button type="button" class="ar-modal-close" id="arViewModalClose" aria-label="Close">&times;</button>
 
         <div class="ar-modal-titlebar">
@@ -1181,6 +1648,13 @@ $overdueCount = (int)($summary['overdue_count'] ?? 0);
                     <strong id="arModalBalance">-</strong>
                 </div>
             </div>
+        </div>
+
+        <div class="ar-modal-actions">
+            <a href="#" class="ar-modal-payment-action" id="arModalPaymentAction">
+                <i class="bi bi-cash-coin" aria-hidden="true"></i>
+                <span>Update Payment</span>
+            </a>
         </div>
 
         <div class="ar-modal-section">
@@ -1373,6 +1847,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const arModalOverlay = document.getElementById('arViewModalOverlay');
     const arModalClose = document.getElementById('arViewModalClose');
     const arModalPaymentBody = document.getElementById('arModalPaymentBody');
+    const arModalPaymentAction = document.getElementById('arModalPaymentAction');
     const arModalOtherList = document.getElementById('arModalOtherList');
     const arModalOtherCustomerTag = document.getElementById('arModalOtherCustomerTag');
 
@@ -1402,6 +1877,22 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('arModalPaid').textContent = payload.paid || '-';
         document.getElementById('arModalBalance').textContent = payload.balance || '-';
 
+        if (arModalPaymentAction) {
+            const isPaid = statusText.toLowerCase() === 'paid';
+
+            if (isPaid) {
+                arModalPaymentAction.removeAttribute('href');
+                arModalPaymentAction.setAttribute('aria-disabled', 'true');
+                arModalPaymentAction.classList.add('is-disabled');
+                arModalPaymentAction.innerHTML = '<i class="bi bi-check2-circle" aria-hidden="true"></i><span>Payment Complete</span>';
+            } else {
+                arModalPaymentAction.href = '/NexGen/CODE/PHP/receivable_payment.php?id=' + encodeURIComponent(payload.id);
+                arModalPaymentAction.removeAttribute('aria-disabled');
+                arModalPaymentAction.classList.remove('is-disabled');
+                arModalPaymentAction.innerHTML = '<i class="bi bi-cash-coin" aria-hidden="true"></i><span>Update Payment</span>';
+            }
+        }
+
         arModalOtherCustomerTag.textContent = payload.customer ? '· ' + payload.customer : '';
 
         arModalPaymentBody.innerHTML = '<tr><td colspan="4" class="ar-modal-loading">Loading payment history...</td></tr>';
@@ -1423,10 +1914,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 } else {
                     arModalPaymentBody.innerHTML = data.payments.map(function (p) {
                         return '<tr>' +
-                            '<td>' + escapeHtml(p.date) + '</td>' +
-                            '<td>₱' + escapeHtml(p.amount) + '</td>' +
-                            '<td>' + escapeHtml(p.method) + '</td>' +
-                            '<td>' + escapeHtml(p.reference) + '</td>' +
+                            '<td data-label="Payment Date"><span>' + escapeHtml(p.date) + '</span></td>' +
+                            '<td data-label="Amount"><strong>₱' + escapeHtml(p.amount) + '</strong></td>' +
+                            '<td data-label="Method"><span>' + escapeHtml(p.method) + '</span></td>' +
+                            '<td data-label="Reference No."><span>' + escapeHtml(p.reference) + '</span></td>' +
                             '</tr>';
                     }).join('');
                 }

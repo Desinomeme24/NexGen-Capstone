@@ -1,6 +1,5 @@
 <?php
-session_start();
-require_once("config.php");
+require_once __DIR__ . '/config.php';
 
 if (!isset($_SESSION['user_id'])) {
     header("Location: /NexGen/CODE/PHP/index.php");
@@ -12,8 +11,12 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'system_admin') {
     exit();
 }
 
-function e($str) {
-    return htmlspecialchars((string)$str, ENT_QUOTES, 'UTF-8');
+enforceSessionTimeout();
+
+if (!function_exists('e')) {
+    function e($str) {
+        return htmlspecialchars((string)$str, ENT_QUOTES, 'UTF-8');
+    }
 }
 
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
@@ -22,7 +25,26 @@ if ($id <= 0) {
     exit();
 }
 
-$stmt = $conn->prepare("SELECT * FROM registration_requests WHERE id = ? LIMIT 1");
+$stmt = $conn->prepare(
+    "SELECT rr.*,
+            b.id AS resolved_branch_business_id,
+            b.branch_name AS resolved_branch_name,
+            b.branch_code AS resolved_branch_code,
+            b.branch_status AS resolved_branch_status,
+            be.business_code AS resolved_business_code,
+            be.business_name AS resolved_business_name,
+            be.status AS resolved_business_status
+     FROM registration_requests rr
+     LEFT JOIN businesses b ON b.id = rr.business_id
+     LEFT JOIN business_entities be ON be.id = b.business_entity_id
+     WHERE rr.id = ?
+     LIMIT 1"
+);
+if (!$stmt) {
+    $_SESSION['flash'] = ['type' => 'notice-error', 'message' => 'Unable to load the registration request safely.'];
+    header("Location: pending_requests.php");
+    exit();
+}
 $stmt->bind_param("i", $id);
 $stmt->execute();
 $result = $stmt->get_result();
@@ -46,16 +68,42 @@ $isPdf = ($ext === 'pdf');
 
 // Request workflow rules:
 // pending  -> approve / reject / resubmit
-// resubmit -> approve / reject
+// resubmit -> approve / reject / update corrected information
 // approved/rejected are final and cannot be changed.
 $currentStatus = strtolower((string)($request['request_status'] ?? 'pending'));
 $isFinalized = in_array($currentStatus, ['approved', 'rejected'], true);
+$isEmployeeRequest = ($request['requested_role'] ?? '') === 'employee';
+$allowedBusinessTypes = [
+    'Hardware / Construction Supplies',
+    'Mini Grocery / Sari-Sari Store',
+    'Pharmacy / Drugstore',
+    'School / Office Supplies',
+];
+$currentBusinessType = trim((string)($request['business_type'] ?? ''));
+if ($currentBusinessType !== '' && !in_array($currentBusinessType, $allowedBusinessTypes, true)) {
+    $allowedBusinessTypes[] = $currentBusinessType;
+}
+$submittedBusinessCode = strtoupper(trim((string)($request['business_code'] ?? '')));
+$submittedBranchCode = strtoupper(trim((string)($request['branch_code'] ?? '')));
+$resolvedBusinessCode = strtoupper(trim((string)($request['resolved_business_code'] ?? '')));
+$resolvedBranchCode = strtoupper(trim((string)($request['resolved_branch_code'] ?? '')));
+$branchIntegrityOk = !$isEmployeeRequest || (
+    (int)($request['business_id'] ?? 0) > 0 &&
+    (int)($request['resolved_branch_business_id'] ?? 0) === (int)($request['business_id'] ?? 0) &&
+    $submittedBusinessCode !== '' &&
+    $submittedBranchCode !== '' &&
+    hash_equals($resolvedBusinessCode, $submittedBusinessCode) &&
+    hash_equals($resolvedBranchCode, $submittedBranchCode) &&
+    ($request['resolved_business_status'] ?? '') === 'active' &&
+    ($request['resolved_branch_status'] ?? '') === 'active'
+);
+$isEmbeddedView = ($_GET['embedded'] ?? '') === '1';
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>View Request - NextGen</title>
     <script>
         /* THEME: apply saved preference before first paint to avoid a flash */
@@ -72,6 +120,62 @@ $isFinalized = in_array($currentStatus, ['approved', 'rejected'], true);
         
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <style>
+        .request-section-heading {
+            min-width: 0;
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .request-section-heading h2 {
+            margin: 0;
+        }
+
+        .request-code-inline {
+            display: inline-flex;
+            align-items: center;
+            max-width: 100%;
+            padding: 5px 9px;
+            border: 1px solid rgba(247, 200, 115, 0.38);
+            border-radius: 999px;
+            background: rgba(247, 200, 115, 0.12);
+            color: var(--gold);
+            font-size: 11px;
+            font-weight: 800;
+            letter-spacing: 0.35px;
+            overflow-wrap: anywhere;
+        }
+
+        body.embedded-request-view {
+            overflow-x: hidden;
+        }
+
+        body.embedded-request-view .admin-shell {
+            display: block;
+            min-height: 100vh;
+            min-height: 100dvh;
+        }
+
+        body.embedded-request-view .admin-content {
+            width: 100%;
+            max-width: none;
+            min-height: 100vh;
+            min-height: 100dvh;
+            margin: 0 !important;
+            padding: 22px;
+        }
+
+        @media (max-width: 700px) {
+            body.embedded-request-view .admin-content {
+                padding:
+                    max(14px, env(safe-area-inset-top))
+                    max(12px, env(safe-area-inset-right))
+                    max(18px, env(safe-area-inset-bottom))
+                    max(12px, env(safe-area-inset-left));
+            }
+        }
+
         .custom-confirm-overlay {
             position: fixed;
             inset: 0;
@@ -354,6 +458,139 @@ $isFinalized = in_array($currentStatus, ['approved', 'rejected'], true);
             display: flex;
             flex-direction: column;
             gap: 12px;
+            transition: max-width 0.2s ease;
+        }
+
+        .modern-action-form.is-editing {
+            max-width: 920px;
+        }
+
+        .request-action-feedback {
+            display: none;
+            margin-bottom: 12px;
+        }
+
+        .request-action-feedback.show {
+            display: block;
+        }
+
+        .correction-editor {
+            display: none;
+            padding: 16px;
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            background: rgba(59, 130, 246, 0.055);
+        }
+
+        .correction-editor.is-visible {
+            display: block;
+        }
+
+        .correction-editor-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 11px;
+            margin-bottom: 15px;
+        }
+
+        .correction-editor-header i {
+            display: grid;
+            place-items: center;
+            width: 38px;
+            height: 38px;
+            flex: 0 0 38px;
+            border-radius: 11px;
+            background: var(--gold-soft);
+            color: var(--gold);
+        }
+
+        .correction-editor-header h3 {
+            margin: 0;
+            color: var(--text);
+            font-size: 0.95rem;
+        }
+
+        .correction-editor-header p {
+            margin: 4px 0 0;
+            color: var(--muted);
+            font-size: 0.72rem;
+            line-height: 1.45;
+        }
+
+        .correction-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+        }
+
+        .correction-field {
+            min-width: 0;
+        }
+
+        .correction-field.is-wide {
+            grid-column: 1 / -1;
+        }
+
+        .correction-field label {
+            display: block;
+            margin-bottom: 5px;
+            color: var(--muted);
+            font-size: 0.65rem;
+            font-weight: 800;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        .correction-input,
+        .correction-select,
+        .correction-textarea,
+        .correction-file {
+            width: 100%;
+            min-width: 0;
+            border: 1px solid var(--line-bright);
+            border-radius: 11px;
+            background: var(--card);
+            color: var(--text);
+            font: inherit;
+            font-size: 0.8rem;
+            padding: 10px 11px;
+            outline: none;
+        }
+
+        .correction-textarea {
+            min-height: 74px;
+            resize: vertical;
+        }
+
+        .correction-input:focus,
+        .correction-select:focus,
+        .correction-textarea:focus,
+        .correction-file:focus-visible {
+            border-color: var(--gold);
+            box-shadow: 0 0 0 3px var(--gold-soft);
+        }
+
+        .correction-file {
+            padding: 8px;
+        }
+
+        .correction-file::file-selector-button {
+            margin-right: 10px;
+            padding: 8px 11px;
+            border: 0;
+            border-radius: 8px;
+            background: var(--gold-soft);
+            color: var(--gold);
+            font-weight: 800;
+            cursor: pointer;
+        }
+
+        .correction-file-help {
+            display: block;
+            margin-top: 5px;
+            color: var(--faint);
+            font-size: 0.66rem;
+            line-height: 1.4;
         }
 
         .modern-field label {
@@ -488,16 +725,35 @@ $isFinalized = in_array($currentStatus, ['approved', 'rejected'], true);
                 top: auto;
             }
         }
+
+        @media (max-width: 700px) {
+            .correction-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .correction-field.is-wide {
+                grid-column: auto;
+            }
+
+            .correction-editor {
+                padding: 13px;
+            }
+
+            .modern-submit-btn {
+                width: 100%;
+                min-height: 44px;
+            }
+        }
     </style>
 </head>
-<body>
+<body<?php echo $isEmbeddedView ? ' class="embedded-request-view"' : ''; ?>>
 <div class="admin-shell">
-         <?php include 'admin_sidebar.php'; ?>
+         <?php if (!$isEmbeddedView) include 'admin_sidebar.php'; ?>
 
     <main class="admin-content">
         <div class="topbar">
             <div class="page-title">
-                <h1>Request #<?php echo (int)$request['id']; ?></h1>
+                <h1>Registration Request</h1>
                 <p>Review the registration details and uploaded ID</p>
             </div>
         </div>
@@ -510,8 +766,11 @@ $isFinalized = in_array($currentStatus, ['approved', 'rejected'], true);
 
         <section class="panel">
             <div class="panel-header">
-                <h2>Applicant Information</h2>
-                <a class="btn btn-silver" href="pending_requests.php">Back</a>
+                <div class="request-section-heading">
+                    <h2>Applicant Information</h2>
+                    <span class="request-code-inline"><?php echo e($request['request_code']); ?></span>
+                </div>
+                <a class="btn btn-silver" id="requestViewBackButton" href="pending_requests.php">Back</a>
             </div>
             <div class="panel-body">
                 <div class="kv-grid">
@@ -527,7 +786,7 @@ $isFinalized = in_array($currentStatus, ['approved', 'rejected'], true);
                         <label>Valid ID</label>
                         <div class="value">
                             <?php if (!empty($filePath)): ?>
-                                <a class="attachment-chip" href="/NexGen/CODE/PHP/<?php echo e($filePath); ?>" target="_blank" rel="noopener" title="Open uploaded valid ID">
+                                <a class="attachment-chip" href="/NexGen/CODE/PHP/valid_id_file.php?request_id=<?php echo (int)$request['id']; ?>" target="_blank" rel="noopener" title="Open uploaded valid ID">
                                     <span class="attachment-icon"><?php echo $isImage ? '🖼️' : ($isPdf ? '📄' : '📎'); ?></span>
                                     <span class="attachment-meta">
                                         <span class="attachment-name">Valid_ID.<?php echo e($ext ?: 'file'); ?></span>
@@ -545,6 +804,51 @@ $isFinalized = in_array($currentStatus, ['approved', 'rejected'], true);
             </div>
         </section>
 
+        <section class="panel">
+            <div class="panel-header">
+                <h2>Business Information</h2>
+            </div>
+            <div class="panel-body">
+                <div class="kv-grid">
+                    <div class="kv-item"><label>Business Name</label><div class="value"><?php echo e($request['business_name'] ?? ''); ?></div></div>
+                    <div class="kv-item"><label>Business Type</label><div class="value"><?php echo e($request['business_type'] ?? ''); ?></div></div>
+                    <div class="kv-item"><label>Business Address</label><div class="value"><?php echo e($request['business_address'] ?? ''); ?></div></div>
+                    <div class="kv-item">
+                        <label>SME Business Code</label>
+                        <div class="value"><?php echo !empty($request['business_code']) ? e($request['business_code']) : '<em>Not yet assigned (generated on approval)</em>'; ?></div>
+                    </div>
+                    <?php if ($request['requested_role'] === 'employee'): ?>
+                        <div class="kv-item"><label>Employee Number</label><div class="value"><?php echo e($request['employee_no'] ?? ''); ?></div></div>
+                        <div class="kv-item"><label>Submitted Branch Code</label><div class="value"><?php echo $submittedBranchCode !== '' ? e($submittedBranchCode) : '<em>Missing</em>'; ?></div></div>
+                        <div class="kv-item"><label>Resolved Branch</label><div class="value"><?php echo !empty($request['resolved_branch_name']) ? e($request['resolved_branch_name']) : '<em>Unresolved</em>'; ?></div></div>
+                        <div class="kv-item"><label>Resolved Branch Code</label><div class="value"><?php echo $resolvedBranchCode !== '' ? e($resolvedBranchCode) : '<em>Unresolved</em>'; ?></div></div>
+                        <div class="kv-item"><label>Joining Business ID</label><div class="value"><?php echo $request['business_id'] ? '#' . (int)$request['business_id'] : '<em>Unresolved</em>'; ?></div></div>
+                    <?php endif; ?>
+                </div>
+
+                <?php if ($isEmployeeRequest): ?>
+                    <div class="notice <?php echo $branchIntegrityOk ? 'notice-success' : 'notice-error'; ?>" style="margin-top:16px;">
+                        <?php if ($branchIntegrityOk): ?>
+                            Branch verified: approval will assign this employee specifically to
+                            <strong><?php echo e($request['resolved_branch_name']); ?></strong>
+                            using <?php echo e($submittedBusinessCode . ' / ' . $submittedBranchCode); ?>.
+                        <?php else: ?>
+                            Branch verification failed. The submitted business code, branch code,
+                            and stored branch ID do not resolve to the same active branch. Approval
+                            is disabled to prevent assigning this employee to the wrong workspace.
+                        <?php endif; ?>
+                    </div>
+                <?php endif; ?>
+
+                <?php if (!empty($request['possible_duplicate'])): ?>
+                    <div class="notice notice-error" style="margin-top:16px;">
+                        <strong>Possible duplicate:</strong>
+                        <?php echo e($request['duplicate_reason'] ?? 'Review the existing business or branch before approval.'); ?>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </section>
+
         <section class="panel admin-actions-panel">
             <div class="panel-header">
                 <h2>Admin Actions</h2>
@@ -555,20 +859,123 @@ $isFinalized = in_array($currentStatus, ['approved', 'rejected'], true);
                         This request has already been <strong><?php echo e($currentStatus); ?></strong> and is final. No further status changes are allowed.
                     </div>
                 <?php else: ?>
-                    <form id="adminActionForm" method="POST" class="request-action-form modern-action-form" data-confirm-message="Are you sure you want to continue?">
+                    <div class="notice request-action-feedback" id="requestActionFeedback" role="status"></div>
+
+                    <div class="request-action-processing" id="requestActionProcessing" role="status" aria-live="polite">
+                        <span class="request-action-processing-spinner" aria-hidden="true">
+                            <i class="bi bi-arrow-repeat"></i>
+                        </span>
+                        <span class="request-action-processing-copy">
+                            <strong id="requestActionProcessingText">Processing request...</strong>
+                            <small>Please keep this request open while the administrator action is being saved.</small>
+                        </span>
+                    </div>
+
+                    <form
+                        id="adminActionForm"
+                        method="POST"
+                        enctype="multipart/form-data"
+                        class="request-action-form modern-action-form"
+                        data-confirm-message="Are you sure you want to continue?"
+                    >
+                        <input type="hidden" name="csrf_token" value="<?php echo e(generateCsrfToken('admin_request_action')); ?>">
                         <input type="hidden" name="request_id" value="<?php echo (int)$request['id']; ?>">
+                        <input type="hidden" name="action_mode" id="actionMode" value="">
 
                         <div class="modern-field">
                             <label>Select Action</label>
                             <div class="modern-select-shell">
                                 <select name="action_type" id="actionSelect" required>
                                     <option value="" disabled selected>Choose an action</option>
-                                    <option value="approve">Approve Request</option>
+                                    <option value="approve" <?php echo !$branchIntegrityOk ? 'disabled' : ''; ?>>
+                                        <?php echo !$branchIntegrityOk && $isEmployeeRequest ? 'Approve Request (branch unresolved)' : 'Approve Request'; ?>
+                                    </option>
                                     <option value="reject">Reject Request</option>
                                     <?php if ($currentStatus === 'pending'): ?>
                                         <option value="resubmit">Send for Resubmission</option>
+                                    <?php elseif ($currentStatus === 'resubmit'): ?>
+                                        <option value="update_resubmit">Update Resubmission Details</option>
                                     <?php endif; ?>
                                 </select>
+                            </div>
+                        </div>
+
+                        <div class="correction-editor" id="correctionEditor" aria-hidden="true">
+                            <div class="correction-editor-header">
+                                <i class="bi bi-pencil-square" aria-hidden="true"></i>
+                                <div>
+                                    <h3>Correct Request Information</h3>
+                                    <p>Edit only verified corrections. The requested role and password cannot be changed here.</p>
+                                </div>
+                            </div>
+
+                            <div class="correction-grid">
+                                <div class="correction-field">
+                                    <label for="correctionFullName">Full Name</label>
+                                    <input class="correction-input" id="correctionFullName" name="full_name" type="text" maxlength="100" value="<?php echo e($request['full_name']); ?>" data-correction-required>
+                                </div>
+                                <div class="correction-field">
+                                    <label for="correctionUsername">Username</label>
+                                    <input class="correction-input" id="correctionUsername" name="username" type="text" maxlength="50" value="<?php echo e($request['username']); ?>" autocomplete="off" data-correction-required>
+                                </div>
+                                <div class="correction-field">
+                                    <label for="correctionEmail">Email</label>
+                                    <input class="correction-input" id="correctionEmail" name="email" type="email" maxlength="100" value="<?php echo e($request['email']); ?>" data-correction-required>
+                                </div>
+                                <div class="correction-field">
+                                    <label for="correctionPhone">Phone</label>
+                                    <input class="correction-input" id="correctionPhone" name="phone" type="text" maxlength="20" value="<?php echo e($request['phone']); ?>" data-correction-required>
+                                </div>
+                                <div class="correction-field is-wide">
+                                    <label for="correctionAddress">Personal Address</label>
+                                    <textarea class="correction-textarea" id="correctionAddress" name="address" maxlength="500" data-correction-required><?php echo e($request['address']); ?></textarea>
+                                </div>
+
+                                <?php if ($isEmployeeRequest): ?>
+                                    <div class="correction-field">
+                                        <label for="correctionEmployeeNo">Employee Number</label>
+                                        <input class="correction-input" id="correctionEmployeeNo" name="employee_no" type="text" maxlength="50" value="<?php echo e($request['employee_no'] ?? ''); ?>" data-correction-required>
+                                    </div>
+                                    <div class="correction-field">
+                                        <label for="correctionBusinessCode">SME Business Code</label>
+                                        <input class="correction-input" id="correctionBusinessCode" name="business_code" type="text" maxlength="20" value="<?php echo e($submittedBusinessCode); ?>" data-correction-required>
+                                    </div>
+                                    <div class="correction-field">
+                                        <label for="correctionBranchCode">Branch Code</label>
+                                        <input class="correction-input" id="correctionBranchCode" name="branch_code" type="text" maxlength="20" value="<?php echo e($submittedBranchCode); ?>" data-correction-required>
+                                    </div>
+                                    <input type="hidden" name="business_name" value="<?php echo e($request['business_name'] ?? ''); ?>">
+                                    <input type="hidden" name="business_type" value="<?php echo e($request['business_type'] ?? ''); ?>">
+                                    <input type="hidden" name="business_address" value="<?php echo e($request['business_address'] ?? ''); ?>">
+                                <?php else: ?>
+                                    <div class="correction-field">
+                                        <label for="correctionBusinessName">Business Name</label>
+                                        <input class="correction-input" id="correctionBusinessName" name="business_name" type="text" maxlength="150" value="<?php echo e($request['business_name'] ?? ''); ?>" data-correction-required>
+                                    </div>
+                                    <div class="correction-field">
+                                        <label for="correctionBusinessType">Business Type</label>
+                                        <select class="correction-select" id="correctionBusinessType" name="business_type" data-correction-required>
+                                            <?php foreach ($allowedBusinessTypes as $businessTypeOption): ?>
+                                                <option value="<?php echo e($businessTypeOption); ?>" <?php echo $currentBusinessType === $businessTypeOption ? 'selected' : ''; ?>>
+                                                    <?php echo e($businessTypeOption); ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+                                    <div class="correction-field is-wide">
+                                        <label for="correctionBusinessAddress">Business Address</label>
+                                        <textarea class="correction-textarea" id="correctionBusinessAddress" name="business_address" maxlength="500" data-correction-required><?php echo e($request['business_address'] ?? ''); ?></textarea>
+                                    </div>
+                                    <input type="hidden" name="employee_no" value="">
+                                    <input type="hidden" name="business_code" value="">
+                                    <input type="hidden" name="branch_code" value="">
+                                <?php endif; ?>
+
+                                <div class="correction-field is-wide">
+                                    <label for="replacementValidId">Replace Valid ID / Attachment (Optional)</label>
+                                    <input class="correction-file" id="replacementValidId" name="valid_id" type="file" accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf">
+                                    <small class="correction-file-help">Accepted: JPG, PNG, or PDF up to 5 MB. The existing file remains when no replacement is selected.</small>
+                                </div>
                             </div>
                         </div>
 
@@ -602,6 +1009,18 @@ $isFinalized = in_array($currentStatus, ['approved', 'rejected'], true);
 
 <script src="/NexGen/CODE/JS/admin_module.js"></script>
 <script>
+<?php if ($isEmbeddedView): ?>
+(function() {
+    const backButton = document.getElementById('requestViewBackButton');
+    if (!backButton || window.parent === window) return;
+
+    backButton.addEventListener('click', function(event) {
+        event.preventDefault();
+        window.parent.postMessage({ type: 'nexgen-close-request-view' }, window.location.origin);
+    });
+})();
+<?php endif; ?>
+
 function showCustomConfirm(message, onConfirm) {
     const overlay = document.getElementById('customConfirmOverlay');
     const messageBox = document.getElementById('customConfirmMessage');
@@ -638,7 +1057,10 @@ const ADMIN_ACTION_CONFIG = {
         remarksRequired: false,
         confirmMessage: 'Approve this registration request?',
         buttonText: 'Approve Request',
-        buttonClass: 'is-success'
+        processingText: 'Approving request...',
+        buttonClass: 'is-success',
+        showCorrections: false,
+        actionMode: 'approve'
     },
     reject: {
         endpoint: 'reject_request.php',
@@ -647,7 +1069,10 @@ const ADMIN_ACTION_CONFIG = {
         remarksRequired: true,
         confirmMessage: 'Reject this registration request?',
         buttonText: 'Reject Request',
-        buttonClass: 'is-danger'
+        processingText: 'Rejecting request...',
+        buttonClass: 'is-danger',
+        showCorrections: false,
+        actionMode: 'reject'
     },
     resubmit: {
         endpoint: 'resubmit_request.php',
@@ -655,10 +1080,162 @@ const ADMIN_ACTION_CONFIG = {
         remarksPlaceholder: 'Tell the applicant what needs to be corrected',
         remarksRequired: true,
         confirmMessage: 'Mark this request for resubmission?',
-        buttonText: 'Send for Resubmission',
-        buttonClass: 'is-warning'
+        buttonText: 'Save Corrections & Send',
+        processingText: 'Saving corrections...',
+        buttonClass: 'is-warning',
+        showCorrections: true,
+        actionMode: 'mark_resubmit'
+    },
+    update_resubmit: {
+        endpoint: 'resubmit_request.php',
+        remarksLabel: 'Updated Correction Instructions',
+        remarksPlaceholder: 'Explain the corrections or follow-up needed',
+        remarksRequired: true,
+        confirmMessage: 'Save these corrected resubmission details?',
+        buttonText: 'Save Resubmission Details',
+        processingText: 'Updating resubmission...',
+        buttonClass: 'is-warning',
+        showCorrections: true,
+        actionMode: 'update_resubmit'
     }
 };
+
+function showRequestActionFeedback(message, succeeded) {
+    const feedback = document.getElementById('requestActionFeedback');
+    if (!feedback) return;
+
+    feedback.classList.remove('notice-success', 'notice-error');
+    feedback.classList.add(succeeded ? 'notice-success' : 'notice-error', 'show');
+    feedback.setAttribute('role', succeeded ? 'status' : 'alert');
+    feedback.textContent = message;
+    feedback.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function setLocalRequestActionProcessing(active, message, restoreButtonText) {
+    const processingPanel = document.getElementById('requestActionProcessing');
+    const processingText = document.getElementById('requestActionProcessingText');
+    const submitBtn = document.getElementById('submitActionBtn');
+    const actionSelect = document.getElementById('actionSelect');
+
+    const form = document.getElementById('adminActionForm');
+    if (form) {
+        form.classList.toggle('is-processing', active);
+        if (active) {
+            form.setAttribute('aria-busy', 'true');
+        } else {
+            form.removeAttribute('aria-busy');
+        }
+    }
+
+    if (processingPanel) {
+        processingPanel.classList.toggle('show', active);
+    }
+    if (processingText && active) {
+        processingText.textContent = message || 'Processing request...';
+    }
+
+    if (submitBtn) {
+        submitBtn.classList.toggle('is-processing', active);
+        submitBtn.disabled = active;
+        if (active) {
+            submitBtn.setAttribute('aria-busy', 'true');
+            submitBtn.textContent = message || 'Processing...';
+        } else {
+            submitBtn.removeAttribute('aria-busy');
+            if (restoreButtonText) submitBtn.textContent = restoreButtonText;
+        }
+    }
+    if (actionSelect) actionSelect.disabled = active;
+
+    if (active && processingPanel) {
+        processingPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+}
+
+function submitAdminRequestAction(form) {
+    const submitBtn = document.getElementById('submitActionBtn');
+    const actionSelect = document.getElementById('actionSelect');
+    const originalButtonText = submitBtn ? submitBtn.textContent : 'Submit';
+    const actionConfig = actionSelect ? ADMIN_ACTION_CONFIG[actionSelect.value] : null;
+    const processingText = actionConfig && actionConfig.processingText
+        ? actionConfig.processingText
+        : 'Processing request...';
+    const formData = new FormData(form);
+
+    setLocalRequestActionProcessing(true, processingText, originalButtonText);
+    if (window.parent !== window) {
+        window.parent.postMessage({
+            type: 'nexgen-request-action-processing',
+            message: processingText
+        }, window.location.origin);
+    }
+
+    if (typeof window.fetch !== 'function') {
+        form.submit();
+        return;
+    }
+
+    fetch(form.action, {
+        method: 'POST',
+        body: formData,
+        credentials: 'same-origin',
+        headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(function(response) {
+        if (response.redirected && response.url.indexOf('/index.php') !== -1) {
+            window.top.location.href = response.url;
+            throw new Error('Administrator session expired.');
+        }
+
+        const contentType = response.headers.get('content-type') || '';
+        if (contentType.indexOf('application/json') === -1) {
+            throw new Error('The server returned an unexpected response. Please reopen the request and try again.');
+        }
+
+        return response.json().then(function(payload) {
+            if (!response.ok || payload.success !== true) {
+                throw new Error(payload.message || 'The request action could not be completed.');
+            }
+            return payload;
+        });
+    })
+    .then(function(payload) {
+        setLocalRequestActionProcessing(false, '', originalButtonText);
+        if (submitBtn) submitBtn.disabled = true;
+        showRequestActionFeedback(payload.message || 'Request updated successfully.', true);
+
+        if (window.parent !== window) {
+            window.setTimeout(function() {
+                window.parent.postMessage({
+                    type: 'nexgen-request-action-result',
+                    success: true,
+                    message: payload.message || 'Request updated successfully.',
+                    requestId: payload.request_id || null,
+                    status: payload.status || null
+                }, window.location.origin);
+            }, 350);
+            return;
+        }
+
+        window.setTimeout(function() {
+            window.location.href = 'pending_requests.php';
+        }, 900);
+    })
+    .catch(function(error) {
+        const errorMessage = error.message || 'The request action could not be completed.';
+        setLocalRequestActionProcessing(false, '', originalButtonText);
+        showRequestActionFeedback(errorMessage, false);
+        if (window.parent !== window) {
+            window.parent.postMessage({
+                type: 'nexgen-request-action-processing-end',
+                message: errorMessage
+            }, window.location.origin);
+        }
+    });
+}
 
 document.addEventListener('DOMContentLoaded', function() {
     const actionSelect = document.getElementById('actionSelect');
@@ -667,6 +1244,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const remarksLabel = document.getElementById('remarksLabel');
     const remarksInput = document.getElementById('remarksInput');
     const submitBtn = document.getElementById('submitActionBtn');
+    const actionMode = document.getElementById('actionMode');
+    const correctionEditor = document.getElementById('correctionEditor');
+    const correctionRequiredFields = document.querySelectorAll('[data-correction-required]');
 
     if (actionSelect && adminActionForm && remarksWrapper && remarksLabel && remarksInput && submitBtn) {
         actionSelect.addEventListener('change', function() {
@@ -675,11 +1255,21 @@ document.addEventListener('DOMContentLoaded', function() {
             if (!config) {
                 remarksWrapper.classList.remove('is-visible');
                 submitBtn.disabled = true;
+                adminActionForm.classList.remove('is-editing');
+                if (actionMode) actionMode.value = '';
+                if (correctionEditor) {
+                    correctionEditor.classList.remove('is-visible');
+                    correctionEditor.setAttribute('aria-hidden', 'true');
+                }
+                correctionRequiredFields.forEach(function(field) {
+                    field.required = false;
+                });
                 return;
             }
 
             adminActionForm.setAttribute('action', config.endpoint);
             adminActionForm.setAttribute('data-confirm-message', config.confirmMessage);
+            if (actionMode) actionMode.value = config.actionMode || actionSelect.value;
 
             remarksWrapper.classList.add('is-visible');
             remarksLabel.textContent = config.remarksLabel;
@@ -690,6 +1280,15 @@ document.addEventListener('DOMContentLoaded', function() {
             submitBtn.classList.remove('is-success', 'is-danger', 'is-warning');
             submitBtn.classList.add(config.buttonClass);
             submitBtn.disabled = false;
+
+            adminActionForm.classList.toggle('is-editing', config.showCorrections === true);
+            if (correctionEditor) {
+                correctionEditor.classList.toggle('is-visible', config.showCorrections === true);
+                correctionEditor.setAttribute('aria-hidden', config.showCorrections === true ? 'false' : 'true');
+            }
+            correctionRequiredFields.forEach(function(field) {
+                field.required = config.showCorrections === true;
+            });
         });
     }
 
@@ -698,7 +1297,7 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
             const message = form.getAttribute('data-confirm-message') || 'Are you sure you want to continue?';
             showCustomConfirm(message, function() {
-                form.submit();
+                submitAdminRequestAction(form);
             });
         });
     });

@@ -4,6 +4,8 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 require_once 'config.php';
+require_once __DIR__ . '/ar_helper.php';
+require_once __DIR__ . '/tenant_helper.php';
 
 /* SESSION SECURITY: enforce 10-minute timeout on protected user pages using header */
 enforceSessionTimeout();
@@ -18,9 +20,20 @@ $isEmployee   = $role === 'employee';
 $canInventory = (int)($_SESSION['can_inventory'] ?? 0) === 1;
 $canSales = (int)($_SESSION['can_sales'] ?? 0) === 1;
 $canSalesAnalytics = (int)($_SESSION['can_sales_analytics'] ?? 0) === 1;
-$canAccountsReceivable = (int)($_SESSION['can_accounts_receivable'] ?? 0) === 1;
+$canAccountsReceivable = nxArEnabled();
 $hasAnyBusinessModule = $canInventory || $canSales || $canSalesAnalytics || $canAccountsReceivable;
 $roleLabel = $isOwner ? 'Owner' : ($isEmployee ? 'Employee' : ucwords(str_replace('_', ' ', (string)$role)));
+$workspaceOptions = in_array($role, ['owner', 'employee'], true)
+    ? nxGetAccessibleWorkspaces($conn, (int)($_SESSION['user_id'] ?? 0), $role)
+    : [];
+$activeWorkspace = in_array($role, ['owner', 'employee'], true)
+    ? nxGetActiveWorkspace($conn)
+    : [];
+$workspaceCount = count($workspaceOptions);
+$activeWorkspaceLabel = !empty($activeWorkspace)
+    ? trim((string)$activeWorkspace['business_name'] . ' — ' . (string)$activeWorkspace['branch_name'])
+    : '';
+$workspaceCsrfToken = generateCsrfToken('workspace_action');
 
 $showCategoryOpen = in_array(
     $currentPage,
@@ -128,6 +141,86 @@ $showCategoryOpen = in_array(
     </div>
 
     <div class="topbar-right">
+        <?php if (!empty($activeWorkspace)): ?>
+            <div class="workspace-topbar-control">
+                <?php if ($workspaceCount > 1): ?>
+                    <form action="/NexGen/CODE/PHP/workspace_action.php" method="POST" class="workspace-switch-form" data-workspace-switch-form>
+                        <input type="hidden" name="csrf_token" value="<?php echo e($workspaceCsrfToken); ?>">
+                        <input type="hidden" name="action" value="switch_workspace">
+                        <input type="hidden" name="return_to" value="<?php echo e($currentPage); ?>">
+
+                        <div class="workspace-picker" data-workspace-picker>
+                            <button
+                                type="button"
+                                class="workspace-picker-toggle"
+                                id="headerWorkspaceToggle"
+                                aria-haspopup="listbox"
+                                aria-expanded="false"
+                                aria-controls="headerWorkspaceList"
+                                title="<?php echo e($activeWorkspaceLabel); ?>"
+                                data-workspace-toggle
+                            >
+                                <span class="workspace-picker-toggle-label" data-workspace-current-label><?php echo e($activeWorkspaceLabel); ?></span>
+                                <i class="bi bi-chevron-down workspace-picker-chevron" aria-hidden="true"></i>
+                            </button>
+
+                            <div
+                                class="workspace-picker-list<?php echo $workspaceCount >= 5 ? ' is-scrollable' : ''; ?>"
+                                id="headerWorkspaceList"
+                                role="listbox"
+                                aria-labelledby="headerWorkspaceToggle"
+                                data-workspace-list
+                                hidden
+                            >
+                            <?php foreach ($workspaceOptions as $workspace): ?>
+                                <?php
+                                    $workspaceId = (int)$workspace['business_id'];
+                                    $workspaceLabel = trim((string)$workspace['business_name'] . ' — ' . (string)$workspace['branch_name']);
+                                    $isActiveWorkspace = $workspaceId === (int)$activeWorkspace['business_id'];
+                                ?>
+                                <button
+                                    type="submit"
+                                    name="business_id"
+                                    value="<?php echo $workspaceId; ?>"
+                                    class="workspace-picker-option<?php echo $isActiveWorkspace ? ' is-selected' : ''; ?>"
+                                    role="option"
+                                    aria-selected="<?php echo $isActiveWorkspace ? 'true' : 'false'; ?>"
+                                    tabindex="-1"
+                                    title="<?php echo e($workspaceLabel); ?>"
+                                    data-workspace-option
+                                >
+                                    <span class="workspace-picker-option-label"><?php echo e($workspaceLabel); ?></span>
+                                    <i class="bi bi-check2 workspace-picker-option-check" aria-hidden="true"></i>
+                                </button>
+                            <?php endforeach; ?>
+                            </div>
+                        </div>
+
+                        <noscript>
+                            <label for="headerWorkspaceFallbackSelect" class="visually-hidden">Active business branch</label>
+                            <select name="business_id" id="headerWorkspaceFallbackSelect" class="workspace-fallback-select" aria-label="Active business branch">
+                                <?php foreach ($workspaceOptions as $workspace): ?>
+                                    <option value="<?php echo (int)$workspace['business_id']; ?>" <?php echo (int)$workspace['business_id'] === (int)$activeWorkspace['business_id'] ? 'selected' : ''; ?>>
+                                        <?php echo e($workspace['business_name'] . ' — ' . $workspace['branch_name']); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                            <button type="submit" class="workspace-switch-btn">Switch</button>
+                        </noscript>
+                    </form>
+                <?php else: ?>
+                    <div class="workspace-current-badge" title="<?php echo e($activeWorkspace['business_code'] . ' / ' . $activeWorkspace['branch_code']); ?>">
+                        <i class="bi bi-shop"></i>
+                        <span><?php echo e($activeWorkspace['business_name'] . ' — ' . $activeWorkspace['branch_name']); ?></span>
+                    </div>
+                <?php endif; ?>
+                <?php if ($isOwner): ?>
+                    <a href="/NexGen/CODE/PHP/settings.php?panel=workspace-panel" class="workspace-manage-link" title="Manage businesses and branches" aria-label="Manage businesses and branches">
+                        <i class="bi bi-plus-circle"></i>
+                    </a>
+                <?php endif; ?>
+            </div>
+        <?php endif; ?>
         <button class="theme-toggle" id="themeToggle" type="button" aria-label="Switch to light mode" aria-pressed="false">
             <span class="theme-toggle-thumb">
                 <i class="bi bi-moon-stars-fill" id="themeIcon"></i>
@@ -324,6 +417,8 @@ $showCategoryOpen = in_array(
     (function () {
         const timeoutMs = <?php echo (int)SESSION_TIMEOUT_SECONDS * 1000; ?>;
         let inactivityTimer = null;
+        let lastPingAt = 0;
+        const pingThrottleMs = 60000;
 
         function triggerTimeoutLogout() {
             window.location.href = "/NexGen/CODE/PHP/logout.php?timeout=1";
@@ -332,6 +427,16 @@ $showCategoryOpen = in_array(
         function resetInactivityTimer() {
             clearTimeout(inactivityTimer);
             inactivityTimer = setTimeout(triggerTimeoutLogout, timeoutMs);
+
+            // Keep $_SESSION['last_activity'] in sync with real user activity
+            // (not just full page/AJAX requests) so users actively filling out
+            // a long form aren't logged out - and don't lose unsaved data -
+            // while the client-side timer above still shows them as active.
+            const now = Date.now();
+            if (now - lastPingAt >= pingThrottleMs) {
+                lastPingAt = now;
+                fetch('/NexGen/CODE/PHP/session_ping.php', { method: 'POST', credentials: 'same-origin' }).catch(function () {});
+            }
         }
 
         ['click', 'mousemove', 'keydown', 'scroll', 'touchstart'].forEach(function (eventName) {

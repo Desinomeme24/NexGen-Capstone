@@ -13,9 +13,11 @@ if ((int)($_SESSION['can_sales'] ?? 0) !== 1) {
 
 include 'config.php';
 require_once __DIR__ . '/tenant_helper.php';
+require_once __DIR__ . '/ar_helper.php';
 $businessId = nxRequireBusinessId($conn);
-
-$user_id = $_SESSION['user_id'];
+$user_id = (int)$_SESSION['user_id'];
+$arEnabled = nxArEnabled($conn, $user_id);
+$csrfSaleForm = generateCsrfToken('sale_form');
 
 $filter = isset($_GET['filter']) ? $_GET['filter'] : 'All';
 $search = isset($_GET['search']) ? trim($_GET['search']) : '';
@@ -116,7 +118,7 @@ if ($dateStart && $dateEnd) {
 }
 
 $sql = "
-    SELECT 
+    SELECT
         s.id,
         s.sales_no,
         s.total_amount,
@@ -192,7 +194,7 @@ $summary = $summaryResult ? $summaryResult->fetch_assoc() : [
 
 $productList = [];
 $productStmt = $conn->prepare("
-    SELECT id, product_name, selling_price, stock_quantity
+    SELECT id, product_code, product_name, product_image, selling_price, discount_percent, stock_quantity
     FROM products
     WHERE business_id = ? AND is_active = 1
     ORDER BY product_name ASC
@@ -202,26 +204,32 @@ if ($productStmt) {
     $productStmt->execute();
     $products = $productStmt->get_result();
     while ($row = $products->fetch_assoc()) {
+        $imagePath = trim((string)($row['product_image'] ?? ''));
+        $row['image_url'] = $imagePath === ''
+            ? '/NexGen/IMAGES/default-product.png'
+            : '/NexGen/CODE/PHP/' . ltrim($imagePath, '/');
         $productList[] = $row;
     }
     $productStmt->close();
 }
 
 $customerList = [];
-$customerStmt = $conn->prepare("
-    SELECT id, customer_name, customer_code
-    FROM customers
-    WHERE business_id = ? AND status = 1
-    ORDER BY customer_name ASC
-");
-if ($customerStmt) {
-    $customerStmt->bind_param("i", $businessId);
-    $customerStmt->execute();
-    $customers = $customerStmt->get_result();
-    while ($row = $customers->fetch_assoc()) {
-        $customerList[] = $row;
+if ($arEnabled) {
+    $customerStmt = $conn->prepare(
+        "SELECT id, customer_code, customer_name, phone, email, address
+         FROM customers
+         WHERE business_id = ? AND status = 1
+         ORDER BY customer_name ASC, id ASC"
+    );
+    if ($customerStmt) {
+        $customerStmt->bind_param('i', $businessId);
+        $customerStmt->execute();
+        $customers = $customerStmt->get_result();
+        while ($row = $customers->fetch_assoc()) {
+            $customerList[] = $row;
+        }
+        $customerStmt->close();
     }
-    $customerStmt->close();
 }
 
 $cashierList = [];
@@ -254,14 +262,6 @@ function badgeClassPayment($status) {
     };
 }
 
-function badgeClassOrder($status) {
-    return match($status) {
-        'Fulfilled' => 'badge fulfilled',
-        'Pending' => 'badge pending',
-        default => 'badge'
-    };
-}
-
 $popupMessage = $_SESSION['success'] ?? $_SESSION['error'] ?? '';
 $popupType = isset($_SESSION['success']) ? 'success' : (isset($_SESSION['error']) ? 'error' : '');
 unset($_SESSION['success'], $_SESSION['error']);
@@ -273,7 +273,7 @@ unset($_SESSION['success'], $_SESSION['error']);
     <?php include __DIR__ . '/theme_init.php'; ?>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sales</title>
-    <link rel="stylesheet" href="/NexGen/CODE/STYLE/sales_recording.css?v=8">
+    <link rel="stylesheet" href="/NexGen/CODE/STYLE/sales_recording.css?v=12">
     <link rel="stylesheet" href="/NexGen/CODE/STYLE/header.css?v=5">
     <link rel="stylesheet" href="/NexGen/CODE/STYLE/module_footer.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
@@ -569,6 +569,7 @@ unset($_SESSION['success'], $_SESSION['error']);
                     <strong><?php echo (int)($summary['paid_count'] ?? 0); ?></strong>
                 </div>
             </a>
+            <?php if ($arEnabled): ?>
             <a href="<?php echo salesHref(['filter' => 'Unpaid'], $salesBaseParams); ?>" class="kpi-tile kpi-slate <?php echo ($filter === 'Unpaid') ? 'active' : ''; ?>">
                 <i class="bi bi-x-circle"></i>
                 <div>
@@ -597,6 +598,7 @@ unset($_SESSION['success'], $_SESSION['error']);
                     <strong><?php echo (int)($summary['pending_count'] ?? 0); ?></strong>
                 </div>
             </a>
+            <?php endif; ?>
             <span class="kpi-tile kpi-green kpi-static">
                 <i class="bi bi-cash-coin"></i>
                 <div>
@@ -771,7 +773,7 @@ unset($_SESSION['success'], $_SESSION['error']);
                         data-date="<?php echo htmlspecialchars($dateFmt); ?>"
                         data-cashier="<?php echo htmlspecialchars($cashierName); ?>"
                         data-items="<?php echo htmlspecialchars($items); ?>"
-                        data-qty="<?php echo (int)$row['total_qty']; ?>"
+                        data-qty="<?php echo htmlspecialchars($row['total_qty']); ?>"
                         data-amount="<?php echo number_format($row['total_amount'], 2); ?>"
                         data-payment-status="<?php echo htmlspecialchars($row['payment_status']); ?>"
                         data-payment-method="<?php echo htmlspecialchars($row['payment_method']); ?>"
@@ -800,7 +802,7 @@ unset($_SESSION['success'], $_SESSION['error']);
                             </div>
                             <div class="sale-card-qty">
                                 <small>Qty</small>
-                                <strong><?php echo (int)$row['total_qty']; ?></strong>
+                                <strong><?php echo formatQty($row['total_qty']); ?></strong>
                             </div>
                         </div>
 
@@ -813,9 +815,7 @@ unset($_SESSION['success'], $_SESSION['error']);
                                 <small>Total</small>
                                 <strong>₱<?php echo number_format($row['total_amount'], 2); ?></strong>
                             </div>
-                            <span class="<?php echo badgeClassOrder($row['order_status']); ?>"><?php echo htmlspecialchars($row['order_status']); ?></span>
                         </div>
-
                         <div class="sale-card-footer">
                             <span class="sale-card-method"><i class="bi <?php echo $methodIcon; ?>"></i> <?php echo htmlspecialchars($row['payment_method']); ?></span>
                             <div class="sale-card-actions">
@@ -835,21 +835,6 @@ unset($_SESSION['success'], $_SESSION['error']);
             </div>
 
             <div class="sales-pagination" id="salesPagination"></div>
-        </div>
-
-        <div class="legend">
-            <div class="legend-item">
-                <span class="legend-dot" style="background: rgba(94, 234, 212, 0.65);"></span>
-                Paid / Fulfilled / Cash
-            </div>
-            <div class="legend-item">
-                <span class="legend-dot" style="background: rgba(255, 85, 119, 0.65);"></span>
-                Unpaid
-            </div>
-            <div class="legend-item">
-                <span class="legend-dot" style="background: rgba(255, 221, 85, 0.65);"></span>
-                Partial / Pending
-            </div>
         </div>
     </div>
 </div>
@@ -884,102 +869,235 @@ unset($_SESSION['success'], $_SESSION['error']);
     </div>
 </div>
 
-<div class="modal-overlay" id="saleModal">
-    <div class="sale-modal wizard-modal">
-        <button type="button" class="modal-close" onclick="closeSaleModal()">&times;</button>
-        <div class="modal-title">Record New Sale</div>
+<div class="modal-overlay" id="saleModal" aria-hidden="true">
+    <div class="sale-modal wizard-modal" role="dialog" aria-modal="true" aria-labelledby="saleModalTitle">
+        <div class="wizard-app-header">
+            <button type="button" class="wizard-header-return" onclick="closeSaleModal()" aria-label="Close sale form and return">
+                <i class="bi bi-arrow-left"></i>
+            </button>
+            <div class="wizard-heading-group">
+                <div class="modal-title wizard-modal-title" id="saleModalTitle">
+                    <i class="bi bi-receipt-cutoff"></i>
+                    <span>New Sale</span>
+                </div>
+                <small class="wizard-heading-subtitle">Record New Sale</small>
+            </div>
+            <button type="button" class="modal-close" onclick="closeSaleModal()" aria-label="Close sale form">&times;</button>
+        </div>
 
-        <div class="wizard-steps" id="wizardSteps">
-            <button type="button" class="wizard-step-dot" data-goto="1">
+        <div class="wizard-steps" id="wizardSteps" aria-label="Sale recording progress">
+            <button type="button" class="wizard-step-dot" data-goto="1" aria-label="Go to Sale Info">
                 <span class="dot-num">1</span><span class="dot-label">Sale Info</span>
             </button>
             <span class="wizard-step-line"></span>
-            <button type="button" class="wizard-step-dot" data-goto="2">
+            <button type="button" class="wizard-step-dot" data-goto="2" aria-label="Go to Items">
                 <span class="dot-num">2</span><span class="dot-label">Items</span>
             </button>
             <span class="wizard-step-line"></span>
-            <button type="button" class="wizard-step-dot" data-goto="3">
+            <button type="button" class="wizard-step-dot" data-goto="3" aria-label="Go to Review">
                 <span class="dot-num">3</span><span class="dot-label">Review</span>
             </button>
         </div>
 
         <form id="saleForm" method="POST" action="/NexGen/CODE/PHP/process_sale_ajax.php" novalidate>
+            <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfSaleForm); ?>">
+            <input type="hidden" name="order_status" id="orderStatus" value="Fulfilled">
 
             <!-- STEP 1: SALE INFO -->
             <div class="wizard-step active" data-step="1">
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label>Sales No.</label>
-                        <input type="text" name="sales_no" value="<?php echo generateSalesNo(); ?>" readonly>
-                    </div>
+                <div class="wizard-step-intro">
+                    <i class="bi bi-info-circle"></i>
+                    <span>Set up the sale before adding products.</span>
+                </div>
+                <div class="wizard-info-grid">
+                    <section class="wizard-card sale-details-card">
+                        <div class="wizard-card-title"><i class="bi bi-receipt"></i> Sale Details</div>
+                        <div class="form-grid form-grid-single">
+                            <div class="form-group">
+                                <label>Sales No.</label>
+                                <div class="verified-field">
+                                    <input type="text" name="sales_no" value="<?php echo generateSalesNo(); ?>" readonly>
+                                    <i class="bi bi-check-circle verified-field-icon" aria-hidden="true"></i>
+                                </div>
+                            </div>
 
-                    <div class="form-group">
-                        <label>Cashier</label>
-                        <input type="text" value="<?php echo isset($_SESSION['full_name']) ? htmlspecialchars($_SESSION['full_name']) : 'Current User'; ?>" readonly>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Payment Status</label>
-                        <select name="payment_status" id="paymentStatus" required>
-                            <option value="Paid">Paid</option>
-                            <option value="Unpaid">Unpaid</option>
-                            <option value="Partially Paid">Partially Paid</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group">
-                        <label>Payment Method</label>
-                        <select name="payment_method" id="paymentMethod" required>
-                            <option value="Cash">Cash</option>
-                            <option value="GCash">GCash</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group full-span">
-                        <label>Order Status</label>
-                        <select name="order_status" id="orderStatus" required>
-                            <option value="Fulfilled">Fulfilled</option>
-                            <option value="Pending">Pending</option>
-                        </select>
-                    </div>
-
-                    <div class="form-group full-span customer-inline-group">
-                        <label>Customer</label>
-
-                        <div class="customer-inline-row">
-                            <select name="customer_id" id="customerSelect">
-                                <option value="">Walk-in / Optional for Paid</option>
-                                <?php foreach ($customerList as $customer): ?>
-                                    <option value="<?php echo (int)$customer['id']; ?>">
-                                        <?php echo htmlspecialchars($customer['customer_name'] . ' (' . $customer['customer_code'] . ')'); ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-
-                            <button type="button" class="btn-primary customer-inline-btn" id="openCustomerBtn">＋ New Customer</button>
+                            <div class="form-group">
+                                <label>Cashier</label>
+                                <div class="verified-field">
+                                    <input type="text" id="cashierDisplay" value="<?php echo isset($_SESSION['full_name']) ? htmlspecialchars($_SESSION['full_name']) : 'Current User'; ?>" readonly>
+                                    <i class="bi bi-check-circle verified-field-icon" aria-hidden="true"></i>
+                                </div>
+                            </div>
                         </div>
-                    </div>
+                    </section>
 
-                    <div class="form-group" id="amountPaidGroup">
-                        <label>Amount Paid</label>
-                        <input type="number" step="0.01" min="0" name="amount_paid" id="amountPaidInput" value="0">
-                    </div>
+                    <section class="wizard-card payment-setup-card">
+                        <div class="wizard-card-title"><i class="bi bi-credit-card"></i> Payment Setup</div>
+                        <div class="form-grid form-grid-single">
+                            <div class="form-group">
+                                <label>Payment Method</label>
+                                <select name="payment_method" id="paymentMethod" required>
+                                    <option value="Cash">Cash</option>
+                                    <option value="GCash">GCash</option>
+                                </select>
+                            </div>
 
-                    <div class="form-group" id="dueDateGroup">
-                        <label>Due Date</label>
-                        <input type="date" name="due_date" id="dueDateInput">
-                    </div>
+                            <div class="form-group">
+                                <label>Payment Status</label>
+                                <?php if ($arEnabled): ?>
+                                <select name="payment_status" id="paymentStatus" required>
+                                    <option value="Paid">Paid</option>
+                                    <option value="Partially Paid">Partially Paid</option>
+                                    <option value="Unpaid">Unpaid</option>
+                                </select>
+                                <?php else: ?>
+                                <input type="hidden" name="payment_status" id="paymentStatus" value="Paid">
+                                <div class="locked-payment-status" aria-label="Payment status is locked to Paid">
+                                    <input type="text" value="Paid" readonly tabindex="-1">
+                                    <i class="bi bi-lock-fill" aria-hidden="true"></i>
+                                </div>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </section>
+
+                    <?php if ($arEnabled): ?>
+                    <section class="wizard-card customer-info-card" id="customerInfoCard" hidden>
+                        <div class="credit-requirement-callout">
+                            <i class="bi bi-shield-fill-check"></i>
+                            <div>
+                                <strong>Required for credit</strong>
+                                <span>This receivable sale needs a customer record and due date.</span>
+                            </div>
+                        </div>
+                        <div class="wizard-card-title">
+                            <i class="bi bi-person-vcard"></i> Customer Information
+                        </div>
+                        <p class="customer-info-help">
+                            Select an existing customer or create a customer record for this receivable.
+                        </p>
+
+                        <input type="hidden" name="customer_id" id="customerId" value="0">
+                        <div class="customer-info-grid">
+                            <div class="form-group customer-choice-group">
+                                <label for="customerChoice">Customer Record</label>
+                                <select id="customerChoice">
+                                    <option value="">Choose a customer</option>
+                                    <option value="new">+ Create New Customer</option>
+                                    <?php foreach ($customerList as $customer): ?>
+                                        <option value="<?php echo (int)$customer['id']; ?>">
+                                            <?php echo htmlspecialchars(
+                                                $customer['customer_name'] . ' — ' . $customer['customer_code'],
+                                                ENT_QUOTES,
+                                                'UTF-8'
+                                            ); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="dueDateInput">Due Date</label>
+                                <input
+                                    type="date"
+                                    name="due_date"
+                                    id="dueDateInput"
+                                    min="<?php echo date('Y-m-d'); ?>"
+                                >
+                            </div>
+                        </div>
+
+                        <div class="selected-customer-summary" id="selectedCustomerSummary" hidden>
+                            <div><span>Name</span><strong id="selectedCustomerName">—</strong></div>
+                            <div><span>Phone</span><strong id="selectedCustomerPhone">—</strong></div>
+                            <div><span>Email</span><strong id="selectedCustomerEmail">—</strong></div>
+                            <div><span>Address</span><strong id="selectedCustomerAddress">—</strong></div>
+                        </div>
+
+                        <div class="new-customer-fields" id="newCustomerFields" hidden>
+                            <div class="form-group">
+                                <label for="customerNameInput">Customer Name</label>
+                                <input
+                                    type="text"
+                                    name="customer_name"
+                                    id="customerNameInput"
+                                    minlength="2"
+                                    maxlength="150"
+                                    autocomplete="name"
+                                    placeholder="Enter the customer's full name"
+                                >
+                            </div>
+                            <div class="form-group">
+                                <label for="customerPhoneInput">Phone Number <small>(optional)</small></label>
+                                <input
+                                    type="tel"
+                                    name="customer_phone"
+                                    id="customerPhoneInput"
+                                    maxlength="20"
+                                    autocomplete="tel"
+                                    placeholder="Example: 0912 345 6789"
+                                >
+                            </div>
+                            <div class="form-group">
+                                <label for="customerEmailInput">Email <small>(optional)</small></label>
+                                <input
+                                    type="email"
+                                    name="customer_email"
+                                    id="customerEmailInput"
+                                    maxlength="100"
+                                    autocomplete="email"
+                                    placeholder="customer@example.com"
+                                >
+                            </div>
+                            <div class="form-group">
+                                <label for="customerAddressInput">Address <small>(optional)</small></label>
+                                <textarea
+                                    name="customer_address"
+                                    id="customerAddressInput"
+                                    maxlength="500"
+                                    rows="2"
+                                    autocomplete="street-address"
+                                    placeholder="Customer address"
+                                ></textarea>
+                            </div>
+                        </div>
+
+                        <p class="customer-required-note">
+                            <i class="bi bi-info-circle"></i>
+                            Customer name and due date are required when creating a new credit customer.
+                        </p>
+                    </section>
+                    <?php else: ?>
+                    <input type="hidden" name="customer_id" value="0">
+                    <input type="hidden" name="due_date" value="">
+                    <?php endif; ?>
                 </div>
             </div>
 
             <!-- STEP 2: ITEMS + LIVE RECEIPT -->
             <div class="wizard-step" data-step="2">
+                <div class="wizard-step-intro">
+                    <i class="bi bi-bag-plus"></i>
+                    <span>Search for products, set quantities, and review the running total.</span>
+                </div>
                 <div class="items-wizard-grid">
                     <div class="receipt-panel">
                         <div class="receipt-box">
-                            <div class="receipt-box-head"><i class="bi bi-receipt"></i> Live Receipt</div>
+                            <div class="receipt-box-head"><i class="bi bi-receipt"></i> Receipt Preview</div>
+                            <div class="receipt-items-meta">
+                                <span>Items Summary</span>
+                                <strong><span id="receiptItemCount">0</span> item(s) &bull; <span id="receiptRowCount">0</span> row(s)</strong>
+                            </div>
                             <div class="receipt-lines" id="receiptLines">
                                 <p class="receipt-empty">No items yet — add a product to see it here.</p>
+                            </div>
+                            <div class="receipt-summary-row">
+                                <span>Subtotal</span>
+                                <strong>₱<span id="receiptSubtotal">0.00</span></strong>
+                            </div>
+                            <div class="receipt-summary-row receipt-discount-row">
+                                <span>Product Discounts</span>
+                                <strong>-₱<span id="receiptDiscount">0.00</span></strong>
                             </div>
                             <div class="receipt-total">
                                 <span>Total</span>
@@ -987,28 +1105,92 @@ unset($_SESSION['success'], $_SESSION['error']);
                             </div>
                         </div>
                         <label class="attach-receipt-btn" for="receiptImageInput">
-                            <i class="bi bi-paperclip"></i> <span id="attachReceiptText">Attach Receipt Photo (optional)</span>
+                            <i class="bi bi-upload"></i>
+                            <strong id="attachReceiptText">Attach Receipt Photo (optional)</strong>
+                            <small>Tap to browse &bull; JPG, PNG up to 5MB</small>
                         </label>
                         <input type="file" name="receipt_image" id="receiptImageInput" accept="image/*" hidden>
                     </div>
 
-                    <div class="items-section">
-                        <div class="items-title">Product Items</div>
-                        <div class="items-header">
-                            <div>Product</div>
-                            <div>Qty</div>
-                            <div>Unit Price</div>
-                            <div>Subtotal</div>
-                            <div>Remove</div>
-                        </div>
+                    <div class="items-section items-flow">
+                        <section class="wizard-card add-product-card">
+                            <div class="items-title"><i class="bi bi-cart-plus"></i> Add Product</div>
 
-                        <div id="itemsContainer"></div>
+                            <div class="product-entry-bar">
+                            <div class="product-search-group">
+                                <label for="productSearchInput">Product</label>
+                                <div class="product-combobox" id="productCombobox">
+                                    <i class="bi bi-search product-search-icon" aria-hidden="true"></i>
+                                    <input
+                                        type="search"
+                                        id="productSearchInput"
+                                        placeholder="Search or select a product"
+                                        autocomplete="off"
+                                        role="combobox"
+                                        aria-autocomplete="list"
+                                        aria-expanded="false"
+                                        aria-controls="productSearchResults">
+                                    <input type="hidden" id="selectedProductId" value="">
+                                    <button type="button" class="product-search-clear" id="clearProductSearch" aria-label="Clear selected product">&times;</button>
+                                    <div class="product-search-results" id="productSearchResults" role="listbox"></div>
+                                </div>
+                            </div>
 
-                        <button type="button" class="item-add-btn" onclick="addItemRow()">＋ Add Item</button>
+                            <div class="product-entry-qty">
+                                <label for="productEntryQty">Qty</label>
+                                <input type="number" id="productEntryQty" min="0.001" step="any" value="1" inputmode="decimal">
+                            </div>
 
-                        <div class="sale-total-card sale-total-inline">
-                            <small>Grand Total</small>
-                            <strong>₱<span id="grandTotal">0.00</span></strong>
+                            <button type="button" class="add-product-btn" id="addProductBtn">
+                                <i class="bi bi-plus-lg"></i> Add to List
+                            </button>
+                            </div>
+                        </section>
+
+                        <section class="wizard-card order-items-card">
+                            <div class="items-title"><i class="bi bi-card-checklist"></i> Order Items</div>
+                            <div class="items-table-shell">
+                            <div class="items-header">
+                                <div>Product</div>
+                                <div>Qty</div>
+                                <div>Unit Price</div>
+                                <div>Subtotal</div>
+                                <div>Remove</div>
+                            </div>
+
+                            <div id="itemsContainer">
+                                <div class="items-empty-state" id="itemsEmptyState">
+                                    <i class="bi bi-basket"></i>
+                                    <span>Search for a product above to begin the sale.</span>
+                                </div>
+                            </div>
+                            </div>
+                        </section>
+
+                        <div class="checkout-summary-grid">
+                            <section class="wizard-card payment-entry-card">
+                                <div class="items-title"><i class="bi bi-wallet2"></i> Payment</div>
+                                <div class="form-group checkout-amount-field" id="amountPaidGroup">
+                                    <label>Amount Paid</label>
+                                    <input type="number" step="0.01" min="0" name="amount_paid" id="amountPaidInput" value="0">
+                                    <small>Enter the amount received from the customer.</small>
+                                </div>
+                            </section>
+
+                            <section class="wizard-card order-total-preview-card">
+                                <div class="items-title"><i class="bi bi-pie-chart"></i> Order Summary</div>
+                                <div class="order-total-preview-grid">
+                                    <div class="sale-total-card sale-total-inline">
+                                        <small>Grand Total</small>
+                                        <strong>₱<span id="grandTotal">0.00</span></strong>
+                                    </div>
+
+                                    <div class="change-due-card" id="settlementCard">
+                                        <small id="settlementLabel">Change Due</small>
+                                        <strong>₱<span id="changeDue">0.00</span></strong>
+                                    </div>
+                                </div>
+                            </section>
                         </div>
                     </div>
                 </div>
@@ -1016,61 +1198,56 @@ unset($_SESSION['success'], $_SESSION['error']);
 
             <!-- STEP 3: REVIEW & CONFIRM -->
             <div class="wizard-step" data-step="3">
-                <div class="review-intro">Double-check the details below, then save the sale.</div>
-                <div class="review-grid" id="reviewGrid"></div>
-
-                <div class="sale-footer">
-                    <div class="sale-total-card">
-                        <small>Grand Total</small>
-                        <strong>₱<span id="reviewTotal">0.00</span></strong>
-                    </div>
-
-                    <div class="sale-actions sale-actions-full">
-                        <button type="submit" class="save-btn" id="saveSaleBtn">Save Sale</button>
-                    </div>
+                <div class="wizard-step-intro review-intro">
+                    <i class="bi bi-clipboard2-check"></i>
+                    <span>Double-check the details below, then save the sale.</span>
                 </div>
+
+                <section class="review-details-card">
+                    <div class="review-items-title"><i class="bi bi-person-lines-fill"></i> Sale, Customer &amp; Payment</div>
+                    <div class="review-grid" id="reviewGrid"></div>
+                </section>
+
+                <section class="review-items-card">
+                    <div class="review-items-title"><i class="bi bi-box-seam"></i> Items Summary</div>
+                    <div class="review-items-table">
+                        <div class="review-items-head">
+                            <span>Product</span><span>Qty</span><span>Unit Price</span><span>Discount</span><span>Subtotal</span>
+                        </div>
+                        <div id="reviewItemsBody"></div>
+                    </div>
+                    <div class="review-breakdown">
+                        <div><span>Subtotal</span><strong>₱<span id="reviewSubtotal">0.00</span></strong></div>
+                        <div><span>Product Discounts</span><strong class="review-discount-value">-₱<span id="reviewDiscount">0.00</span></strong></div>
+                    </div>
+                </section>
+
+                <section class="review-order-total-card">
+                    <div class="review-items-title"><i class="bi bi-calculator"></i> Order Total</div>
+                    <div class="sale-footer">
+                        <div class="sale-total-card">
+                            <small>Grand Total</small>
+                            <strong>₱<span id="reviewTotal">0.00</span></strong>
+                        </div>
+
+                        <div class="review-payment-card">
+                            <div><small>Amount Paid</small><strong>₱<span id="reviewAmountPaid">0.00</span></strong></div>
+                            <div><small id="reviewSettlementLabel">Change Due</small><strong class="review-change-value">₱<span id="reviewChangeDue">0.00</span></strong></div>
+                        </div>
+
+                        <div class="review-receipt-card">
+                            <i class="bi bi-paperclip"></i>
+                            <span id="reviewReceiptFile">No receipt photo attached</span>
+                        </div>
+
+                    </div>
+                </section>
             </div>
 
             <div class="wizard-nav">
                 <button type="button" class="wizard-back-btn" id="wizardBackBtn"><i class="bi bi-arrow-left"></i> Back</button>
-                <button type="button" class="wizard-next-btn" id="wizardNextBtn">Next <i class="bi bi-arrow-right"></i></button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<div class="modal-overlay" id="customerModal">
-    <div class="sale-modal">
-        <button type="button" class="modal-close" id="closeCustomerBtn">&times;</button>
-        <div class="modal-title">Add Customer</div>
-
-        <form id="customerForm" method="POST" action="/NexGen/CODE/PHP/customer_save.php" novalidate>
-            <input type="hidden" name="payment_status_context" id="paymentStatusContext" value="Paid">
-
-            <div class="form-grid">
-                <div class="form-group full-span">
-                    <label>Customer Name</label>
-                    <input type="text" name="customer_name" id="customerNameField" required>
-                </div>
-
-                <div class="form-group" id="phoneGroup">
-                    <label>Phone</label>
-                    <input type="text" name="phone" id="phoneField">
-                </div>
-
-                <div class="form-group" id="emailGroup">
-                    <label>Email</label>
-                    <input type="email" name="email" id="emailField">
-                </div>
-
-                <div class="form-group full-span" id="addressGroup">
-                    <label>Address</label>
-                    <textarea name="address" id="addressField" rows="3"></textarea>
-                </div>
-
-                <div class="form-group full-span">
-                    <button type="submit" class="save-btn" id="saveCustomerBtn">Save Customer</button>
-                </div>
+                <button type="button" class="wizard-next-btn" id="wizardNextBtn">Continue <i class="bi bi-arrow-right"></i></button>
+                <button type="submit" class="save-btn wizard-save-btn hidden" id="saveSaleBtn"><i class="bi bi-check-circle"></i> Save Sale</button>
             </div>
         </form>
     </div>
@@ -1097,9 +1274,13 @@ unset($_SESSION['success'], $_SESSION['error']);
 
 <script>
 window.products = <?php echo json_encode($productList, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+window.salesAccess = {
+    accountsReceivable: <?php echo $arEnabled ? 'true' : 'false'; ?>,
+    customers: <?php echo json_encode($customerList, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>
+};
 </script>
 <script src="/NexGen/CODE/JS/header.js?v=5"></script>
-<script src="/NexGen/CODE/JS/sales_recording.js?v=6"></script>
+<script src="/NexGen/CODE/JS/sales_recording.js?v=9"></script>
 <script>
 const popupOverlay = document.getElementById("popupOverlay");
 if (popupOverlay) {

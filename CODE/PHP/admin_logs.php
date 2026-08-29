@@ -29,13 +29,24 @@ $params = [];
 $types = "";
 
 if ($search !== '') {
-    $where .= " AND (u.full_name LIKE ? OR u.username LIKE ? OR l.description LIKE ? OR l.target_type LIKE ?) ";
+    /* Search only the Action, Target, and Date & Time values shown in the log table. */
+    $where .= " AND (
+        l.action LIKE ?
+        OR l.target_type LIKE ?
+        OR CAST(l.target_id AS CHAR) LIKE ?
+        OR CONCAT(COALESCE(l.target_type, ''), ' #', COALESCE(CAST(l.target_id AS CHAR), '')) LIKE ?
+        OR DATE_FORMAT(l.created_at, '%Y-%m-%d %H:%i:%s') LIKE ?
+        OR DATE_FORMAT(l.created_at, '%b %d, %Y') LIKE ?
+        OR DATE_FORMAT(l.created_at, '%M %d, %Y') LIKE ?
+        OR DATE_FORMAT(l.created_at, '%h:%i %p') LIKE ?
+        OR DATE_FORMAT(l.created_at, '%b %d, %Y %h:%i %p') LIKE ?
+    ) ";
+
     $like = "%{$search}%";
-    $params[] = $like;
-    $params[] = $like;
-    $params[] = $like;
-    $params[] = $like;
-    $types .= "ssss";
+    for ($i = 0; $i < 9; $i++) {
+        $params[] = $like;
+    }
+    $types .= str_repeat('s', 9);
 }
 
 if ($action !== '') {
@@ -541,9 +552,10 @@ if (
                         type="text"
                         name="search"
                         id="logsSearchInput"
-                        placeholder="Search admin, description, or target type..."
+                        placeholder="Search action, target, ID, or date/time..."
                         value="<?php echo e($search); ?>"
                         autocomplete="off"
+                        aria-label="Search admin logs by action, target, ID, or date and time"
                     >
 
                     <select class="select w-240" name="action" id="logsActionFilter">
@@ -555,7 +567,7 @@ if (
                         <?php endforeach; ?>
                     </select>
 
-                    <a class="btn btn-silver" href="admin_logs.php">Reset</a>
+                    <button class="btn btn-silver" type="button" id="logsResetButton">Reset</button>
                 </form>
 
                 <div id="adminLogsContainer">
@@ -620,6 +632,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('logsFilterForm');
     const searchInput = document.getElementById('logsSearchInput');
     const actionFilter = document.getElementById('logsActionFilter');
+    const resetButton = document.getElementById('logsResetButton');
     const container = document.getElementById('adminLogsContainer');
 
     let controller = null;
@@ -676,6 +689,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (actionFilter) {
         actionFilter.addEventListener('change', updateLogs);
+    }
+
+    if (resetButton) {
+        resetButton.addEventListener('click', function () {
+            if (searchInput) {
+                searchInput.value = '';
+            }
+            if (actionFilter) {
+                actionFilter.value = '';
+            }
+            updateLogs();
+        });
     }
 
     /* LOG DETAIL MODAL */

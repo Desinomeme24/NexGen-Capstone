@@ -1881,6 +1881,15 @@ body::after {
   border-left-color: #059669;
 }
 
+.notification-card.notif-achievement {
+  border-left-color: #b8860b;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 215, 0, 0.1),
+    rgba(255, 255, 255, 0) 60%
+  );
+}
+
 .notification-card.notif-warning {
   border-left-color: #f6cb08;
 }
@@ -1907,6 +1916,10 @@ body::after {
 
 .notification-card-icon.success {
   background: linear-gradient(135deg, #14b8a6, #059669);
+}
+
+.notification-card-icon.achievement {
+  background: linear-gradient(135deg, #ffd700, #b8860b);
 }
 
 .notification-card-icon.warning {
@@ -2424,5 +2437,705 @@ body::after {
     flex: 1 1 auto;
     justify-content: center;
     padding: 10px 16px;
+  }
+}
+
+/* Native select-menu consistency for Analytics and the shared branch switcher. */
+html:not([data-theme="light"]) body select {
+  color-scheme: dark;
+  background-color: #10275f !important;
+  color: #f8fbff !important;
+  border-color: rgba(127, 166, 255, 0.42) !important;
+}
+
+html:not([data-theme="light"]) body select option,
+html:not([data-theme="light"]) body select optgroup {
+  background-color: #10275f !important;
+  color: #f8fbff !important;
+}
+
+html:not([data-theme="light"]) body select option:checked {
+  background: #31549a linear-gradient(0deg, #31549a, #31549a) !important;
+  color: #ffffff !important;
+}
+
+html:not([data-theme="light"]) body select option:disabled {
+  color: #91a7d2 !important;
+}
+
+html[data-theme="light"] body select {
+  color-scheme: light;
+}
+
+/* ================================================================
+   RESPONSIVE HARDENING
+   Phones, tablets, laptops, wide screens, landscape, and safe areas
+   ================================================================ */
+
+.sales-analytics-page,
+.sales-analytics-page .main-panel,
+.sales-analytics-page .main-content,
+.sales-analytics-page section,
+.dashboard-toolbar,
+.toolbar-heading,
+.toolbar-controls,
+.summary-card,
+.analytics-card,
+.appendices-card,
+.appendix-item,
+.notification-card-content {
+  min-width: 0;
+}
+
+.main-content {
+  width: min(100%, 1600px);
+  margin-inline: auto;
+}
+
+.sales-analytics-page img,
+.sales-analytics-page svg,
+.sales-analytics-page canvas {
+  max-width: 100%;
+}
+
+.sales-analytics-page canvas {
+  display: block;
+}
+
+.toolbar-heading h1,
+.analytics-card-title,
+.summary-value,
+.appendix-item h3,
+.notification-card-content,
+.empty-box {
+  overflow-wrap: anywhere;
+}
+
+.toolbar-controls,
+.filter-segmented,
+.topbar-exports,
+.analytics-title-actions {
+  max-width: 100%;
+}
+
+/* Laptop and small desktop widths */
+@media (max-width: 1399px) {
+  .main-content {
+    padding-inline: clamp(18px, 2vw, 26px);
+  }
+
+  .dashboard-toolbar {
+    align-items: flex-start;
+  }
+
+  .toolbar-controls {
+    justify-content: flex-end;
+  }
+}
+
+/* MacBook-sized windows and landscape tablets */
+@media (max-width: 1199px) {
+  .toolbar-heading,
+  .toolbar-controls {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+
+  .toolbar-controls {
+    justify-content: flex-start;
+  }
+
+  .filter-segmented {
+    flex: 1 1 auto;
+  }
+
+  .canvas-holder {
+    height: 310px;
+  }
+}
+
+/* Tablets */
+@media (max-width: 991px) {
+  .sales-analytics-page {
+    padding-top: 76px;
+  }
+
+  .main-content {
+    padding: 20px 16px 28px;
+  }
+
+  .dashboard-toolbar {
+    gap: 14px;
+  }
+
+  .toolbar-controls {
+    gap: 10px;
+  }
+
+  .filter-segmented {
+    order: 3;
+    flex: 1 1 100%;
+    width: 100%;
+  }
+
+  .segment-btn {
+    flex: 1 1 0;
+    justify-content: center;
+    text-align: center;
+  }
+
+  .topbar-exports {
+    flex: 1 1 auto;
+  }
+
+  .charts-section .row,
+  .category-products-section > .row {
+    --bs-gutter-y: 16px;
+  }
+
+  .analytics-card,
+  .appendices-card {
+    border-radius: 22px;
+  }
+}
+
+/* Phones and portrait tablets */
+@media (max-width: 767px) {
+  .sales-analytics-page {
+    padding-top: 72px;
+  }
+
+  .main-content {
+    padding-top: 16px;
+    padding-right: max(12px, env(safe-area-inset-right));
+    padding-bottom: max(24px, env(safe-area-inset-bottom));
+    padding-left: max(12px, env(safe-area-inset-left));
+  }
+
+  /* Shared header: keep workspace, add, and theme controls inside the viewport. */
+  .topbar,
+  .topbar-right,
+  .workspace-topbar-control,
+  .workspace-switch-form {
+    min-width: 0 !important;
+  }
+
+  .topbar-right {
+    max-width: calc(100vw - 58px);
+    gap: 6px !important;
+  }
+
+  .workspace-topbar-control {
+    max-width: calc(100vw - 128px);
+    gap: 6px !important;
+  }
+
+  .workspace-switch-form {
+    flex: 1 1 auto;
+    max-width: min(46vw, 190px);
+  }
+
+  #headerWorkspaceSelect,
+  .workspace-switch-form select {
+    display: block;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    padding-inline: 9px !important;
+    font-size: 13px !important;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+  }
+
+  #headerWorkspaceSelect option,
+  .workspace-switch-form select option {
+    font-size: 12px !important;
+  }
+
+  .workspace-manage-link {
+    width: 36px !important;
+    min-width: 36px !important;
+    min-height: 36px !important;
+    flex: 0 0 36px;
+  }
+
+  .dashboard-toolbar {
+    display: block;
+  }
+
+  .toolbar-heading {
+    width: 100%;
+    margin-bottom: 16px;
+  }
+
+  .toolbar-heading h1 {
+    max-width: 100%;
+    font-size: clamp(22px, 7vw, 30px);
+    letter-spacing: -0.35px;
+  }
+
+  .toolbar-heading p {
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .toolbar-controls {
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .range-pill-btn {
+    order: 1;
+    flex: 0 0 44px;
+    width: 44px;
+    height: 44px;
+    min-height: 44px;
+    padding: 0;
+    justify-content: center;
+    border-radius: 50%;
+  }
+
+  .range-pill-btn span,
+  .range-pill-btn i.bi-chevron-down {
+    display: none;
+  }
+
+  .analytics-title-actions {
+    order: 2;
+    margin-left: auto;
+  }
+
+  .topbar-icon-btn {
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .filter-segmented {
+    order: 3;
+    flex: 1 1 100%;
+    width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: none;
+  }
+
+  .filter-segmented::-webkit-scrollbar {
+    display: none;
+  }
+
+  .segment-btn {
+    min-height: 42px;
+    padding: 9px 7px;
+    white-space: nowrap;
+  }
+
+  .topbar-exports {
+    order: 4;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    flex: 1 1 100%;
+    width: 100%;
+    gap: 8px;
+    margin-top: 2px;
+  }
+
+  .export-pill {
+    width: 100%;
+    min-height: 44px;
+    justify-content: center;
+  }
+
+  .summary-section {
+    margin-top: 20px;
+  }
+
+  /* Replace the hidden swipe strip with a predictable two-column grid. */
+  .summary-section .row {
+    flex-wrap: wrap !important;
+    overflow: visible !important;
+    scroll-snap-type: none !important;
+    margin-right: calc(-0.5 * var(--bs-gutter-x)) !important;
+    margin-left: calc(-0.5 * var(--bs-gutter-x)) !important;
+    padding: 0 !important;
+  }
+
+  .summary-section .row > div {
+    flex: 0 0 auto !important;
+    width: 50% !important;
+    max-width: 50% !important;
+    scroll-snap-align: none !important;
+  }
+
+  .summary-card {
+    min-height: 124px;
+    border-radius: 20px;
+  }
+
+  .summary-card:hover,
+  .analytics-card:hover,
+  .appendices-card:hover,
+  .appendix-item:hover {
+    transform: none;
+  }
+
+  .analytics-card {
+    padding: 16px;
+  }
+
+  .analytics-card-title {
+    display: block;
+    font-size: 16px;
+    line-height: 1.4;
+  }
+
+  .canvas-holder {
+    height: clamp(230px, 60vw, 290px);
+  }
+
+  .chart-wrap,
+  .donut-wrap {
+    height: clamp(210px, 58vw, 250px);
+  }
+
+  .category-products-section .row.align-items-center {
+    flex-wrap: wrap;
+  }
+
+  .category-products-section .col-lg-5,
+  .category-products-section .col-lg-7 {
+    flex: 0 0 100%;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .donut-wrap {
+    width: min(100%, 250px);
+    max-width: 250px;
+    margin-inline: auto;
+    overflow: hidden;
+  }
+
+  .category-products-section .table-responsive {
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-inline: contain;
+  }
+
+  .appendices-card {
+    padding: 18px;
+  }
+
+  .appendix-item-light {
+    padding: 18px;
+  }
+
+  .appendices-search input {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .popup-box {
+    width: min(calc(100% - 24px), 440px);
+    max-height: calc(100dvh - 24px);
+    padding: 24px 18px;
+    overflow-y: auto;
+  }
+
+  .modal-dialog {
+    width: auto;
+    max-width: calc(100vw - 24px);
+    margin: 12px auto;
+  }
+
+  .notifications-modal-body {
+    max-height: calc(100dvh - 190px);
+  }
+
+  .notifications-modal-header {
+    align-items: flex-start;
+  }
+
+  .notification-card-top {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .notif-time {
+    white-space: normal;
+  }
+
+  .custom-range-content .modal-footer .btn,
+  .notifications-modal-footer .btn {
+    min-height: 44px;
+  }
+
+  .chatbot-static {
+    right: max(12px, env(safe-area-inset-right));
+    bottom: max(12px, env(safe-area-inset-bottom));
+  }
+
+  .chatbot-static img {
+    width: 58px;
+    height: 58px;
+  }
+}
+
+/* Android and iPhone portrait widths */
+@media (max-width: 575px) {
+  .summary-section .row > div {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .summary-card {
+    min-height: 112px;
+  }
+
+  .summary-card-top {
+    min-height: 82px;
+  }
+
+  .summary-value {
+    font-size: clamp(18px, 6vw, 24px);
+  }
+
+  .analytics-card,
+  .appendices-card {
+    border-radius: 18px;
+  }
+
+  /* Convert analytics tables into compact mobile cards—no page overflow. */
+  .category-products-section .table-responsive {
+    overflow: visible;
+  }
+
+  .category-products-section table,
+  .category-products-section tbody {
+    display: block;
+    width: 100%;
+  }
+
+  .category-products-section thead {
+    display: none;
+  }
+
+  .category-products-section tbody tr {
+    width: 100%;
+    border-bottom: 1px solid rgba(11, 31, 115, 0.1);
+  }
+
+  .category-products-section tbody tr:last-child {
+    border-bottom: 0;
+  }
+
+  .category-products-section tbody td {
+    border: 0 !important;
+    min-width: 0;
+  }
+
+  .mini-sales-table tbody tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 4px 12px;
+    padding: 10px 0;
+  }
+
+  .mini-sales-table tbody td {
+    display: block;
+    padding: 2px 0 !important;
+  }
+
+  .mini-sales-table tbody td:first-child {
+    grid-row: 1 / span 2;
+    align-self: center;
+    overflow-wrap: anywhere;
+  }
+
+  .mini-sales-table tbody td:nth-child(2),
+  .mini-sales-table tbody td:nth-child(3) {
+    grid-column: 2;
+    text-align: right !important;
+    white-space: nowrap;
+  }
+
+  .mini-sales-table tbody td:nth-child(2)::before {
+    content: "Units: ";
+    color: #5b6b8c;
+    font-weight: 600;
+  }
+
+  .mini-sales-table tbody td:nth-child(3)::before {
+    content: "Share: ";
+    color: #5b6b8c;
+    font-weight: 600;
+  }
+
+  .top-product-table tbody tr {
+    display: grid;
+    grid-template-columns: 30px minmax(0, 1fr);
+    gap: 3px 10px;
+    padding: 10px 0;
+  }
+
+  .top-product-table tbody td {
+    display: block;
+    padding: 2px 0 !important;
+    overflow-wrap: anywhere;
+  }
+
+  .top-product-table tbody td:first-child {
+    grid-row: 1 / span 2;
+    align-self: center;
+  }
+
+  .top-product-table tbody td:nth-child(3) {
+    grid-column: 2;
+    text-align: left !important;
+    white-space: normal;
+  }
+
+  .top-product-table tbody td:nth-child(3)::before {
+    content: "Sales: ";
+    color: #5b6b8c;
+    font-weight: 600;
+  }
+
+  .notification-card {
+    align-items: flex-start;
+  }
+
+  .notifications-modal-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .notif-mark-read {
+    min-height: 40px;
+    padding-inline: 12px;
+  }
+
+  .notifications-modal-footer {
+    padding: 12px 16px 16px;
+  }
+
+  .btn-close-notif {
+    width: 100%;
+  }
+}
+
+/* Very narrow Android/iPhone screens */
+@media (max-width: 390px) {
+  .main-content {
+    padding-top: 12px;
+    padding-right: max(9px, env(safe-area-inset-right));
+    padding-left: max(9px, env(safe-area-inset-left));
+  }
+
+  .workspace-topbar-control {
+    max-width: calc(100vw - 116px);
+  }
+
+  .workspace-switch-form {
+    max-width: min(40vw, 142px);
+  }
+
+  #headerWorkspaceSelect,
+  .workspace-switch-form select,
+  #headerWorkspaceSelect option,
+  .workspace-switch-form select option {
+    font-size: 11px !important;
+  }
+
+  .toolbar-heading h1 {
+    font-size: 21px;
+  }
+
+  .segment-btn {
+    font-size: 11.5px;
+    padding-inline: 5px;
+  }
+
+  .export-pill {
+    padding-inline: 10px;
+    font-size: 12px;
+  }
+
+  .analytics-card {
+    padding: 14px 12px;
+  }
+
+  .canvas-holder {
+    height: 220px;
+  }
+
+  .chart-wrap,
+  .donut-wrap {
+    height: 205px;
+  }
+
+  .notification-card {
+    padding: 12px;
+  }
+
+  .notification-card-icon {
+    display: none;
+  }
+}
+
+/* Short landscape phones: conserve vertical space without horizontal clipping. */
+@media (max-height: 500px) and (orientation: landscape) {
+  .sales-analytics-page {
+    padding-top: 64px;
+  }
+
+  .main-content {
+    padding-top: 10px;
+  }
+
+  .canvas-holder {
+    height: 210px;
+  }
+
+  .chart-wrap,
+  .donut-wrap {
+    height: 190px;
+  }
+
+  .notifications-modal-body {
+    max-height: calc(100dvh - 150px);
+  }
+}
+
+/* Touch devices should not retain desktop lift/tilt effects after a tap. */
+@media (hover: none), (pointer: coarse) {
+  .summary-card:hover,
+  .analytics-card:hover,
+  .appendices-card:hover,
+  .appendix-item:hover,
+  .range-pill-btn:hover,
+  .export-pill:hover,
+  .topbar-icon-btn:hover {
+    transform: none;
+  }
+}
+
+/* Accessibility and better battery use on lower-powered mobile devices. */
+@media (prefers-reduced-motion: reduce) {
+  .sales-analytics-page *,
+  .sales-analytics-page *::before,
+  .sales-analytics-page *::after,
+  body::before,
+  body::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

@@ -39,7 +39,7 @@ themeOptions.forEach((btn) => {
 });
 
 /* =========================
-   NAV / PANEL SWITCHING (Account, Security, Personalization)
+   NAV / PANEL SWITCHING (Account, Businesses, Security, Personalization)
 ========================= */
 const navItems = document.querySelectorAll(".settings-nav .nav-item");
 const panels = document.querySelectorAll(".settings-panel");
@@ -50,6 +50,9 @@ const accountForm = document.getElementById("accountForm");
 const directPasswordForm = document.getElementById("directPasswordForm");
 const otpRequestForm = document.getElementById("otpRequestForm");
 const otpVerifyForm = document.getElementById("otpVerifyForm");
+const workspaceSwitchForm = document.getElementById("workspaceSwitchForm");
+const addBusinessForm = document.getElementById("addBusinessForm");
+const addBranchForm = document.getElementById("addBranchForm");
 
 const profileInput = document.getElementById("new_profile_image");
 const profileForm = document.getElementById("profileImageForm");
@@ -103,6 +106,14 @@ if (accountForm) {
   });
 }
 
+[workspaceSwitchForm, addBusinessForm, addBranchForm].forEach((form) => {
+  if (!form) return;
+
+  form.addEventListener("submit", function () {
+    localStorage.setItem("settingsActivePanel", "workspace-panel");
+  });
+});
+
 if (directPasswordForm) {
   directPasswordForm.addEventListener("submit", function () {
     localStorage.setItem("settingsActivePanel", "security-panel");
@@ -124,8 +135,13 @@ if (otpVerifyForm) {
   });
 }
 
-const savedPanel =
-  localStorage.getItem("settingsActivePanel") || "account-panel";
+const requestedPanel = new URLSearchParams(window.location.search).get("panel");
+const requestedPanelExists = requestedPanel
+  ? Boolean(document.getElementById(requestedPanel))
+  : false;
+const savedPanel = requestedPanelExists
+  ? requestedPanel
+  : localStorage.getItem("settingsActivePanel") || "account-panel";
 const savedMethod = localStorage.getItem("settingsSecurityMethod") || "";
 
 openPanel(savedPanel);

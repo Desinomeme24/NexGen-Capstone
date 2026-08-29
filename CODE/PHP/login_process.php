@@ -1,6 +1,7 @@
 <?php
 session_start();
-include 'config.php';
+require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/tenant_helper.php';
 
 if ($_SERVER["REQUEST_METHOD"] !== "POST") {
     $_SESSION['error'] = "Invalid request.";
@@ -35,7 +36,7 @@ if ($username === '' || $password === '') {
 */
 $sql = "SELECT id, username, full_name, email, password, profile_image, role, account_status,
                can_inventory, can_sales, can_sales_analytics, can_accounts_receivable,
-               failed_login_attempts, locked_until
+               failed_login_attempts, locked_until, business_id
         FROM users
         WHERE username = ?
         LIMIT 1";
@@ -118,13 +119,27 @@ $stmt->close();
 /* SECURITY: Check current lock first */
 if (isUserLocked($user)) {
     $lockUntilTs = strtotime((string)$user['locked_until']);
+    $isPermanentLock = (int)($user['failed_login_attempts'] ?? 0) >= 5;
 
-    $_SESSION['error'] = "Your account is temporarily locked due to multiple failed login attempts.";
     $_SESSION['form_type'] = 'login';
-    $_SESSION['lockout_until_ts'] = $lockUntilTs;
-    $_SESSION['lockout_username'] = $user['username'];
-    $_SESSION['lockout_user_id'] = (int)$user['id'];
-    $_SESSION['lockout_role'] = (string)$user['role'];
+
+    if ($isPermanentLock) {
+        $_SESSION['error'] = "This account was automatically locked after 5 consecutive failed login attempts. Please contact the system administrator to unlock it.";
+        unset(
+            $_SESSION['lockout_until_ts'],
+            $_SESSION['lockout_username'],
+            $_SESSION['lockout_user_id'],
+            $_SESSION['lockout_role'],
+            $_SESSION['attempt_warning'],
+            $_SESSION['attempts_left']
+        );
+    } else {
+        $_SESSION['error'] = "Three consecutive login attempts failed. This account is temporarily locked for 1 minute; 2 attempts remain after the cooldown.";
+        $_SESSION['lockout_until_ts'] = $lockUntilTs;
+        $_SESSION['lockout_username'] = $user['username'];
+        $_SESSION['lockout_user_id'] = (int)$user['id'];
+        $_SESSION['lockout_role'] = (string)$user['role'];
+    }
 
     header("Location: /NexGen/CODE/PHP/index.php");
     exit();
@@ -137,13 +152,19 @@ if (isUserLocked($user)) {
 */
 function recordFailedAttempt(mysqli $conn, array $user, string $reason = 'Invalid username or password.'): void
 {
-    $newAttempts = ((int)$user['failed_login_attempts']) + 1;
-    $maxAttempts = 3;
-    $attemptsLeft = max(0, $maxAttempts - $newAttempts);
+    $temporaryLockThreshold = 3;
+    $maximumAttempts = 5;
+    $newAttempts = min($maximumAttempts, ((int)$user['failed_login_attempts']) + 1);
+    $attemptsLeft = max(0, $maximumAttempts - $newAttempts);
     $lockedUntil = null;
+    $isPermanentLock = false;
 
-    if ($newAttempts >= $maxAttempts) {
-        $newAttempts = $maxAttempts;
+    if ($newAttempts >= $maximumAttempts) {
+        /* Preserve the current schema while making the fifth consecutive
+           failure administrator-unlock-only. */
+        $lockedUntil = '9999-12-31 23:59:59';
+        $isPermanentLock = true;
+    } elseif ($newAttempts === $temporaryLockThreshold) {
         $lockedUntil = date('Y-m-d H:i:s', strtotime('+1 minutes'));
     }
 
@@ -160,15 +181,25 @@ function recordFailedAttempt(mysqli $conn, array $user, string $reason = 'Invali
 
     $_SESSION['form_type'] = 'login';
 
-    if ($lockedUntil !== null) {
-        $_SESSION['error'] = "Too many failed login attempts. Your account has been locked for 1 minutes.";
+    if ($isPermanentLock) {
+        $_SESSION['error'] = "This account has been automatically locked after 5 consecutive failed login attempts. Please contact the system administrator to unlock it.";
+        unset(
+            $_SESSION['lockout_until_ts'],
+            $_SESSION['lockout_username'],
+            $_SESSION['lockout_user_id'],
+            $_SESSION['lockout_role'],
+            $_SESSION['attempt_warning'],
+            $_SESSION['attempts_left']
+        );
+    } elseif ($lockedUntil !== null) {
+        $_SESSION['error'] = "Three consecutive login attempts failed. Your account is temporarily locked for 1 minute; 2 attempts remain after the cooldown.";
         $_SESSION['lockout_until_ts'] = strtotime($lockedUntil);
         $_SESSION['lockout_username'] = $user['username'];
         $_SESSION['lockout_user_id'] = (int)$user['id'];
         $_SESSION['lockout_role'] = (string)$user['role'];
         unset($_SESSION['attempt_warning'], $_SESSION['attempts_left']);
     } else {
-        $_SESSION['error'] = $reason;
+        $_SESSION['error'] = $reason . ' ' . $attemptsLeft . ' failed attempt(s) remain before the account is automatically locked.';
         $_SESSION['attempt_warning'] = true;
         $_SESSION['attempts_left'] = $attemptsLeft;
         unset(
@@ -189,7 +220,7 @@ if (!validateImageCaptchaSelection('login_form', (array)$captchaSelection)) {
     recordFailedAttempt(
         $conn,
         $user,
-        "Incorrect captcha selection. You have " . max(0, 3 - (((int)$user['failed_login_attempts']) + 1)) . " attempt(s) left before your account is temporarily locked."
+        "Incorrect captcha selection."
     );
     header("Location: /NexGen/CODE/PHP/index.php");
     exit();
@@ -204,7 +235,7 @@ if (!password_verify($password, $user['password'])) {
     recordFailedAttempt(
         $conn,
         $user,
-        "Invalid username or password. You have " . max(0, 3 - (((int)$user['failed_login_attempts']) + 1)) . " attempt(s) left before your account is temporarily locked."
+        "Invalid username or password."
     );
     header("Location: /NexGen/CODE/PHP/index.php");
     exit();
@@ -289,6 +320,33 @@ $_SESSION['can_sales'] = (int)($user['can_sales'] ?? 0);
 $_SESSION['can_sales_analytics'] = (int)($user['can_sales_analytics'] ?? 0);
 $_SESSION['can_accounts_receivable'] = (int)($user['can_accounts_receivable'] ?? 0);
 
+/* TENANT ISOLATION: always set business_id fresh from the authenticated
+   user's own row, overwriting anything left over from a previous session.
+   Without this, logging into a second account without formally logging out
+   first (e.g. navigating straight back to the login form) would silently
+   inherit the previous account's business_id via nxRequireBusinessId()'s
+   session cache, showing/writing the wrong business's data. 0 = system_admin
+   (no business), matching nxRequireBusinessId()'s convention. */
+$_SESSION['business_id'] = (int)($user['business_id'] ?? 0);
+
+/* MULTI-BUSINESS / BRANCH WORKSPACE:
+   Resolve the account's default authorized branch after authentication. The
+   helper also bootstraps legacy users from users.business_id, so accounts that
+   existed before the migration keep working without manual reassignment. */
+if (in_array($user['role'], ['owner', 'employee'], true)) {
+    $activeWorkspace = nxInitializeUserWorkspace($conn, true);
+
+    if (empty($activeWorkspace)) {
+        session_unset();
+        session_destroy();
+        session_start();
+        $_SESSION['error'] = 'Your account is not assigned to an active business branch. Please contact the administrator.';
+        $_SESSION['form_type'] = 'login';
+        header('Location: /NexGen/CODE/PHP/index.php');
+        exit();
+    }
+}
+
 /* SESSION SECURITY: start inactivity timer after successful login */
 $_SESSION['last_activity'] = time();
 if (defined('SESSION_TIMEOUT_SECONDS')) {
@@ -323,8 +381,7 @@ if ($user['role'] === 'system_admin') {
     exit();
 }
 
-$displayName  = !empty($user['full_name'])     ? $user['full_name']     : $user['username'];
-$profileImage = !empty($user['profile_image']) ? $user['profile_image'] : '/NexGen/uploads/default.png';
+$loginSuccessRedirectUrl = $redirectUrl;
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -332,8 +389,27 @@ $profileImage = !empty($user['profile_image']) ? $user['profile_image'] : '/NexG
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login Successful - NexGen</title>
-    <meta http-equiv="refresh" content="5;url=<?php echo htmlspecialchars($redirectUrl, ENT_QUOTES, 'UTF-8'); ?>">
+    <meta http-equiv="refresh" content="5;url=<?php echo htmlspecialchars($loginSuccessRedirectUrl, ENT_QUOTES, 'UTF-8'); ?>">
     <?php include 'theme_init.php'; ?>
+    <?php
+        /* Keep success-page values isolated from variables declared, changed,
+           or unset by included theme files. The authenticated session is the
+           source of truth at this point in the login flow. */
+        $loginSuccessDisplayName = trim((string)($_SESSION['full_name'] ?? ''));
+        if ($loginSuccessDisplayName === '') {
+            $loginSuccessDisplayName = (string)($_SESSION['username'] ?? 'User');
+        }
+
+        $loginSuccessProfileImage = trim((string)($_SESSION['profile_image'] ?? ''));
+        if ($loginSuccessProfileImage === '') {
+            $loginSuccessProfileImage = '/NexGen/uploads/default.png';
+        }
+
+        $loginSuccessRole = (string)($_SESSION['role'] ?? '');
+        $loginSuccessRedirectUrl = $loginSuccessRole === 'system_admin'
+            ? '/NexGen/CODE/PHP/admin_dashboard.php'
+            : '/NexGen/CODE/PHP/dashboard.php';
+    ?>
 
     <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 
@@ -830,7 +906,7 @@ $profileImage = !empty($user['profile_image']) ? $user['profile_image'] : '/NexG
 <body>
 
 <?php
-    $isSmeWorkspace = in_array($user['role'], ['owner', 'employee'], true);
+    $isSmeWorkspace = in_array($loginSuccessRole, ['owner', 'employee'], true);
 
     if ($isSmeWorkspace) {
         $workspaceMessage = 'Preparing your workspace...';
@@ -865,7 +941,7 @@ $profileImage = !empty($user['profile_image']) ? $user['profile_image'] : '/NexG
                 <div class="profile-ring">
                     <img
                         class="profile-img"
-                        src="<?php echo htmlspecialchars($profileImage, ENT_QUOTES, 'UTF-8'); ?>"
+                        src="<?php echo htmlspecialchars($loginSuccessProfileImage, ENT_QUOTES, 'UTF-8'); ?>"
                         alt=""
                         onerror="this.src='/NexGen/uploads/default.png'"
                     >
@@ -885,7 +961,7 @@ $profileImage = !empty($user['profile_image']) ? $user['profile_image'] : '/NexG
         </div>
 
         <h1 class="success-name">
-            <?php echo htmlspecialchars($displayName, ENT_QUOTES, 'UTF-8'); ?>
+            <?php echo htmlspecialchars($loginSuccessDisplayName, ENT_QUOTES, 'UTF-8'); ?>
         </h1>
 
         <div class="success-title">Login successful!</div>
@@ -976,7 +1052,7 @@ $profileImage = !empty($user['profile_image']) ? $user['profile_image'] : '/NexG
 /* Reliable redirect in addition to the meta-refresh fallback. */
 window.setTimeout(function () {
     window.location.replace(
-        "<?php echo htmlspecialchars($redirectUrl, ENT_QUOTES, 'UTF-8'); ?>"
+        "<?php echo htmlspecialchars($loginSuccessRedirectUrl, ENT_QUOTES, 'UTF-8'); ?>"
     );
 }, 5000);
 </script>

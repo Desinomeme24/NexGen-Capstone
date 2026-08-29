@@ -62,6 +62,27 @@ function initialsFromName(string $name): string
     return strtoupper($first . $last);
 }
 
+function renderAccountAvatar(array $account, string $className): void
+{
+    $name = (string)($account['full_name'] ?? 'User');
+    $imagePath = trim((string)($account['profile_image'] ?? ''));
+    ?>
+    <div class="account-avatar <?php echo e($className); ?>" title="<?php echo e($name); ?>">
+        <span class="account-avatar-initials" aria-hidden="true">
+            <?php echo e(initialsFromName($name)); ?>
+        </span>
+        <?php if ($imagePath !== ''): ?>
+            <img
+                src="<?php echo e($imagePath); ?>"
+                alt=""
+                loading="lazy"
+                onerror="this.remove();"
+            >
+        <?php endif; ?>
+    </div>
+    <?php
+}
+
 function statusBadgeClass(string $status): string
 {
     return match (strtolower($status)) {
@@ -81,9 +102,13 @@ $flash = $_SESSION['flash'] ?? null;
 unset($_SESSION['flash']);
 
 $hasLastLoginAt = hasColumn($conn, 'users', 'last_login_at');
+$hasProfileImage = hasColumn($conn, 'users', 'profile_image');
 $activityExpr = $hasLastLoginAt
     ? "COALESCE(u.last_login_at, u.created_at)"
     : "u.created_at";
+$profileImageExpr = $hasProfileImage
+    ? "NULLIF(TRIM(u.profile_image), '')"
+    : "NULL";
 
 $where = " WHERE u.role IN ('owner', 'employee') ";
 $params = [];
@@ -109,6 +134,7 @@ $sql = "
         u.full_name,
         u.email,
         u.phone,
+        {$profileImageExpr} AS profile_image,
         CASE
             WHEN u.role = 'owner' THEN 'Owner'
             WHEN u.role = 'employee' THEN 'Employee'
@@ -148,19 +174,17 @@ function renderAccountsTable(array $accounts): void
     <div class="table-wrap accounts-table-wrap" id="accountsTableWrap">
         <table>
             <colgroup>
-                <col style="width: 80px;">
-                <col style="width: 150px;">
-                <col style="width: 240px;">
-                <col style="width: 270px;">
-                <col style="width: 160px;">
-                <col style="width: 160px;">
-                <col style="width: 150px;">
-                <col style="width: 180px;">
+                <col style="width: 7%;">
+                <col style="width: 20%;">
+                <col style="width: 22%;">
+                <col style="width: 14%;">
+                <col style="width: 11%;">
+                <col style="width: 10%;">
+                <col style="width: 16%;">
             </colgroup>
             <thead>
                 <tr>
-                    <th>ID</th>
-                    <th>EMPLOYEE NO</th>
+                    <th>PROFILE</th>
                     <th>FULL NAME</th>
                     <th>EMAIL</th>
                     <th>PHONE</th>
@@ -172,16 +196,17 @@ function renderAccountsTable(array $accounts): void
             <tbody>
             <?php if (empty($accounts)): ?>
                 <tr>
-                    <td colspan="8">No account records found.</td>
+                    <td colspan="7">No account records found.</td>
                 </tr>
             <?php else: ?>
                 <?php foreach ($accounts as $acc): ?>
                     <tr>
-                        <td class="id-col"><?php echo (int)$acc['id']; ?></td>
-                        <td class="empno-col"><?php echo e($acc['employee_no']); ?></td>
-                        <td><?php echo e($acc['full_name']); ?></td>
-                        <td><?php echo e($acc['email']); ?></td>
-                        <td><?php echo e($acc['phone']); ?></td>
+                        <td class="account-table-avatar-cell">
+                            <?php renderAccountAvatar($acc, 'account-table-avatar'); ?>
+                        </td>
+                        <td class="account-name-col"><?php echo e($acc['full_name']); ?></td>
+                        <td class="account-email-col"><?php echo e($acc['email']); ?></td>
+                        <td class="account-phone-col"><?php echo e($acc['phone']); ?></td>
                         <td class="position-col"><?php echo e($acc['position']); ?></td>
                         <td class="status-col">
                             <span class="<?php echo e(statusBadgeClass((string)$acc['visibility_status'])); ?>">
@@ -202,10 +227,9 @@ function renderAccountsTable(array $accounts): void
         <?php if (empty($accounts)): ?>
             <div class="account-card-empty">No account records found.</div>
         <?php else: ?>
-            <?php foreach ($accounts as $i => $acc): ?>
+            <?php foreach ($accounts as $acc): ?>
                 <div class="account-card">
-                    <div class="account-card-index"><?php echo e(str_pad((string)($i + 1), 2, '0', STR_PAD_LEFT)); ?></div>
-                    <div class="account-card-avatar"><?php echo e(initialsFromName((string)$acc['full_name'])); ?></div>
+                    <?php renderAccountAvatar($acc, 'account-card-avatar'); ?>
                     <div class="account-card-body">
                         <div class="account-card-top">
                             <span class="account-card-name"><?php echo e($acc['full_name']); ?></span>
@@ -274,10 +298,20 @@ if (
 
         .accounts-table-wrap table {
             width: 100%;
-            min-width: 1300px;
+            min-width: 1100px;
             border-collapse: separate;
             border-spacing: 0;
             table-layout: fixed;
+        }
+
+        .accounts-table-wrap th,
+        .accounts-table-wrap td {
+            padding: 13px 16px;
+            vertical-align: middle;
+        }
+
+        .accounts-table-wrap tbody tr {
+            height: 66px;
         }
 
         .accounts-table-wrap thead th {
@@ -356,19 +390,79 @@ if (
         .created-col,
         .status-col,
         .position-col,
-        .id-col,
-        .empno-col {
+        .account-phone-col {
             white-space: nowrap;
         }
 
+        .account-table-avatar-cell,
+        .accounts-table-wrap th:first-child,
+        .account-phone-col,
+        .position-col,
+        .status-col,
+        .created-col {
+            text-align: center;
+        }
+
+        .account-name-col,
+        .account-email-col {
+            overflow-wrap: anywhere;
+        }
+
+        .account-avatar {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            flex: 0 0 auto;
+            overflow: hidden;
+            border-radius: 50%;
+            background: linear-gradient(145deg, #355fc4, #203b86);
+            color: #ffffff;
+            border: 2px solid rgba(143, 180, 255, 0.42);
+            box-shadow: 0 6px 16px rgba(4, 12, 38, 0.28);
+            font-weight: 800;
+            letter-spacing: 0.3px;
+        }
+
+        .account-avatar-initials {
+            position: relative;
+            z-index: 1;
+        }
+
+        .account-avatar img {
+            position: absolute;
+            z-index: 2;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .account-table-avatar {
+            width: 44px;
+            height: 44px;
+            margin: 0 auto;
+            font-size: 13px;
+        }
+
         #accountsSearchInput {
-            flex: 0 0 500px !important;
-            width: 500px !important;
-            max-width: 500px !important;
+            flex: 1 1 auto !important;
+            width: auto !important;
+            max-width: none !important;
+            min-width: 0;
         }
 
         #accountsFilterForm {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            width: 100%;
             padding-top: 20px !important;
+        }
+
+        #accountsFilterForm .btn {
+            flex: 0 0 auto;
+            white-space: nowrap;
         }
 
         @media (max-width: 768px) {
@@ -419,28 +513,10 @@ if (
             border: 1px solid var(--line);
         }
 
-        .account-card-index {
-            flex: 0 0 auto;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 13px;
-            font-weight: 700;
-            opacity: 0.55;
-            align-self: center;
-        }
-
         .account-card-avatar {
             flex: 0 0 auto;
             width: 46px;
             height: 46px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: #2e4fa3;
-            color: #ffffff;
-            font-weight: 800;
             font-size: 15px;
             align-self: center;
         }
@@ -541,11 +617,11 @@ if (
                     type="text"
                     name="search"
                     id="accountsSearchInput"
-                    placeholder="Search account, role, phone, or email..."
+                    placeholder="Search fullname, email, phone, or position..."
                     value="<?php echo e($search); ?>"
                     autocomplete="off"
                 >
-                <a class="btn btn-silver" href="accounts_masterlist.php"><i class="bi bi-arrow-repeat"></i> Reset</a>
+                <button class="btn btn-silver" type="button" id="accountsResetButton"><i class="bi bi-arrow-repeat"></i> Reset</button>
             </form>
 
             <div id="accountsContainer">
@@ -559,6 +635,7 @@ if (
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('accountsFilterForm');
     const searchInput = document.getElementById('accountsSearchInput');
+    const resetButton = document.getElementById('accountsResetButton');
     const container = document.getElementById('accountsContainer');
 
     let controller = null;
@@ -610,6 +687,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 e.preventDefault();
                 updateAccounts();
             }
+        });
+    }
+
+    if (resetButton) {
+        resetButton.addEventListener('click', function () {
+            if (searchInput) {
+                searchInput.value = '';
+            }
+            updateAccounts();
         });
     }
 });

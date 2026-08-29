@@ -6,6 +6,16 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 include 'config.php';
+require_once __DIR__ . '/tenant_helper.php';
+require_once __DIR__ . '/ar_helper.php';
+$businessId = nxRequireBusinessId($conn);
+$arEnabled = nxArEnabled();
+
+if ((int)($_SESSION['can_sales'] ?? 0) !== 1) {
+    $_SESSION['error'] = 'You do not have access to Sales.';
+    header("Location: /NexGen/CODE/PHP/dashboard.php");
+    exit();
+}
 
 if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
     die("Invalid sale ID.");
@@ -22,15 +32,19 @@ function badgeClassPayment($status) {
     };
 }
 
-function badgeClassOrder($status) {
-    return match($status) {
-        'Fulfilled' => 'badge fulfilled',
-        'Pending' => 'badge pending',
-        default => 'badge'
-    };
-}
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_payment'])) {
+    if (!$arEnabled) {
+        $_SESSION['error'] = 'You do not have access to Accounts Receivable.';
+        header("Location: sale_view.php?id=" . $sale_id);
+        exit();
+    }
+
+    if (!validateCsrfToken('sale_view_payment_form', $_POST['csrf_token'] ?? null)) {
+        $_SESSION['error'] = 'Your session expired. Please try again.';
+        header("Location: sale_view.php?id=" . $sale_id);
+        exit();
+    }
+
     $additional_payment = (float)($_POST['additional_payment'] ?? 0);
     $due_date = trim($_POST['due_date'] ?? '');
 
@@ -46,10 +60,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_payment'])) {
         $saleCheckStmt = $conn->prepare("
             SELECT id, customer_id, total_amount, payment_status, order_status
             FROM sales
-            WHERE id = ?
+            WHERE id = ? AND business_id = ?
             LIMIT 1
         ");
-        $saleCheckStmt->bind_param("i", $sale_id);
+        $saleCheckStmt->bind_param("ii", $sale_id, $businessId);
         $saleCheckStmt->execute();
         $saleCheckResult = $saleCheckStmt->get_result();
 
@@ -67,11 +81,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_payment'])) {
         $arStmt = $conn->prepare("
             SELECT id, total_amount, amount_paid, balance_due, due_date, status
             FROM accounts_receivable
-            WHERE sale_id = ?
+            WHERE sale_id = ? AND business_id = ?
             ORDER BY id DESC
             LIMIT 1
         ");
-        $arStmt->bind_param("i", $sale_id);
+        $arStmt->bind_param("ii", $sale_id, $businessId);
         $arStmt->execute();
         $arResult = $arStmt->get_result();
 
@@ -122,15 +136,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_payment'])) {
         $updateAr = $conn->prepare("
             UPDATE accounts_receivable
             SET amount_paid = ?, balance_due = ?, due_date = ?, status = ?
-            WHERE id = ?
+            WHERE id = ? AND business_id = ?
         ");
         $updateAr->bind_param(
-            "ddssi",
+            "ddssii",
             $newAmountPaid,
             $newBalance,
             $finalDueDate,
             $newArStatus,
-            $receivable['id']
+            $receivable['id'],
+            $businessId
         );
         $updateAr->execute();
         $updateAr->close();
@@ -138,9 +153,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_payment'])) {
         $updateSale = $conn->prepare("
             UPDATE sales
             SET payment_status = ?, order_status = ?
-            WHERE id = ?
+            WHERE id = ? AND business_id = ?
         ");
-        $updateSale->bind_param("ssi", $newPaymentStatus, $newOrderStatus, $sale_id);
+        $updateSale->bind_param("ssii", $newPaymentStatus, $newOrderStatus, $sale_id, $businessId);
         $updateSale->execute();
         $updateSale->close();
 
@@ -160,14 +175,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_payment'])) {
 $saleStmt = $conn->prepare("
     SELECT 
         s.*,
-        u.full_name AS salesperson,
-        c.customer_name
+        u.full_name AS salesperson
     FROM sales s
     LEFT JOIN users u ON s.salesperson_id = u.id
-    LEFT JOIN customers c ON s.customer_id = c.id
-    WHERE s.id = ?
+    WHERE s.id = ? AND s.business_id = ?
 ");
-$saleStmt->bind_param("i", $sale_id);
+$saleStmt->bind_param("ii", $sale_id, $businessId);
 $saleStmt->execute();
 $saleResult = $saleStmt->get_result();
 
@@ -176,6 +189,29 @@ if ($saleResult->num_rows === 0) {
 }
 
 $sale = $saleResult->fetch_assoc();
+
+/* Customer details are sensitive AR data. Only retrieve them for a user who
+   currently has AR access, and always keep the lookup inside the active
+   business so a malformed customer_id cannot expose another tenant's record. */
+$customerInfo = null;
+if ($arEnabled && (int)($sale['customer_id'] ?? 0) > 0) {
+    $customerStmt = $conn->prepare("
+        SELECT customer_code, customer_name, phone, email, address
+        FROM customers
+        WHERE id = ? AND business_id = ?
+        LIMIT 1
+    ");
+    $customerId = (int)$sale['customer_id'];
+    $customerStmt->bind_param("ii", $customerId, $businessId);
+    $customerStmt->execute();
+    $customerResult = $customerStmt->get_result();
+
+    if ($customerResult->num_rows > 0) {
+        $customerInfo = $customerResult->fetch_assoc();
+    }
+
+    $customerStmt->close();
+}
 
 $itemStmt = $conn->prepare("
     SELECT 
@@ -196,11 +232,11 @@ $arInfo = null;
 $arStmt = $conn->prepare("
     SELECT id, total_amount, amount_paid, balance_due, due_date, status
     FROM accounts_receivable
-    WHERE sale_id = ?
+    WHERE sale_id = ? AND business_id = ?
     ORDER BY id DESC
     LIMIT 1
 ");
-$arStmt->bind_param("i", $sale_id);
+$arStmt->bind_param("ii", $sale_id, $businessId);
 $arStmt->execute();
 $arResult = $arStmt->get_result();
 if ($arResult->num_rows > 0) {
@@ -319,6 +355,57 @@ unset($_SESSION['success'], $_SESSION['error']);
         .info-box strong {
             font-size: 18px;
             color: #ffffff;
+        }
+
+        .customer-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 14px;
+        }
+
+        .customer-box {
+            min-width: 0;
+            position: relative;
+            overflow: hidden;
+            padding: 15px 16px 15px 19px;
+            border: 1px solid rgba(143, 201, 255, 0.18);
+            border-radius: 14px;
+            background: linear-gradient(155deg, rgba(143, 201, 255, 0.09), rgba(255, 255, 255, 0.035));
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        }
+
+        .customer-box::before {
+            content: "";
+            position: absolute;
+            top: 10px;
+            bottom: 10px;
+            left: 0;
+            width: 4px;
+            border-radius: 0 4px 4px 0;
+            background: linear-gradient(180deg, #ffdd55, #3b82f6);
+        }
+
+        .customer-box small,
+        .customer-box strong {
+            display: block;
+        }
+
+        .customer-box small {
+            margin-bottom: 5px;
+            color: #b9d4f5;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .customer-box strong {
+            color: #ffffff;
+            font-size: 16px;
+            line-height: 1.4;
+            overflow-wrap: anywhere;
+        }
+
+        .customer-address-box {
+            grid-column: 1 / -1;
         }
 
         .receivable-grid {
@@ -567,8 +654,17 @@ unset($_SESSION['success'], $_SESSION['error']);
                 top: 12px;
                 width: calc(100vw - 24px);
             }
-        }
-    
+
+            .customer-grid {
+                grid-template-columns: 1fr;
+                gap: 10px;
+            }
+
+            .customer-box,
+            .customer-address-box {
+                grid-column: auto;
+                padding: 13px 14px 13px 17px;
+            }
         }
 
         /* =========================================================
@@ -650,6 +746,22 @@ unset($_SESSION['success'], $_SESSION['error']);
         }
 
         html[data-theme="light"] .info-box strong {
+            color: #0b1f73;
+        }
+
+        html[data-theme="light"] .customer-box {
+            background: linear-gradient(160deg, rgba(255, 255, 255, 0.9), rgba(210, 231, 253, 0.62));
+            border-color: rgba(59, 130, 246, 0.2);
+            box-shadow:
+                inset 0 1px 0 rgba(255, 255, 255, 0.9),
+                0 8px 18px rgba(30, 64, 175, 0.07);
+        }
+
+        html[data-theme="light"] .customer-box small {
+            color: rgba(11, 31, 115, 0.62);
+        }
+
+        html[data-theme="light"] .customer-box strong {
             color: #0b1f73;
         }
 
@@ -783,6 +895,235 @@ unset($_SESSION['success'], $_SESSION['error']);
 
         html[data-theme="light"] .nx-toast-message {
             color: rgba(11, 31, 115, 0.68);
+        }
+        /* =========================================================
+           PROFESSIONAL UI REFINEMENT
+           Visual-only overrides: PHP flow and markup remain unchanged.
+        ========================================================= */
+        :root {
+            --nx-ink: #f6f8ff;
+            --nx-muted: #aebbd8;
+            --nx-line: rgba(148, 163, 184, 0.16);
+            --nx-panel: rgba(15, 23, 52, 0.76);
+            --nx-panel-strong: rgba(17, 28, 66, 0.92);
+            --nx-blue: #5b8cff;
+            --nx-gold: #f7c948;
+            --nx-radius-lg: 24px;
+            --nx-radius-md: 16px;
+        }
+
+        html {
+            min-height: 100%;
+            background: #060b20;
+        }
+
+        body {
+            position: relative;
+            isolation: isolate;
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            letter-spacing: -0.01em;
+            background:
+                radial-gradient(900px 500px at -8% -10%, rgba(91, 140, 255, 0.28), transparent 64%),
+                radial-gradient(700px 460px at 108% 6%, rgba(247, 201, 72, 0.13), transparent 62%),
+                linear-gradient(145deg, #060b20 0%, #0b1740 46%, #050817 100%);
+        }
+
+        body::before,
+        body::after {
+            content: "";
+            position: fixed;
+            z-index: -1;
+            width: 280px;
+            height: 280px;
+            border-radius: 50%;
+            filter: blur(70px);
+            pointer-events: none;
+            opacity: 0.26;
+        }
+
+        body::before { left: -120px; top: 42%; background: #2563eb; }
+        body::after { right: -120px; bottom: 8%; background: #eab308; }
+
+        .page-shell {
+            position: relative;
+            max-width: 1180px;
+            background: linear-gradient(145deg, rgba(13, 24, 61, 0.88), rgba(8, 14, 37, 0.72));
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            border-radius: var(--nx-radius-lg);
+            box-shadow: 0 30px 90px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.07);
+            backdrop-filter: blur(22px);
+        }
+
+        .header {
+            min-height: 88px;
+            padding: 20px 28px;
+            background: linear-gradient(90deg, rgba(91, 140, 255, 0.11), transparent 58%);
+            border-bottom-color: var(--nx-line);
+        }
+
+        .header-left { gap: 16px; }
+
+        .menu-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 14px;
+            background: linear-gradient(145deg, #77a4ff, #376be0 58%, #2145a9);
+            box-shadow: 0 12px 26px rgba(49, 94, 218, 0.38), inset 0 1px 0 rgba(255,255,255,.35);
+            font-size: 20px;
+        }
+
+        .header-title {
+            font-size: clamp(22px, 3vw, 30px);
+            letter-spacing: -0.04em;
+        }
+
+        .content { padding: 28px; }
+
+        .card {
+            position: relative;
+            overflow: hidden;
+            padding: 24px;
+            margin-bottom: 20px;
+            background: linear-gradient(145deg, rgba(24, 38, 82, 0.78), rgba(11, 20, 51, 0.68));
+            border: 1px solid rgba(148, 163, 184, 0.15);
+            border-radius: var(--nx-radius-md);
+            box-shadow: 0 16px 34px rgba(0, 0, 0, 0.16), inset 0 1px 0 rgba(255,255,255,.045);
+        }
+
+        .card::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 150px;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--nx-gold));
+            opacity: .75;
+        }
+
+        .section-title {
+            display: flex;
+            align-items: center;
+            gap: 11px;
+            margin-bottom: 18px;
+            color: var(--nx-ink);
+            font-size: 17px;
+            letter-spacing: -0.02em;
+        }
+
+        .section-title::before {
+            content: "";
+            width: 5px;
+            height: 22px;
+            border-radius: 99px;
+            background: linear-gradient(180deg, var(--nx-gold), var(--nx-blue));
+            box-shadow: 0 0 16px rgba(247, 201, 72, .28);
+        }
+
+        .info-grid,
+        .receivable-grid { gap: 14px; }
+
+        .info-box,
+        .receivable-box,
+        .customer-box {
+            transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease;
+        }
+
+        .info-box:hover,
+        .receivable-box:hover,
+        .customer-box:hover {
+            transform: translateY(-3px);
+            border-color: rgba(119, 164, 255, .42);
+            box-shadow: 0 14px 26px rgba(0, 0, 0, .18);
+        }
+
+        .info-box {
+            min-height: 88px;
+            padding: 17px;
+            background: linear-gradient(145deg, rgba(255,255,255,.075), rgba(255,255,255,.025));
+            border-color: var(--nx-line);
+        }
+
+        .info-box small,
+        .receivable-box small,
+        .customer-box small,
+        .total-card small { color: var(--nx-muted); text-transform: uppercase; letter-spacing: .08em; font-size: 10px; }
+
+        .info-box strong,
+        .receivable-box strong { font-size: 17px; }
+
+        .receivable-box {
+            background: linear-gradient(145deg, rgba(59, 130, 246, .16), rgba(19, 37, 84, .48));
+            border-color: rgba(91, 140, 255, .25);
+        }
+
+        .customer-box {
+            background: linear-gradient(145deg, rgba(76, 126, 224, .14), rgba(255,255,255,.035));
+        }
+
+        .badge {
+            min-width: 112px;
+            padding: 7px 13px;
+            border: 1px solid currentColor;
+            border-opacity: .18;
+            border-radius: 999px;
+            font-size: 11px;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+        }
+
+        .btn {
+            min-height: 44px;
+            padding: 12px 19px;
+            border-radius: 13px;
+            transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease, background .2s ease;
+        }
+
+        .btn:hover { transform: translateY(-2px); }
+
+        .btn-secondary {
+            background: rgba(255,255,255,.055);
+            border-color: rgba(148,163,184,.24);
+            box-shadow: 0 8px 18px rgba(0,0,0,.14);
+        }
+
+        .btn-secondary:hover { background: rgba(255,255,255,.1); border-color: rgba(119,164,255,.55); }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #ffe47b, #f5bd2e);
+            box-shadow: 0 12px 24px rgba(230, 172, 29, .22);
+        }
+
+        .btn-primary:hover { box-shadow: 0 16px 30px rgba(230, 172, 29, .34); }
+
+        table { border-spacing: 0 7px; border-collapse: separate; }
+        th { background: rgba(91, 140, 255, .12); color: #dbe7ff; text-transform: uppercase; letter-spacing: .08em; font-size: 10px; }
+        th:first-child { border-radius: 11px 0 0 11px; }
+        th:last-child { border-radius: 0 11px 11px 0; }
+        td { border-bottom: 1px solid rgba(148,163,184,.10); color: #e8efff; }
+        tbody tr { transition: background .18s ease, transform .18s ease; }
+        tbody tr:hover { background: rgba(91, 140, 255, .08); }
+
+        .total-panel { margin-top: 22px; }
+        .total-card {
+            min-width: 280px;
+            background: linear-gradient(145deg, rgba(247, 201, 72, .18), rgba(30, 47, 96, .6));
+            border-color: rgba(247, 201, 72, .34);
+            box-shadow: 0 16px 30px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.08);
+        }
+        .total-card strong { color: #ffe27b; text-shadow: 0 3px 20px rgba(247,201,72,.2); }
+
+        .form-group input { transition: border-color .2s ease, box-shadow .2s ease, background .2s ease; }
+        .form-group input:focus { border-color: var(--nx-blue); background: rgba(255,255,255,.11); box-shadow: 0 0 0 4px rgba(91,140,255,.16); }
+
+        @media (max-width: 768px) {
+            body { padding: 10px; }
+            .page-shell { border-radius: 20px; }
+            .header { padding: 18px; }
+            .content { padding: 14px; }
+            .card { padding: 18px; border-radius: 15px; }
+            .total-card { min-width: 100%; }
+        }
         </style>
 </head>
 <body>
@@ -823,11 +1164,6 @@ unset($_SESSION['success'], $_SESSION['error']);
                     </div>
 
                     <div class="info-box">
-                        <small>Customer</small>
-                        <strong><?php echo htmlspecialchars($sale['customer_name'] ?: 'Walk-in'); ?></strong>
-                    </div>
-
-                    <div class="info-box">
                         <small>Sale Date</small>
                         <strong><?php echo date("M d, Y h:i A", strtotime($sale['sale_date'])); ?></strong>
                     </div>
@@ -846,18 +1182,43 @@ unset($_SESSION['success'], $_SESSION['error']);
                         </strong>
                     </div>
 
-                    <div class="info-box">
-                        <small>Order Status</small>
-                        <strong>
-                            <span class="<?php echo badgeClassOrder($sale['order_status']); ?>">
-                                <?php echo htmlspecialchars($sale['order_status']); ?>
-                            </span>
-                        </strong>
-                    </div>
                 </div>
             </div>
 
-            <?php if ($arInfo): ?>
+            <?php if ($arEnabled && $customerInfo): ?>
+                <div class="card customer-card">
+                    <div class="section-title">Customer Information</div>
+
+                    <div class="customer-grid">
+                        <div class="customer-box">
+                            <small>Customer Code</small>
+                            <strong><?php echo htmlspecialchars(!empty($customerInfo['customer_code']) ? $customerInfo['customer_code'] : 'N/A', ENT_QUOTES, 'UTF-8'); ?></strong>
+                        </div>
+
+                        <div class="customer-box">
+                            <small>Customer Name</small>
+                            <strong><?php echo htmlspecialchars(!empty($customerInfo['customer_name']) ? $customerInfo['customer_name'] : 'N/A', ENT_QUOTES, 'UTF-8'); ?></strong>
+                        </div>
+
+                        <div class="customer-box">
+                            <small>Phone Number</small>
+                            <strong><?php echo htmlspecialchars(!empty($customerInfo['phone']) ? $customerInfo['phone'] : 'Not provided', ENT_QUOTES, 'UTF-8'); ?></strong>
+                        </div>
+
+                        <div class="customer-box">
+                            <small>Email Address</small>
+                            <strong><?php echo htmlspecialchars(!empty($customerInfo['email']) ? $customerInfo['email'] : 'Not provided', ENT_QUOTES, 'UTF-8'); ?></strong>
+                        </div>
+
+                        <div class="customer-box customer-address-box">
+                            <small>Address</small>
+                            <strong><?php echo htmlspecialchars(!empty($customerInfo['address']) ? $customerInfo['address'] : 'Not provided', ENT_QUOTES, 'UTF-8'); ?></strong>
+                        </div>
+                    </div>
+                </div>
+            <?php endif; ?>
+
+            <?php if ($arEnabled && $arInfo): ?>
                 <div class="card">
                     <div class="section-title">Receivable Status</div>
 
@@ -890,12 +1251,13 @@ unset($_SESSION['success'], $_SESSION['error']);
                 </div>
             <?php endif; ?>
 
-            <?php if ($arInfo && $sale['payment_status'] !== 'Paid'): ?>
+            <?php if ($arEnabled && $arInfo && $sale['payment_status'] !== 'Paid'): ?>
                 <div class="card">
                     <div class="section-title">Update Payment</div>
 
                     <form method="POST" class="payment-form">
                         <input type="hidden" name="update_payment" value="1">
+                        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(generateCsrfToken('sale_view_payment_form')); ?>">
 
                         <div class="form-group">
                             <label>Additional Payment</label>
@@ -916,7 +1278,7 @@ unset($_SESSION['success'], $_SESSION['error']);
                         Rule applied: Unpaid or Partially Paid stays <strong>Pending</strong>. Once fully paid, it automatically becomes <strong>Paid</strong> and <strong>Fulfilled</strong>.
                     </div>
                 </div>
-            <?php elseif (!$arInfo): ?>
+            <?php elseif ($arEnabled && !$arInfo): ?>
                 <div class="card">
                     <div class="section-title">Update Payment</div>
                     <div class="empty-note">This sale has no accounts receivable record, so there is no payment update form available.</div>
@@ -940,7 +1302,7 @@ unset($_SESSION['success'], $_SESSION['error']);
                             <?php while ($item = $itemResult->fetch_assoc()): ?>
                                 <tr>
                                     <td><?php echo htmlspecialchars($item['product_name']); ?></td>
-                                    <td><?php echo (int)$item['quantity']; ?></td>
+                                    <td><?php echo formatQty($item['quantity']); ?></td>
                                     <td>₱<?php echo number_format($item['unit_price'], 2); ?></td>
                                     <td>₱<?php echo number_format($item['subtotal'], 2); ?></td>
                                 </tr>

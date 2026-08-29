@@ -317,4 +317,140 @@
       }
     });
   }
+
+  /* =========================
+     BUSINESS / BRANCH WORKSPACE SWITCHER
+     ========================= */
+
+  const workspaceForm = document.querySelector("[data-workspace-switch-form]");
+  const workspacePicker = workspaceForm
+    ? workspaceForm.querySelector("[data-workspace-picker]")
+    : null;
+  const workspaceToggle = workspacePicker
+    ? workspacePicker.querySelector("[data-workspace-toggle]")
+    : null;
+  const workspaceList = workspacePicker
+    ? workspacePicker.querySelector("[data-workspace-list]")
+    : null;
+  const workspaceOptions = workspaceList
+    ? Array.from(workspaceList.querySelectorAll("[data-workspace-option]"))
+    : [];
+
+  if (
+    workspaceForm &&
+    workspacePicker &&
+    workspaceToggle &&
+    workspaceList &&
+    workspaceOptions.length > 0
+  ) {
+    function selectedWorkspaceIndex() {
+      const selectedIndex = workspaceOptions.findIndex(function (option) {
+        return option.getAttribute("aria-selected") === "true";
+      });
+
+      return selectedIndex >= 0 ? selectedIndex : 0;
+    }
+
+    function focusWorkspaceOption(index) {
+      const optionCount = workspaceOptions.length;
+      if (optionCount === 0) return;
+
+      const safeIndex = ((index % optionCount) + optionCount) % optionCount;
+      const option = workspaceOptions[safeIndex];
+
+      option.focus({ preventScroll: true });
+      option.scrollIntoView({ block: "nearest" });
+    }
+
+    function setWorkspacePickerState(isOpen, focusIndex = null) {
+      workspacePicker.classList.toggle("is-open", isOpen);
+      workspaceToggle.setAttribute("aria-expanded", isOpen ? "true" : "false");
+      workspaceList.hidden = !isOpen;
+
+      if (isOpen) {
+        const nextIndex =
+          focusIndex === null ? selectedWorkspaceIndex() : focusIndex;
+
+        window.requestAnimationFrame(function () {
+          focusWorkspaceOption(nextIndex);
+        });
+      }
+    }
+
+    workspaceToggle.addEventListener("click", function () {
+      const shouldOpen = !workspacePicker.classList.contains("is-open");
+      setWorkspacePickerState(shouldOpen);
+    });
+
+    workspaceToggle.addEventListener("keydown", function (event) {
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault();
+        const selectedIndex = selectedWorkspaceIndex();
+        const startIndex =
+          event.key === "ArrowDown" ? selectedIndex : selectedIndex - 1;
+        setWorkspacePickerState(true, startIndex);
+      } else if (event.key === "Escape") {
+        event.preventDefault();
+        setWorkspacePickerState(false);
+      }
+    });
+
+    workspaceOptions.forEach(function (option, optionIndex) {
+      option.addEventListener("click", function (event) {
+        if (option.getAttribute("aria-selected") === "true") {
+          event.preventDefault();
+          setWorkspacePickerState(false);
+          workspaceToggle.focus();
+        }
+      });
+
+      option.addEventListener("keydown", function (event) {
+        if (event.key === "ArrowDown") {
+          event.preventDefault();
+          focusWorkspaceOption(optionIndex + 1);
+        } else if (event.key === "ArrowUp") {
+          event.preventDefault();
+          focusWorkspaceOption(optionIndex - 1);
+        } else if (event.key === "Home") {
+          event.preventDefault();
+          focusWorkspaceOption(0);
+        } else if (event.key === "End") {
+          event.preventDefault();
+          focusWorkspaceOption(workspaceOptions.length - 1);
+        } else if (event.key === "Escape") {
+          event.preventDefault();
+          setWorkspacePickerState(false);
+          workspaceToggle.focus();
+        } else if (event.key === "Tab") {
+          setWorkspacePickerState(false);
+        }
+      });
+    });
+
+    workspaceForm.addEventListener("submit", function () {
+      workspaceForm.classList.add("is-switching");
+      workspaceForm.setAttribute("aria-busy", "true");
+      workspaceToggle.disabled = true;
+      setWorkspacePickerState(false);
+    });
+
+    document.addEventListener("click", function (event) {
+      if (
+        workspacePicker.classList.contains("is-open") &&
+        !workspacePicker.contains(event.target)
+      ) {
+        setWorkspacePickerState(false);
+      }
+    });
+
+    document.addEventListener("keydown", function (event) {
+      if (
+        event.key === "Escape" &&
+        workspacePicker.classList.contains("is-open")
+      ) {
+        setWorkspacePickerState(false);
+        workspaceToggle.focus();
+      }
+    });
+  }
 })();

@@ -301,12 +301,13 @@ body {
 
 .form-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
 }
 
 .form-group {
   margin-bottom: 16px;
+  min-width: 0;
 }
 
 .form-group.full {
@@ -338,6 +339,12 @@ body {
     border-color 0.18s ease,
     box-shadow 0.18s ease,
     background 0.18s ease;
+}
+
+.form-group select {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .form-group input:focus,
@@ -1034,6 +1041,7 @@ html[data-theme="light"] .step-label {
   min-height: 100vh;
   display: grid;
   grid-template-columns: 330px minmax(0, 1fr);
+  align-items: start;
   position: relative;
   background:
     radial-gradient(
@@ -1060,12 +1068,22 @@ html[data-theme="light"] .step-label {
 
 /* ---------- LEFT SETTINGS RAIL ---------- */
 .settings-sidebar {
+  height: 100vh;
+  height: 100dvh;
   min-height: 100vh;
+  min-height: 100dvh;
+  max-height: 100vh;
+  max-height: 100dvh;
   padding: 34px 18px 24px;
   display: flex;
   flex-direction: column;
   position: sticky;
   top: 0;
+  align-self: start;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
   z-index: 3;
   background:
     radial-gradient(
@@ -1221,6 +1239,7 @@ html[data-theme="light"] .step-label {
 }
 
 .settings-sidebar-footer {
+  flex: 0 0 auto;
   margin-top: auto;
   padding-top: 24px;
   border-top: 1px solid rgba(194, 215, 255, 0.13);
@@ -1466,12 +1485,13 @@ html[data-theme="light"] .step-label {
 
 .form-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 18px;
 }
 
 .form-group {
   margin-bottom: 16px;
+  min-width: 0;
 }
 
 .form-group label {
@@ -1729,7 +1749,13 @@ html[data-theme="light"] .segmented-btn.active {
 
   .settings-sidebar {
     position: relative;
+    height: auto;
     min-height: auto;
+    max-height: none;
+    align-self: stretch;
+    overflow: visible;
+    overscroll-behavior: auto;
+    scrollbar-gutter: auto;
   }
 
   .settings-content {
@@ -1763,4 +1789,581 @@ html[data-theme="light"] .segmented-btn.active {
   .theme-card {
     min-height: 132px;
   }
+}
+
+/* Native dropdown popup consistency.
+   color-scheme asks the browser/OS to render the popup as dark, while
+   explicit option colors prevent white text on a white option list. */
+html:not([data-theme="light"]) .settings-page select {
+  color-scheme: dark;
+  background-color: #10275f !important;
+  color: #f8fbff !important;
+  border-color: rgba(127, 166, 255, 0.42) !important;
+}
+
+html:not([data-theme="light"]) .settings-page select option,
+html:not([data-theme="light"]) .settings-page select optgroup {
+  background-color: #10275f !important;
+  color: #f8fbff !important;
+}
+
+html:not([data-theme="light"]) .settings-page select option:checked {
+  background: #31549a linear-gradient(0deg, #31549a, #31549a) !important;
+  color: #ffffff !important;
+}
+
+html:not([data-theme="light"]) .settings-page select option:disabled {
+  color: #91a7d2 !important;
+}
+
+html[data-theme="light"] .settings-page select {
+  color-scheme: light;
+}
+
+/* ============================================================
+   WORKSPACE (Businesses & Branches)
+   These classes had no rules anywhere in the stylesheet, so the
+   whole panel was rendering with raw browser defaults. Styled here
+   to match the existing card/chip language (.method-card, .info-chip)
+   used elsewhere on the page — same background/border tokens, no
+   new colors introduced.
+   ============================================================ */
+
+.workspace-summary {
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(175, 200, 245, 0.14);
+  border-radius: 14px;
+  padding: 18px;
+  margin-bottom: 20px;
+}
+
+.workspace-summary h3 {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  font-size: 15.5px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 6px;
+  line-height: 1.35;
+}
+
+.workspace-summary p {
+  font-size: 13px;
+  line-height: 1.55;
+  color: #a9bfe3;
+}
+
+.workspace-code-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.workspace-code-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(175, 200, 245, 0.16);
+  font-size: 12px;
+  color: #dce8fb;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.workspace-code-chip strong {
+  color: var(--settings-gold);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.workspace-divider {
+  height: 1px;
+  margin: 24px 0;
+  background: rgba(175, 200, 245, 0.14);
+}
+
+.workspace-form-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(175, 200, 245, 0.12);
+  border-radius: 14px;
+  padding: 18px;
+  margin-bottom: 20px;
+}
+
+.workspace-form-card h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14.5px;
+  font-weight: 700;
+  color: #fff;
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.workspace-form-card h3 i {
+  color: var(--settings-gold);
+  font-size: 15px;
+}
+
+.workspace-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 4px 0 18px;
+  cursor: pointer;
+}
+
+.workspace-check input[type="checkbox"] {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  accent-color: var(--settings-gold);
+  cursor: pointer;
+}
+
+.workspace-check span {
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: #a9bfe3;
+}
+
+.workspace-request-pending {
+  border-color: rgba(246, 216, 74, 0.3);
+  background: rgba(246, 216, 74, 0.06);
+}
+
+.workspace-request-pending h3 {
+  color: var(--settings-gold);
+}
+
+.workspace-request-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 14px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(246, 216, 74, 0.14);
+  border: 1px solid rgba(246, 216, 74, 0.3);
+  color: var(--settings-gold);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+html[data-theme="light"] .workspace-summary,
+html[data-theme="light"] .workspace-form-card,
+html[data-theme="light"] .workspace-code-chip {
+  color: var(--settings-text-dark);
+  background: rgba(236, 246, 255, 0.82);
+  border-color: rgba(68, 127, 196, 0.17);
+}
+
+html[data-theme="light"] .workspace-summary h3,
+html[data-theme="light"] .workspace-form-card h3 {
+  color: var(--settings-text-dark);
+}
+
+html[data-theme="light"] .workspace-summary p,
+html[data-theme="light"] .workspace-check span {
+  color: #5c739c;
+}
+
+html[data-theme="light"] .workspace-divider {
+  background: rgba(68, 127, 196, 0.17);
+}
+
+html[data-theme="light"] .workspace-request-pending {
+  border-color: rgba(154, 109, 0, 0.3);
+  background: rgba(154, 109, 0, 0.08);
+}
+
+html[data-theme="light"] .workspace-request-status {
+  background: rgba(154, 109, 0, 0.12);
+  border-color: rgba(154, 109, 0, 0.3);
+  color: #9a6d00;
+}
+
+/* ============================================================
+   RESPONSIVE SETTINGS REFINEMENT
+   Keeps the existing PHP markup and panel interactions intact.
+   The mobile rail becomes compact and horizontally scrollable so
+   the active settings panel is not pushed below a tall sidebar.
+   ============================================================ */
+
+.settings-page > *,
+.settings-content,
+.settings-panel {
+  min-width: 0;
+}
+
+.settings-content {
+  width: 100%;
+  max-width: 1160px;
+  margin: 0 auto;
+}
+
+.settings-panel {
+  overflow: hidden;
+}
+
+.form-top-actions {
+  flex-wrap: wrap;
+}
+
+.btn {
+  min-height: 42px;
+  white-space: nowrap;
+}
+
+@media (min-width: 901px) and (max-width: 1180px) {
+  .settings-page {
+    grid-template-columns: 280px minmax(0, 1fr);
+  }
+
+  .settings-sidebar {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .settings-content {
+    padding: 30px 24px 44px;
+  }
+
+  .settings-panel {
+    padding: 24px;
+  }
+}
+
+@media (max-width: 900px) {
+  .settings-page {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .settings-sidebar {
+    position: sticky;
+    top: 0;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    padding: 14px 14px 10px;
+    overflow: visible;
+    border-right: 0;
+    border-bottom: 1px solid rgba(160, 191, 255, 0.18);
+    backdrop-filter: blur(20px);
+    z-index: 10;
+  }
+
+  .sidebar-profile-card {
+    display: block;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+    border-radius: 16px;
+  }
+
+  .profile-section {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 13px;
+  }
+
+  .profile-edit-form {
+    display: block;
+  }
+
+  .profile-image-wrapper {
+    margin: 0;
+    padding: 8px;
+    border-radius: 14px;
+  }
+
+  .sidebar-profile-img {
+    width: 72px;
+    height: 72px;
+  }
+
+  .profile-edit-btn {
+    right: 0;
+    bottom: 7px;
+    width: 29px;
+    height: 29px;
+    font-size: 12px;
+  }
+
+  .sidebar-profile-info {
+    min-width: 0;
+    text-align: left;
+  }
+
+  .sidebar-profile-info h2 {
+    margin-bottom: 3px;
+    font-size: clamp(17px, 3.6vw, 21px);
+    line-height: 1.2;
+  }
+
+  .sidebar-profile-info .profile-fullname {
+    font-size: 12px;
+  }
+
+  .settings-nav {
+    display: flex;
+    flex-direction: row;
+    gap: 7px;
+    width: 100%;
+    padding: 2px 2px 7px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x proximity;
+  }
+
+  .settings-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .settings-nav .nav-item {
+    flex: 0 0 auto;
+    width: auto;
+    min-height: 42px;
+    padding: 10px 13px;
+    border-left: 0;
+    border-bottom: 3px solid transparent;
+    border-radius: 11px;
+    white-space: nowrap;
+    scroll-snap-align: start;
+  }
+
+  .settings-nav .nav-item.active {
+    border-left-color: transparent;
+    border-bottom-color: var(--settings-gold);
+  }
+
+  .settings-sidebar-footer {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+    padding-top: 10px;
+  }
+
+  .legal-links {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 2px;
+    margin-bottom: 0;
+  }
+
+  .back-link {
+    padding: 6px 7px;
+    font-size: 11px;
+    white-space: nowrap;
+  }
+
+  .back-link.back-to-dashboard {
+    font-size: 12px;
+  }
+
+  .settings-content {
+    max-width: none;
+    padding: 22px 18px 36px;
+  }
+
+  .settings-panel {
+    padding: 24px;
+    border-radius: 18px;
+  }
+
+  .panel-header h1,
+  .panel-header h2 {
+    font-size: clamp(21px, 4.2vw, 24px);
+  }
+
+  .theme-card-group,
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .settings-sidebar {
+    padding: 10px 10px 8px;
+  }
+
+  .sidebar-profile-card {
+    padding: 10px 11px;
+    margin-bottom: 8px;
+  }
+
+  .profile-section {
+    gap: 10px;
+  }
+
+  .profile-image-wrapper {
+    padding: 6px;
+    border-radius: 12px;
+  }
+
+  .sidebar-profile-img {
+    width: 58px;
+    height: 58px;
+  }
+
+  .profile-edit-btn {
+    right: -1px;
+    bottom: 4px;
+    width: 25px;
+    height: 25px;
+    border-width: 1px;
+    font-size: 10px;
+  }
+
+  .sidebar-profile-info h2 {
+    font-size: 16px;
+  }
+
+  .sidebar-profile-info .profile-fullname {
+    font-size: 11px;
+  }
+
+  .settings-nav {
+    gap: 5px;
+    padding-bottom: 5px;
+  }
+
+  .settings-nav .nav-item {
+    min-height: 39px;
+    gap: 8px;
+    padding: 8px 10px;
+    font-size: 12px;
+  }
+
+  .settings-nav .nav-item i {
+    width: 16px;
+    font-size: 14px;
+  }
+
+  .settings-sidebar-footer {
+    grid-template-columns: 1fr;
+    gap: 5px;
+    margin-top: 7px;
+    padding-top: 7px;
+  }
+
+  .legal-links {
+    justify-content: space-between;
+  }
+
+  .back-link.back-to-dashboard {
+    justify-content: center;
+    width: 100%;
+    padding: 7px 8px;
+    border: 1px solid rgba(160, 191, 255, 0.14);
+    background: rgba(255, 255, 255, 0.045);
+  }
+
+  .settings-content {
+    padding: 14px 10px 26px;
+  }
+
+  .settings-panel {
+    padding: 20px 15px;
+    border-radius: 16px;
+  }
+
+  .panel-header {
+    padding-bottom: 15px;
+    margin-bottom: 18px;
+  }
+
+  .panel-header h1,
+  .panel-header h2 {
+    font-size: 20px;
+  }
+
+  .panel-subtitle {
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  .form-top-actions {
+    justify-content: stretch;
+    gap: 8px;
+  }
+
+  .form-top-actions .btn {
+    flex: 1 1 0;
+  }
+
+  .btn {
+    width: 100%;
+    padding: 10px 16px;
+    font-size: 13px;
+  }
+
+  .workspace-summary,
+  .workspace-form-card,
+  .method-card {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .workspace-code-row {
+    gap: 6px;
+  }
+
+  .workspace-code-chip {
+    font-size: 11px;
+    padding: 6px 10px;
+  }
+
+  .workspace-check {
+    gap: 8px;
+  }
+
+  .segmented-control {
+    gap: 5px;
+  }
+
+  .segmented-btn {
+    flex-basis: 100%;
+    min-height: 42px;
+  }
+}
+
+@media (max-width: 370px) {
+  .settings-nav .nav-item {
+    padding-left: 8px;
+    padding-right: 8px;
+    font-size: 11.5px;
+  }
+
+  .back-link {
+    padding-left: 4px;
+    padding-right: 4px;
+    font-size: 10.5px;
+  }
+}
+
+html[data-theme="light"] .settings-sidebar {
+  border-bottom-color: rgba(62, 111, 179, 0.16);
+}
+
+html[data-theme="light"] .back-link.back-to-dashboard {
+  border-color: rgba(62, 111, 179, 0.14);
+  background: rgba(255, 255, 255, 0.38);
 }

@@ -14,6 +14,7 @@ if ((int)($_SESSION['can_sales'] ?? 0) !== 1) {
 
 include 'config.php';
 require_once __DIR__ . '/tenant_helper.php';
+require_once __DIR__ . '/ar_helper.php';
 $businessId = nxRequireBusinessId($conn);
 
 
@@ -23,9 +24,22 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST") {
     exit();
 }
 
+if (!validateCsrfToken('sale_form', $_POST['csrf_token'] ?? null)) {
+    $_SESSION['error'] = 'Your session expired. Please try again.';
+    header("Location: /NexGen/CODE/PHP/sales_recording.php");
+    exit();
+}
+
 $user_id = (int)$_SESSION['user_id'];
+$arEnabled = nxArEnabled($conn, $user_id);
 $sales_no = trim($_POST['sales_no'] ?? '');
 $customer_id = (int)($_POST['customer_id'] ?? 0);
+$customerInput = [
+    'customer_name' => trim((string)($_POST['customer_name'] ?? '')),
+    'customer_phone' => trim((string)($_POST['customer_phone'] ?? '')),
+    'customer_email' => trim((string)($_POST['customer_email'] ?? '')),
+    'customer_address' => trim((string)($_POST['customer_address'] ?? '')),
+];
 $payment_status = trim($_POST['payment_status'] ?? '');
 $payment_method = trim($_POST['payment_method'] ?? '');
 $order_status = trim($_POST['order_status'] ?? '');
@@ -52,13 +66,29 @@ if (!in_array($payment_status, $allowedPaymentStatus, true)) {
     exit();
 }
 
+if ($payment_status !== 'Paid' && !$arEnabled) {
+    $_SESSION['error'] = 'You do not have access to Accounts Receivable, so sales must be marked Paid.';
+    header("Location: /NexGen/CODE/PHP/sales_recording.php");
+    exit();
+}
+
+if (!$arEnabled) {
+    $customer_id = 0;
+    $customerInput = [];
+    $due_date = '';
+}
+
 if (!in_array($payment_method, $allowedPaymentMethod, true)) {
     $_SESSION['error'] = 'Invalid payment method.';
     header("Location: /NexGen/CODE/PHP/sales_recording.php");
     exit();
 }
 
-if (($payment_status === 'Unpaid' || $payment_status === 'Partially Paid') && $customer_id <= 0) {
+if (
+    ($payment_status === 'Unpaid' || $payment_status === 'Partially Paid')
+    && $customer_id <= 0
+    && $customerInput['customer_name'] === ''
+) {
     $_SESSION['error'] = 'Customer is required for unpaid or partially paid sales.';
     header("Location: /NexGen/CODE/PHP/sales_recording.php");
     exit();
@@ -77,7 +107,7 @@ try {
 
     for ($i = 0; $i < count($product_ids); $i++) {
         $product_id = (int)($product_ids[$i] ?? 0);
-        $qty = (int)($quantities[$i] ?? 0);
+        $qty = (float)($quantities[$i] ?? 0);
         $price = (float)($unit_prices[$i] ?? 0);
 
         if ($product_id <= 0 || $qty <= 0 || $price < 0) {
@@ -101,7 +131,7 @@ try {
         $requiredByProduct[$product_id] += $qty;
     }
 
-   
+
     ksort($requiredByProduct);
 
     $checkStmt = $conn->prepare("
@@ -126,7 +156,7 @@ try {
 
         $product = $checkResult->fetch_assoc();
 
-        if ((int)$product['stock_quantity'] < $requiredQty) {
+        if ((float)$product['stock_quantity'] < $requiredQty) {
             throw new Exception("Not enough stock for " . $product['product_name']);
         }
     }
@@ -144,6 +174,7 @@ try {
         if ($due_date === '') {
             throw new Exception('Due date is required for unpaid sales.');
         }
+        $due_date = nxValidateReceivableDueDate($due_date);
     } elseif ($payment_status === 'Partially Paid') {
         $order_status = 'Pending';
 
@@ -154,27 +185,21 @@ try {
         if ($due_date === '') {
             throw new Exception('Due date is required for partially paid sales.');
         }
+        $due_date = nxValidateReceivableDueDate($due_date);
     }
 
     if (!in_array($order_status, $allowedOrderStatus, true)) {
         throw new Exception('Invalid order status.');
     }
 
-    $customerParam = $customer_id > 0 ? $customer_id : null;
-
-    if ($customerParam !== null) {
-        $customerCheck = $conn->prepare("SELECT id FROM customers WHERE id = ? AND business_id = ? AND status = 1 LIMIT 1");
-        if (!$customerCheck) {
-            throw new Exception('Failed to validate customer.');
-        }
-        $customerCheck->bind_param("ii", $customerParam, $businessId);
-        $customerCheck->execute();
-        $customerExists = $customerCheck->get_result()->fetch_assoc();
-        $customerCheck->close();
-        if (!$customerExists) {
-            throw new Exception('Selected customer does not belong to your business.');
-        }
-    }
+    $requiresReceivable = in_array($payment_status, ['Unpaid', 'Partially Paid'], true);
+    $customerParam = nxResolveSaleCustomer(
+        $conn,
+        $businessId,
+        $customer_id,
+        $customerInput,
+        $requiresReceivable
+    );
 
     $saleStmt = $conn->prepare("
         INSERT INTO sales (
@@ -205,7 +230,7 @@ try {
             throw new Exception("Failed to prepare sale item query.");
         }
 
-        $itemStmt->bind_param("iiidd", $sale_id, $item['product_id'], $item['quantity'], $item['unit_price'], $item['subtotal']);
+        $itemStmt->bind_param("iiddd", $sale_id, $item['product_id'], $item['quantity'], $item['unit_price'], $item['subtotal']);
 
         if (!$itemStmt->execute()) {
             throw new Exception("Failed to save sale item.");
@@ -223,7 +248,7 @@ try {
             throw new Exception("Failed to prepare stock update query.");
         }
 
-        $updateStock->bind_param("iii", $item['quantity'], $item['product_id'], $businessId);
+        $updateStock->bind_param("dii", $item['quantity'], $item['product_id'], $businessId);
 
         if (!$updateStock->execute()) {
             throw new Exception("Failed to deduct stock.");
@@ -242,7 +267,7 @@ try {
             throw new Exception("Failed to prepare stock movement query.");
         }
 
-        $stockStmt->bind_param("iiisi", $businessId, $item['product_id'], $item['quantity'], $remarks, $user_id);
+        $stockStmt->bind_param("iidsi", $businessId, $item['product_id'], $item['quantity'], $remarks, $user_id);
 
         if (!$stockStmt->execute()) {
             throw new Exception("Failed to save stock movement.");
@@ -277,7 +302,7 @@ try {
             "iiidddssi",
             $businessId,
             $sale_id,
-            $customer_id,
+            $customerParam,
             $total_amount,
             $amount_paid,
             $balance_due,

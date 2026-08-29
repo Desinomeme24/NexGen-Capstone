@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once("config.php");
+require_once __DIR__ . '/tenant_helper.php';
 
 if (!isset($_SESSION['user_id'])) {
     header("Location: /NexGen/CODE/PHP/index.php");
@@ -15,35 +16,6 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'system_admin') {
 if (!function_exists('e')) {
     function e($str) {
         return htmlspecialchars((string)$str, ENT_QUOTES, 'UTF-8');
-    }
-}
-
-/*
-|--------------------------------------------------------------------------
-| AVATAR INITIALS
-|--------------------------------------------------------------------------
-| Two-letter initials (first name + last name) used for the round avatar
-| badge shown next to each user's name, on both the desktop table and the
-| mobile card layout.
-*/
-if (!function_exists('getInitials')) {
-    function getInitials(string $fullName): string
-    {
-        $fullName = trim($fullName);
-        if ($fullName === '') {
-            return '?';
-        }
-
-        $parts = array_values(array_filter(preg_split('/\s+/', $fullName)));
-
-        if (count($parts) === 1) {
-            return mb_strtoupper(mb_substr($parts[0], 0, 2));
-        }
-
-        $first = mb_substr($parts[0], 0, 1);
-        $last  = mb_substr($parts[count($parts) - 1], 0, 1);
-
-        return mb_strtoupper($first . $last);
     }
 }
 
@@ -70,6 +42,52 @@ function moduleAccessSummary(array $user): string
     return empty($modules) ? 'No Access' : implode(', ', $modules);
 }
 
+/* ACTIVITY INDICATOR:
+   An enabled account becomes visually inactive after seven days without a
+   successful login. This is deliberately separate from access control so the
+   user can still sign in; login_process.php then refreshes last_login_at and
+   the indicator automatically returns to Active. */
+function getUserActivityIndicator(array $user): array
+{
+    $storedStatus = strtolower(trim((string)($user['account_status'] ?? '')));
+
+    if ($storedStatus !== 'active') {
+        return [
+            'status' => $storedStatus !== '' ? $storedStatus : 'inactive',
+            'note' => '',
+            'title' => 'Account access status: ' . ($storedStatus !== '' ? ucfirst($storedStatus) : 'Inactive')
+        ];
+    }
+
+    $lastLogin = trim((string)($user['last_login_at'] ?? ''));
+    $reference = $lastLogin !== ''
+        ? $lastLogin
+        : (string)($user['approved_at'] ?? $user['created_at'] ?? '');
+    $referenceTimestamp = $reference !== '' ? strtotime($reference) : false;
+    $inactiveCutoff = time() - (7 * 24 * 60 * 60);
+
+    if ($referenceTimestamp !== false && $referenceTimestamp <= $inactiveCutoff) {
+        $note = $lastLogin === '' ? 'Never logged in' : '7+ days idle';
+        $title = $lastLogin === ''
+            ? 'No successful login within seven days of account activation.'
+            : 'Last successful login: ' . date('M d, Y h:i A', $referenceTimestamp);
+
+        return [
+            'status' => 'inactive',
+            'note' => $note,
+            'title' => $title
+        ];
+    }
+
+    return [
+        'status' => 'active',
+        'note' => '',
+        'title' => $lastLogin === ''
+            ? 'Account is within its initial seven-day activity period.'
+            : 'Last successful login: ' . date('M d, Y h:i A', $referenceTimestamp)
+    ];
+}
+
 function getDefaultModulePermissions(string $role): array
 {
     switch ($role) {
@@ -77,7 +95,6 @@ function getDefaultModulePermissions(string $role): array
             return [1, 1, 1, 1];
         case 'employee':
             return [1, 1, 0, 1];
-        case 'customer':
         default:
             return [0, 0, 0, 0];
     }
@@ -93,6 +110,11 @@ $adminId      = (int) $_SESSION['user_id'];
 |--------------------------------------------------------------------------
 */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'bulk_module_action') {
+    if (!validateCsrfToken('manage_users_action', $_POST['csrf_token'] ?? null)) {
+        $_SESSION['error'] = 'Your session expired. Please try again.';
+        header("Location: manage_users.php");
+        exit();
+    }
     $bulkAction  = trim($_POST['bulk_action'] ?? '');
     $selectedIds = $_POST['selected_user_ids'] ?? [];
 
@@ -209,6 +231,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'bulk_
 |--------------------------------------------------------------------------
 */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'unlock_user') {
+    if (!validateCsrfToken('manage_users_action', $_POST['csrf_token'] ?? null)) {
+        $_SESSION['error'] = 'Your session expired. Please try again.';
+        header("Location: manage_users.php");
+        exit();
+    }
     $userId = (int)($_POST['user_id'] ?? 0);
 
     try {
@@ -250,11 +277,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'unloc
         }
         $stmt->close();
 
-       $description = "Unlocked user account #{$userId} ({$targetUser['username']}) and restored full 3 login attempts.";
+       $description = "Unlocked user account #{$userId} ({$targetUser['username']}) and restored the full 5-attempt security allowance.";
 
         logAdminActivitySecure($conn, $adminId, 'unlock_user_account', 'user', $userId, $description);
 
-       $_SESSION['success'] = 'User account unlocked successfully. The account now has 3 login attempts available again.';
+       $_SESSION['success'] = 'User account unlocked successfully. The account now has 5 login attempts available again.';
         header('Location: manage_users.php?edit=' . $userId);
         exit();
 
@@ -271,6 +298,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'unloc
 |--------------------------------------------------------------------------
 */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'update_user') {
+    if (!validateCsrfToken('manage_users_action', $_POST['csrf_token'] ?? null)) {
+        $_SESSION['error'] = 'Your session expired. Please try again.';
+        header("Location: manage_users.php");
+        exit();
+    }
     $userId                = (int)($_POST['user_id'] ?? 0);
     $userFullName          = trim($_POST['full_name'] ?? '');
     $username              = trim($_POST['username'] ?? '');
@@ -299,21 +331,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'updat
             throw new Exception('Please enter a valid email address.');
         }
 
-        $allowedRoles = ['owner', 'employee', 'customer'];
+        $allowedRoles = ['owner', 'employee'];
         if (!in_array($role, $allowedRoles, true)) {
             throw new Exception('Invalid role selected.');
         }
 
-        if ($role === 'customer') {
-            $canInventory = 0;
-            $canSales = 0;
-            $canSalesAnalytics = 0;
-            $canAccountsReceivable = 0;
+        $allowedStatuses = ['active', 'disabled'];
+        if (!in_array($accountStatus, $allowedStatuses, true)) {
+            throw new Exception('Invalid account status selected.');
         }
 
         $conn->begin_transaction();
 
-        $stmt = $conn->prepare("SELECT id, username, email, role, account_status FROM users WHERE id = ? FOR UPDATE");
+        $stmt = $conn->prepare("SELECT id, username, email, role, account_status, business_id FROM users WHERE id = ? FOR UPDATE");
         if (!$stmt) {
             throw new Exception('Failed to read user record: ' . $conn->error);
         }
@@ -392,7 +422,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'updat
         }
         $stmt->close();
 
-        $description = "Updated user #{$userId} ({$username}) - role: {$role}, status: {$accountStatus}, verified: {$isVerified}, inventory: {$canInventory}, sales: {$canSales}, analytics: {$canSalesAnalytics}, accounts_receivable: {$canAccountsReceivable}";
+        /* BUSINESS INTEGRITY: Manage Users may update the account role and
+           permissions, but it must never move an account to another business
+           or branch. Existing assignment rows are preserved exactly. Only
+           their role label is synchronized when Owner/Employee is changed. */
+        if (nxWorkspaceSchemaReady($conn)) {
+            $assignmentRole = $role === 'owner' ? 'owner' : 'employee';
+            $assignmentStmt = $conn->prepare(
+                "UPDATE user_business_assignments
+                 SET assignment_role = ?
+                 WHERE user_id = ? AND status = 'active'"
+            );
+            if (!$assignmentStmt) {
+                throw new Exception('Failed to synchronize the existing business assignment role.');
+            }
+            $assignmentStmt->bind_param('si', $assignmentRole, $userId);
+            if (!$assignmentStmt->execute()) {
+                throw new Exception('Failed to synchronize the existing business assignment role.');
+            }
+            $assignmentStmt->close();
+        }
+
+        $workspaceLog = 'preserved business/branch assignment (business_id: ' . (int)($currentUser['business_id'] ?? 0) . ')';
+        $description = "Updated user #{$userId} ({$username}) - role: {$role}, workspace: {$workspaceLog}, status: {$accountStatus}, verified: {$isVerified}, inventory: {$canInventory}, sales: {$canSales}, analytics: {$canSalesAnalytics}, accounts_receivable: {$canAccountsReceivable}";
 
         logAdminActivitySecure($conn, $adminId, 'update_user_permissions', 'user', $userId, $description);
 
@@ -438,6 +490,7 @@ $statusFilter = trim($_GET['status_filter'] ?? 'all');
 $editId       = (int)($_GET['edit'] ?? 0);
 
 $roles = [];
+$statusSet = ['inactive' => true];
 $statuses = [];
 
 $roleResult = $conn->query("SELECT DISTINCT role FROM users WHERE role IS NOT NULL AND role <> '' AND role <> 'system_admin' ORDER BY role ASC");
@@ -450,32 +503,65 @@ if ($roleResult) {
 $statusResult = $conn->query("SELECT DISTINCT account_status FROM users WHERE account_status IS NOT NULL AND account_status <> '' ORDER BY account_status ASC");
 if ($statusResult) {
     while ($row = $statusResult->fetch_assoc()) {
-        $statuses[] = $row['account_status'];
+        $status = strtolower(trim((string)$row['account_status']));
+        if ($status !== '') {
+            $statusSet[$status] = true;
+        }
     }
 }
 
-$where = " WHERE role <> 'system_admin' ";
+foreach (['active', 'inactive', 'disabled', 'pending', 'rejected'] as $status) {
+    if (isset($statusSet[$status])) {
+        $statuses[] = $status;
+        unset($statusSet[$status]);
+    }
+}
+
+foreach (array_keys($statusSet) as $status) {
+    $statuses[] = $status;
+}
+
+$where = " WHERE u.role <> 'system_admin' ";
 $params = [];
 $types = "";
 
 if ($search !== '') {
-    $where .= " AND (full_name LIKE ? OR username LIKE ? OR email LIKE ? OR phone LIKE ?) ";
+    $where .= " AND (u.full_name LIKE ? OR u.username LIKE ? OR u.email LIKE ? OR u.phone LIKE ? OR be.business_name LIKE ? OR b.branch_name LIKE ? OR be.business_code LIKE ? OR b.branch_code LIKE ?) ";
     $like = "%{$search}%";
     $params[] = $like;
     $params[] = $like;
     $params[] = $like;
     $params[] = $like;
-    $types .= "ssss";
+    $params[] = $like;
+    $params[] = $like;
+    $params[] = $like;
+    $params[] = $like;
+    $types .= "ssssssss";
 }
 
 if ($roleFilter !== '' && $roleFilter !== 'all') {
-    $where .= " AND role = ? ";
+    $where .= " AND u.role = ? ";
     $params[] = $roleFilter;
     $types .= "s";
 }
 
-if ($statusFilter !== '' && $statusFilter !== 'all') {
-    $where .= " AND account_status = ? ";
+if ($statusFilter === 'inactive') {
+    $where .= " AND (
+        u.account_status = 'inactive'
+        OR (
+            u.account_status = 'active'
+            AND (
+                COALESCE(u.last_login_at, u.approved_at, u.created_at) IS NULL
+                OR COALESCE(u.last_login_at, u.approved_at, u.created_at) <= DATE_SUB(NOW(), INTERVAL 7 DAY)
+            )
+        )
+    ) ";
+} elseif ($statusFilter === 'active') {
+    $where .= " AND u.account_status = 'active'
+        AND COALESCE(u.last_login_at, u.approved_at, u.created_at) IS NOT NULL
+        AND COALESCE(u.last_login_at, u.approved_at, u.created_at) > DATE_SUB(NOW(), INTERVAL 7 DAY) ";
+} elseif ($statusFilter !== '' && $statusFilter !== 'all') {
+    $where .= " AND u.account_status = ? ";
     $params[] = $statusFilter;
     $types .= "s";
 }
@@ -483,24 +569,34 @@ if ($statusFilter !== '' && $statusFilter !== 'all') {
 $users = [];
 $sql = "
     SELECT
-        id,
-        full_name,
-        username,
-        email,
-        phone,
-        address,
-        role,
-        account_status,
-        is_verified,
-        can_inventory,
-        can_sales,
-        can_sales_analytics,
-        can_accounts_receivable,
-        failed_login_attempts,
-        locked_until
-    FROM users
+        u.id,
+        u.full_name,
+        u.username,
+        u.email,
+        u.phone,
+        u.address,
+        u.role,
+        u.account_status,
+        u.last_login_at,
+        u.approved_at,
+        u.created_at,
+        u.is_verified,
+        u.can_inventory,
+        u.can_sales,
+        u.can_sales_analytics,
+        u.can_accounts_receivable,
+        u.failed_login_attempts,
+        u.locked_until,
+        u.business_id,
+        be.business_name,
+        b.branch_name,
+        be.business_code,
+        b.branch_code
+    FROM users u
+    LEFT JOIN businesses b ON b.id = u.business_id
+    LEFT JOIN business_entities be ON be.id = b.business_entity_id
     {$where}
-    ORDER BY id DESC
+    ORDER BY u.id DESC
 ";
 $stmt = $conn->prepare($sql);
 if ($stmt) {
@@ -519,24 +615,31 @@ $editUser = null;
 if ($editId > 0) {
     $stmt = $conn->prepare("
         SELECT
-            id,
-                full_name,
-            username,
-            email,
-            phone,
-            address,
-            role,
-            account_status,
-            is_verified,
-            can_inventory,
-            can_sales,
-            can_sales_analytics,
-            can_accounts_receivable,
-            failed_login_attempts,
-            locked_until
-        FROM users
-        WHERE id = ?
-          AND role <> 'system_admin'
+            u.id,
+            u.full_name,
+            u.username,
+            u.email,
+            u.phone,
+            u.address,
+            u.role,
+            u.account_status,
+            u.is_verified,
+            u.can_inventory,
+            u.can_sales,
+            u.can_sales_analytics,
+            u.can_accounts_receivable,
+            u.failed_login_attempts,
+            u.locked_until,
+            u.business_id,
+            be.business_name,
+            b.branch_name,
+            be.business_code,
+            b.branch_code
+        FROM users u
+        LEFT JOIN businesses b ON b.id = u.business_id
+        LEFT JOIN business_entities be ON be.id = b.business_entity_id
+        WHERE u.id = ?
+          AND u.role <> 'system_admin'
         LIMIT 1
     ");
     if ($stmt) {
@@ -562,24 +665,20 @@ function renderManageUsersTable(array $users, string $search, string $roleFilter
                 <table>
                     <colgroup>
                         <col style="width: 200px;">
-                        <col style="width: 160px;">
-                        <col style="width: 220px;">
-                        <col style="width: 140px;">
-                        <col style="width: 130px;">
-                        <col style="width: 130px;">
-                        <col style="width: 120px;">
-                        <col style="width: 120px;">
-                        <col style="width: 140px;">
-                        <col style="width: 240px;">
                         <col style="width: 110px;">
+                        <col style="width: 240px;">
+                        <col style="width: 120px;">
+                        <col style="width: 90px;">
+                        <col style="width: 100px;">
+                        <col style="width: 110px;">
+                        <col style="width: 220px;">
+                        <col style="width: 100px;">
                     </colgroup>
                     <thead>
                         <tr>
-                            <th>FULL NAME</th>
                             <th>USERNAME</th>
-                            <th>EMAIL</th>
-                            <th>PHONE</th>
                             <th>ROLE</th>
+                            <th>BUSINESS</th>
                             <th>VERIFIED</th>
                             <th>FAILED</th>
                             <th>LOCK</th>
@@ -591,27 +690,26 @@ function renderManageUsersTable(array $users, string $search, string $roleFilter
                     <tbody>
                     <?php if (empty($users)): ?>
                         <tr>
-                            <td colspan="11">No user accounts found.</td>
+                            <td colspan="9">No user accounts found.</td>
                         </tr>
                     <?php else: ?>
                         <?php foreach ($users as $user): ?>
                             <?php
                             $isLocked = !empty($user['locked_until']) && strtotime((string)$user['locked_until']) > time();
+                            $activityIndicator = getUserActivityIndicator($user);
+                            $effectiveStatus = $activityIndicator['status'];
                             ?>
                             <tr>
-                                <td class="table-employee" data-label="Full Name">
-                                    <div class="user-name-cell">
-                                        <span class="user-avatar"><?php echo e(getInitials($user['full_name'])); ?></span>
-                                        <span class="user-identity-text">
-                                            <span class="identity-username"><?php echo e($user['full_name']); ?></span>
-                                            <span class="user-name-text"><?php echo e($user['username']); ?></span>
-                                        </span>
-                                    </div>
-                                </td>
-                                <td data-label="Username"><?php echo e($user['username']); ?></td>
-                                <td class="table-email" data-label="Email"><?php echo e($user['email']); ?></td>
-                                <td class="table-phone" data-label="Phone"><?php echo e($user['phone']); ?></td>
+                                <td class="table-primary-username" data-label="Username"><?php echo e($user['username']); ?></td>
                                 <td class="table-role" data-label="Role"><?php echo e(ucwords(str_replace('_', ' ', $user['role']))); ?></td>
+                                <td class="table-business" data-label="Business">
+                                    <?php if (!empty($user['business_id'])): ?>
+                                        <strong><?php echo e($user['business_name'] ?? ('Workspace #' . (int)$user['business_id'])); ?></strong><br>
+                                        <small><?php echo e(($user['branch_name'] ?? 'Main Branch') . ' [' . ($user['business_code'] ?? '—') . ' / ' . ($user['branch_code'] ?? '—') . ']'); ?></small>
+                                    <?php else: ?>
+                                        —
+                                    <?php endif; ?>
+                                </td>
                                 <td class="table-verified" data-label="Verified">
                                     <span class="mini-badge <?php echo (int)$user['is_verified'] === 1 ? 'yes' : 'no'; ?>">
                                         <?php echo (int)$user['is_verified'] === 1 ? 'Verified' : 'Not Verified'; ?>
@@ -628,13 +726,21 @@ function renderManageUsersTable(array $users, string $search, string $roleFilter
                                     </span>
                                 </td>
                                 <td class="table-status" data-label="Status">
-                                    <span class="badge badge-<?php echo e($user['account_status']); ?>">
-                                        <?php echo e(ucfirst($user['account_status'])); ?>
+                                    <span class="activity-status-stack">
+                                        <span
+                                            class="badge badge-<?php echo e($effectiveStatus); ?>"
+                                            title="<?php echo e($activityIndicator['title']); ?>"
+                                        >
+                                            <?php echo e(ucfirst($effectiveStatus)); ?>
+                                        </span>
+                                        <?php if ($activityIndicator['note'] !== ''): ?>
+                                            <small class="activity-status-note"><?php echo e($activityIndicator['note']); ?></small>
+                                        <?php endif; ?>
                                     </span>
                                 </td>
                                 <td class="table-modules modules-cell" data-label="Module Access"><?php echo e(moduleAccessSummary($user)); ?></td>
                                 <td class="table-action action-cell" data-label="Action">
-                                    <a class="btn btn-silver" href="manage_users.php?<?php echo http_build_query([
+                                    <a class="btn btn-silver edit-user-btn" href="manage_users.php?<?php echo http_build_query([
                                         'search' => $search,
                                         'role_filter' => $roleFilter,
                                         'status_filter' => $statusFilter,
@@ -658,6 +764,8 @@ if (
     renderManageUsersTable($users, $search, $roleFilter, $statusFilter);
     exit();
 }
+
+$csrfManageUsers = generateCsrfToken('manage_users_action');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -681,7 +789,7 @@ if (
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800;900&family=Sora:wght@400;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/NexGen/CODE/STYLE/admin_module.css?v=20260723">
+    <link rel="stylesheet" href="/NexGen/CODE/STYLE/admin_module.css?v=20260826-responsive">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <style>
         /* =========================
@@ -708,47 +816,6 @@ if (
             }
         }
 
-        /* =========================
-           USER AVATAR (INITIALS)
-        ========================= */
-        .user-name-cell {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            min-width: 0;
-        }
-
-        .user-avatar {
-            flex-shrink: 0;
-            width: 34px;
-            height: 34px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 12.5px;
-            font-weight: 700;
-            letter-spacing: 0.3px;
-            color: #071a40;
-            background: linear-gradient(135deg, var(--tone-info-a) 0%, var(--tone-info-b) 100%);
-            border: 1.5px solid var(--glass-border);
-        }
-
-        .user-name-text {
-            min-width: 0;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        .user-identity-text {
-            display: contents;
-        }
-
-        .identity-username {
-            display: none;
-        }
-
         .manage-users-table-wrap {
             max-height: 470px;
             overflow-y: auto;
@@ -765,10 +832,22 @@ if (
 
         .manage-users-table-wrap table {
             width: 100%;
-            min-width: 1520px;
+            min-width: 1180px;
             border-collapse: separate;
             border-spacing: 0;
             table-layout: fixed;
+        }
+
+        .manage-users-table-wrap th,
+        .manage-users-table-wrap td {
+            text-align: center;
+            vertical-align: middle;
+        }
+
+        .manage-users-table-wrap td.table-primary-username {
+            text-align: left;
+            padding-left: 20px;
+            overflow-wrap: anywhere;
         }
 
         .manage-users-table-wrap thead th {
@@ -888,6 +967,23 @@ if (
             color: #ffb0b0;
         }
 
+        .activity-status-stack {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            max-width: 100%;
+        }
+
+        .activity-status-note {
+            color: var(--muted);
+            font-size: 10.5px;
+            font-weight: 700;
+            line-height: 1.2;
+            white-space: nowrap;
+        }
+
         html[data-theme="light"] .mini-badge.yes {
             background: rgba(16, 138, 92, 0.14);
             color: #0f7a52;
@@ -912,7 +1008,17 @@ if (
             min-width: 90px;
         }
 
-        .table-employee,
+        .table-role,
+        .table-business,
+        .table-status,
+        .table-verified,
+        .table-failed,
+        .table-lock,
+        .table-action,
+        .table-modules {
+            text-align: center;
+        }
+
         .table-role,
         .table-status,
         .table-verified,
@@ -920,11 +1026,8 @@ if (
         .table-lock,
         .table-action {
             white-space: nowrap;
-            text-align: center;
         }
 
-        .table-email,
-        .table-phone,
         .table-modules {
             word-break: break-word;
         }
@@ -1400,22 +1503,19 @@ if (
             }
 
             /* -----------------------------------------------------------
-               Name-first user card:
-                 Row 1-2: avatar + Employee No, then Full Name (left) —
-                          Status badge / Verified badge (right)
-                 Row 3:   Role (full width)
-                 Row 4:   Edit button (full width)
-               Username, Email, Phone, Failed, Lock and Module Access are
-               hidden here — they still show normally in the desktop table.
+               Centered user card. Email and Phone are intentionally absent
+               from both the desktop table and this mobile layout.
             ----------------------------------------------------------- */
             .manage-users-table-wrap[data-mobile-cards] tr {
                 display: grid;
-                grid-template-columns: auto 1fr;
+                grid-template-columns: 1fr;
                 grid-template-areas:
-                    "identity status"
-                    "identity verified"
-                    "role     role"
-                    "edit     edit";
+                    "username"
+                    "business"
+                    "role"
+                    "status"
+                    "verified"
+                    "edit";
                 column-gap: 12px;
                 row-gap: 6px;
                 align-items: center;
@@ -1432,7 +1532,7 @@ if (
                 border-bottom: none;
                 background: transparent !important;
                 font-size: 13.5px;
-                text-align: left;
+                text-align: center;
                 white-space: normal;
             }
 
@@ -1441,61 +1541,32 @@ if (
             }
 
             /* Hide every column not shown on the mobile card */
-            .manage-users-table-wrap[data-mobile-cards] td[data-label="Full Name"],
-            .manage-users-table-wrap[data-mobile-cards] td[data-label="Username"],
-            .manage-users-table-wrap[data-mobile-cards] td[data-label="Email"],
-            .manage-users-table-wrap[data-mobile-cards] td[data-label="Phone"],
             .manage-users-table-wrap[data-mobile-cards] td[data-label="Failed"],
             .manage-users-table-wrap[data-mobile-cards] td[data-label="Lock"],
             .manage-users-table-wrap[data-mobile-cards] td[data-label="Module Access"] {
                 display: none;
             }
 
-            .manage-users-table-wrap[data-mobile-cards] td[data-label="Employee No"] {
-                grid-area: identity;
-            }
-
-            .manage-users-table-wrap[data-mobile-cards] td[data-label="Employee No"] .user-name-cell {
-                align-items: center;
-            }
-
-            .manage-users-table-wrap[data-mobile-cards] td[data-label="Employee No"] .user-avatar {
-                width: 40px;
-                height: 40px;
-                font-size: 14px;
-            }
-
-            /* Username becomes the bold headline, Employee No sits under it */
-            .manage-users-table-wrap[data-mobile-cards] td[data-label="Employee No"] .user-identity-text {
-                display: flex;
-                flex-direction: column;
-                gap: 2px;
-                min-width: 0;
-            }
-
-            .manage-users-table-wrap[data-mobile-cards] td[data-label="Employee No"] .identity-username {
-                display: block;
+            .manage-users-table-wrap[data-mobile-cards] td[data-label="Username"] {
+                grid-area: username;
                 font-size: 17px;
                 font-weight: 700;
+                letter-spacing: 0.2px;
                 color: var(--text);
-                white-space: normal;
-                overflow: visible;
-                text-overflow: unset;
+                text-align: center;
+                padding-left: 0;
             }
 
-            .manage-users-table-wrap[data-mobile-cards] td[data-label="Employee No"] .user-name-text {
-                font-size: 12.5px;
-                font-weight: 600;
-                letter-spacing: 0.2px;
-                color: var(--muted);
-                white-space: normal;
-                overflow: visible;
-                text-overflow: unset;
+            .manage-users-table-wrap[data-mobile-cards] td[data-label="Business"] {
+                grid-area: business;
+                margin-top: 8px;
+                padding-top: 12px;
+                border-top: 1px solid var(--line);
             }
 
             .manage-users-table-wrap[data-mobile-cards] td[data-label="Status"] {
                 grid-area: status;
-                justify-self: end;
+                justify-self: center;
             }
 
             .manage-users-table-wrap[data-mobile-cards] td[data-label="Status"] .badge {
@@ -1505,16 +1576,13 @@ if (
 
             .manage-users-table-wrap[data-mobile-cards] td[data-label="Role"] {
                 grid-area: role;
-                margin-top: 8px;
-                padding-top: 12px;
-                border-top: 1px solid var(--line);
                 font-size: 13.5px;
                 color: var(--text);
             }
 
             .manage-users-table-wrap[data-mobile-cards] td[data-label="Verified"] {
                 grid-area: verified;
-                justify-self: end;
+                justify-self: center;
             }
 
             .manage-users-table-wrap[data-mobile-cards] td[data-label="Verified"] .mini-badge {
@@ -1534,6 +1602,244 @@ if (
                 width: 100%;
             }
         }
+
+        /* =========================
+           RESPONSIVE PAGE SHELL
+           Keeps the fixed hamburger from covering the page title.
+        ========================= */
+        @media (max-width: 1100px) {
+            .admin-content .topbar {
+                min-height: 46px;
+                padding-left: 58px;
+                box-sizing: border-box;
+            }
+
+            .admin-content .page-title,
+            .admin-content .page-title h1 {
+                min-width: 0;
+                max-width: 100%;
+            }
+
+            .admin-content .page-title h1 {
+                white-space: normal;
+                overflow-wrap: anywhere;
+            }
+        }
+
+        /* =========================
+           RESPONSIVE MANAGE USERS
+           Phones and small tablets use compact, flexible user cards.
+        ========================= */
+        @media (max-width: 768px) {
+            .admin-content {
+                width: 100%;
+                min-width: 0;
+                padding: 80px 14px 24px !important;
+                overflow-x: hidden;
+                box-sizing: border-box;
+            }
+
+            .admin-content .topbar {
+                margin-bottom: 16px;
+                padding-left: 0;
+            }
+
+            .admin-content .page-title h1 {
+                gap: 8px;
+                font-size: clamp(20px, 6.5vw, 24px);
+                line-height: 1.2;
+            }
+
+            .admin-content .page-title-icon {
+                font-size: 22px;
+            }
+
+            .admin-content .panel {
+                width: 100%;
+                min-width: 0;
+                border-radius: 16px;
+            }
+
+            .admin-content .panel-header,
+            .admin-content .panel-body {
+                padding: 14px;
+            }
+
+            .toolbar-form {
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) !important;
+                gap: 10px;
+                width: 100%;
+                min-width: 0;
+                margin-bottom: 14px;
+            }
+
+            .toolbar-form .input,
+            .toolbar-form .select {
+                width: 100%;
+                min-width: 0;
+                max-width: 100%;
+                min-height: 44px;
+                box-sizing: border-box;
+            }
+
+            .manage-users-table-wrap[data-mobile-cards] {
+                width: 100%;
+                min-width: 0;
+                max-height: none;
+                overflow: visible;
+                border: 0;
+                border-radius: 0;
+                background: transparent;
+            }
+
+            .manage-users-table-wrap[data-mobile-cards] table {
+                width: 100%;
+                min-width: 0;
+                table-layout: auto;
+            }
+
+            .manage-users-table-wrap[data-mobile-cards] colgroup,
+            .manage-users-table-wrap[data-mobile-cards] thead {
+                display: none;
+            }
+
+            .manage-users-table-wrap[data-mobile-cards] tbody {
+                display: block;
+                width: 100%;
+                min-width: 0;
+            }
+
+            .manage-users-table-wrap[data-mobile-cards] tr {
+                width: 100%;
+                min-width: 0;
+                display: grid;
+                grid-template-columns: minmax(0, 1fr) auto;
+                grid-template-areas:
+                    "username status"
+                    "business business"
+                    "role verified"
+                    "edit edit";
+                gap: 9px 12px;
+                align-items: center;
+                box-sizing: border-box;
+                margin: 0 0 12px;
+                padding: 14px;
+                border: 1px solid var(--line-bright);
+                border-radius: 14px;
+                background: var(--card);
+            }
+
+            .manage-users-table-wrap[data-mobile-cards] td {
+                min-width: 0;
+                padding: 0;
+                border: 0;
+                background: transparent !important;
+                white-space: normal;
+            }
+
+            .manage-users-table-wrap[data-mobile-cards] td[data-label="Username"] {
+                display: block !important;
+                grid-area: username;
+                padding: 0;
+                text-align: left;
+                font-size: 16px;
+                font-weight: 800;
+                line-height: 1.35;
+                overflow-wrap: anywhere;
+                color: var(--text);
+            }
+
+            .manage-users-table-wrap[data-mobile-cards] td[data-label="Business"] {
+                display: block !important;
+                grid-area: business;
+                min-width: 0;
+                margin: 2px 0 0;
+                padding: 10px 0 0;
+                border-top: 1px solid var(--line);
+                text-align: left;
+                line-height: 1.4;
+                overflow-wrap: anywhere;
+            }
+
+            .manage-users-table-wrap[data-mobile-cards] td[data-label="Business"] strong,
+            .manage-users-table-wrap[data-mobile-cards] td[data-label="Business"] small {
+                display: block;
+                max-width: 100%;
+                overflow-wrap: anywhere;
+            }
+
+            .manage-users-table-wrap[data-mobile-cards] td[data-label="Business"] small {
+                margin-top: 3px;
+                color: var(--muted);
+                font-size: 11.5px;
+            }
+
+            .manage-users-table-wrap[data-mobile-cards] td[data-label="Role"] {
+                display: block !important;
+                grid-area: role;
+                text-align: left;
+                font-size: 13px;
+                color: var(--muted);
+            }
+
+            .manage-users-table-wrap[data-mobile-cards] td[data-label="Status"] {
+                display: block !important;
+                grid-area: status;
+                justify-self: end;
+            }
+
+            .manage-users-table-wrap[data-mobile-cards] td[data-label="Verified"] {
+                display: block !important;
+                grid-area: verified;
+                justify-self: end;
+            }
+
+            .manage-users-table-wrap[data-mobile-cards] td[data-label="Failed"],
+            .manage-users-table-wrap[data-mobile-cards] td[data-label="Lock"],
+            .manage-users-table-wrap[data-mobile-cards] td[data-label="Module Access"] {
+                display: none !important;
+            }
+
+            .manage-users-table-wrap[data-mobile-cards] td[data-label="Action"] {
+                display: block !important;
+                grid-area: edit;
+                width: 100%;
+                margin-top: 2px;
+                padding-top: 10px;
+                border-top: 1px solid var(--line);
+            }
+
+            .manage-users-table-wrap[data-mobile-cards] td[data-label="Action"] .btn {
+                width: 100%;
+                min-width: 0;
+                box-sizing: border-box;
+            }
+
+            .manage-users-table-wrap[data-mobile-cards] td[colspan] {
+                display: block !important;
+                grid-column: 1 / -1;
+                padding: 16px;
+                text-align: center;
+            }
+        }
+
+        @media (max-width: 380px) {
+            .admin-content {
+                padding-right: 10px !important;
+                padding-left: 10px !important;
+            }
+
+            .admin-content .topbar {
+                padding-left: 0;
+            }
+
+            .admin-content .panel-header,
+            .admin-content .panel-body,
+            .manage-users-table-wrap[data-mobile-cards] tr {
+                padding: 12px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -1551,7 +1857,7 @@ if (
 <div class="admin-shell">
     <?php include 'admin_sidebar.php'; ?>
 
-    <main class="admin-content">
+    <main class="admin-content manage-users-content">
         <div class="topbar">
             <div class="page-title">
                 <h1><span class="page-title-icon"><i class="bi bi-people-fill"></i></span>Manage Users</h1>
@@ -1570,7 +1876,7 @@ if (
                         type="text"
                         name="search"
                         id="searchInput"
-                        placeholder="Search by name, username, email, or phone."
+                        placeholder="Search by username, business, or branch."
                         value="<?php echo e($search); ?>"
                         autocomplete="off"
                     >
@@ -1609,7 +1915,20 @@ if (
         </div>
 
         <div class="edit-modal-body">
+            <?php
+                $isLocked = !empty($editUser['locked_until']) && strtotime((string)$editUser['locked_until']) > time();
+                $isPermanentLock = $isLocked && (int)($editUser['failed_login_attempts'] ?? 0) >= 5;
+            ?>
+            <?php if ($isLocked): ?>
+                <form method="POST" id="unlockUserForm" class="unlock-user-form" data-username="<?php echo e($editUser['username']); ?>" hidden>
+                    <input type="hidden" name="csrf_token" value="<?php echo e($csrfManageUsers); ?>">
+                    <input type="hidden" name="action" value="unlock_user">
+                    <input type="hidden" name="user_id" value="<?php echo (int)$editUser['id']; ?>">
+                </form>
+            <?php endif; ?>
+
             <form method="POST">
+                <input type="hidden" name="csrf_token" value="<?php echo e($csrfManageUsers); ?>">
                 <input type="hidden" name="action" value="update_user">
                 <input type="hidden" name="user_id" value="<?php echo (int)$editUser['id']; ?>">
 
@@ -1651,7 +1970,6 @@ if (
                             <select id="role" name="role" required onchange="handleRoleChange()">
                                 <option value="owner" <?php echo $editUser['role'] === 'owner' ? 'selected' : ''; ?>>Owner</option>
                                 <option value="employee" <?php echo $editUser['role'] === 'employee' ? 'selected' : ''; ?>>Employee</option>
-                                <option value="customer" <?php echo $editUser['role'] === 'customer' ? 'selected' : ''; ?>>Customer</option>
                             </select>
                         </div>
 
@@ -1659,7 +1977,6 @@ if (
                             <label for="account_status">Account Status</label>
                             <select id="account_status" name="account_status" required>
                                 <option value="active" <?php echo $editUser['account_status'] === 'active' ? 'selected' : ''; ?>>Active</option>
-                                <option value="inactive" <?php echo $editUser['account_status'] === 'inactive' ? 'selected' : ''; ?>>Inactive</option>
                                 <option value="disabled" <?php echo $editUser['account_status'] === 'disabled' ? 'selected' : ''; ?>>Disabled</option>
                             </select>
                         </div>
@@ -1677,7 +1994,7 @@ if (
                     <h3 class="modal-section-title">Module Access</h3>
                     <div class="access-box">
                         <p>
-                            Owner has access to all 4 business modules. Employee has access to all except Sales Analytics. Customer has no access to the 4 business modules.
+                            Saved module permissions are shown exactly as stored. Changing the role or selecting Reset to Role Default Access applies the recommended defaults for that role.
                         </p>
 
                         <div class="access-grid">
@@ -1710,9 +2027,6 @@ if (
 
                 <div class="modal-section">
                     <h3 class="modal-section-title">Security</h3>
-                    <?php
-                        $isLocked = !empty($editUser['locked_until']) && strtotime((string)$editUser['locked_until']) > time();
-                    ?>
                     <div class="security-panel">
                         <div class="security-stat">
                             <label>Failed Login Attempts</label>
@@ -1726,7 +2040,9 @@ if (
                             <label>Lock Status</label>
                             <div class="value">
                                 <?php
-                                if ($isLocked) {
+                                if ($isPermanentLock) {
+                                    echo 'Locked — administrator unlock required';
+                                } elseif ($isLocked) {
                                     echo 'Locked until ' . e(date('M d, Y h:i A', strtotime((string)$editUser['locked_until'])));
                                 } else {
                                     echo 'Not locked';
@@ -1737,11 +2053,7 @@ if (
                     </div>
 
                     <?php if ($isLocked): ?>
-                        <form method="POST" style="margin-top: 12px;" class="unlock-user-form" data-username="<?php echo e($editUser['username']); ?>">
-                            <input type="hidden" name="action" value="unlock_user">
-                            <input type="hidden" name="user_id" value="<?php echo (int)$editUser['id']; ?>">
-                            <button type="submit" class="btn btn-gold">Unlock Account</button>
-                        </form>
+                        <button type="submit" form="unlockUserForm" class="btn btn-gold" style="margin-top: 12px;">Unlock Account</button>
                     <?php endif; ?>
                 </div>
 
@@ -1803,6 +2115,13 @@ function setModuleCheckboxState(disabled) {
     });
 }
 
+function syncRoleControls() {
+    const role = document.getElementById('role');
+    if (!role) return;
+
+    setModuleCheckboxState(false);
+}
+
 function applyRoleDefaults() {
     const role = document.getElementById('role');
     if (!role) return;
@@ -1820,20 +2139,15 @@ function applyRoleDefaults() {
         canSalesAnalytics.checked = true;
         canAccountsReceivable.checked = true;
         setModuleCheckboxState(false);
-    } else if (role.value === 'employee') {
+    } else {
         canInventory.checked = true;
         canSales.checked = true;
         canSalesAnalytics.checked = false;
         canAccountsReceivable.checked = true;
         setModuleCheckboxState(false);
-    } else {
-        canInventory.checked = false;
-        canSales.checked = false;
-        canSalesAnalytics.checked = false;
-        canAccountsReceivable.checked = false;
-        setModuleCheckboxState(true);
     }
 
+    syncRoleControls();
     updateRoleNote();
 }
 
@@ -1843,13 +2157,25 @@ function updateRoleNote() {
 
     if (!role || !roleNote) return;
 
-    if (role.value === 'owner') {
-        roleNote.textContent = 'Owner has full access to Inventory, Sales, Sales Analytics, and Accounts Receivable.';
-    } else if (role.value === 'employee') {
-        roleNote.textContent = 'Employee has access to Inventory, Sales, and Accounts Receivable, but not Sales Analytics.';
-    } else {
-        roleNote.textContent = 'Customer has no access to the 4 business modules, so module checkboxes are disabled.';
-    }
+    const moduleInputs = [
+        ['can_inventory', 'Inventory'],
+        ['can_sales', 'Sales'],
+        ['can_sales_analytics', 'Sales Analytics'],
+        ['can_accounts_receivable', 'Accounts Receivable']
+    ];
+    const selectedModules = moduleInputs
+        .filter(function(module) {
+            const input = document.getElementById(module[0]);
+            return input && input.checked;
+        })
+        .map(function(module) {
+            return module[1];
+        });
+    const roleLabel = role.value === 'owner' ? 'Owner' : 'Employee';
+
+    roleNote.textContent = selectedModules.length > 0
+        ? roleLabel + ' currently has access to: ' + selectedModules.join(', ') + '.'
+        : roleLabel + ' currently has no module access selected.';
 }
 
 function handleRoleChange() {
@@ -1857,7 +2183,103 @@ function handleRoleChange() {
 }
 
 function closeEditModal() {
-    window.location.href = 'manage_users.php';
+    const overlay = document.getElementById('editModalOverlay');
+    if (!overlay) return;
+
+    overlay.classList.remove('show');
+    overlay.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+
+    const url = new URL(window.location.href);
+    url.searchParams.delete('edit');
+    window.history.replaceState({}, '', url.pathname + (url.search ? url.search : ''));
+}
+
+function bindEditModal() {
+    const overlay = document.getElementById('editModalOverlay');
+    if (!overlay) return;
+
+    document.body.style.overflow = 'hidden';
+    syncRoleControls();
+    updateRoleNote();
+
+    [
+        'can_inventory',
+        'can_sales',
+        'can_sales_analytics',
+        'can_accounts_receivable'
+    ].forEach(function(id) {
+        const permissionInput = document.getElementById(id);
+        if (permissionInput && permissionInput.dataset.roleNoteBound !== '1') {
+            permissionInput.dataset.roleNoteBound = '1';
+            permissionInput.addEventListener('change', updateRoleNote);
+        }
+    });
+
+    const closeButton = overlay.querySelector('.modal-close-btn');
+    if (closeButton) {
+        window.requestAnimationFrame(function() {
+            closeButton.focus();
+        });
+    }
+}
+
+function openEditModal(editUrl, trigger) {
+    if (!editUrl) return;
+
+    if (trigger && trigger.getAttribute('aria-busy') === 'true') {
+        return;
+    }
+
+    if (trigger) {
+        trigger.setAttribute('aria-busy', 'true');
+        trigger.dataset.originalText = trigger.textContent;
+        trigger.textContent = 'Loading...';
+    }
+
+    fetch(editUrl, {
+        headers: {
+            'Accept': 'text/html'
+        }
+    })
+    .then(function(response) {
+        if (!response.ok) {
+            throw new Error('Unable to load this user account.');
+        }
+        return response.text();
+    })
+    .then(function(html) {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(html, 'text/html');
+        const incomingModal = doc.getElementById('editModalOverlay');
+
+        if (!incomingModal) {
+            throw new Error('The user editor could not be loaded. Please try again.');
+        }
+
+        const existingModal = document.getElementById('editModalOverlay');
+        if (existingModal) {
+            existingModal.remove();
+        }
+
+        document.body.appendChild(document.importNode(incomingModal, true));
+
+        const targetUrl = new URL(editUrl, window.location.href);
+        window.history.replaceState({}, '', targetUrl.pathname + targetUrl.search);
+
+        bindEditModal();
+        rebindTableArea();
+    })
+    .catch(function(error) {
+        showCustomAlert(error.message || 'Unable to open the user editor.');
+    })
+    .finally(function() {
+        if (trigger && trigger.isConnected) {
+            trigger.removeAttribute('aria-busy');
+            trigger.textContent = trigger.dataset.originalText || 'Edit';
+            delete trigger.dataset.originalText;
+        }
+    });
 }
 
 function showCustomConfirm(message, onConfirm) {
@@ -1908,7 +2330,20 @@ function closeCustomAlert() {
 }
 
 function rebindTableArea() {
+    document.querySelectorAll('.edit-user-btn').forEach(function(button) {
+        if (button.dataset.editBound === '1') return;
+        button.dataset.editBound = '1';
+
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            openEditModal(button.href, button);
+        });
+    });
+
     document.querySelectorAll('.unlock-user-form').forEach(function(form) {
+        if (form.dataset.unlockBound === '1') return;
+        form.dataset.unlockBound = '1';
+
         form.addEventListener('submit', function(e) {
             if (form.dataset.confirmed === '1') {
                 form.dataset.confirmed = '0';
@@ -1920,7 +2355,7 @@ function rebindTableArea() {
             const username = form.getAttribute('data-username') || 'this user';
 
             showCustomConfirm(
-                'Are you sure you want to unlock the account of ' + username + '? This will restore the full 3 login attempts.',
+                'Are you sure you want to unlock the account of ' + username + '? This will restore the full 5-attempt security allowance.',
                 function() {
                     form.dataset.confirmed = '1';
                     form.submit();
@@ -2009,11 +2444,7 @@ document.addEventListener('DOMContentLoaded', function() {
         alertOk.addEventListener('click', closeCustomAlert);
     }
 
-    updateRoleNote();
-    if (document.getElementById('role')) {
-        applyRoleDefaults();
-    }
-
+    bindEditModal();
     rebindTableArea();
 });
 
@@ -2033,6 +2464,7 @@ document.addEventListener('click', function(e) {
 
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
+        closeEditModal();
         closeCustomAlert();
         const confirmModal = document.getElementById('customConfirmOverlay');
         if (confirmModal) {

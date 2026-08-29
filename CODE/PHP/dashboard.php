@@ -1,40 +1,138 @@
 <?php
-session_start();
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/tenant_helper.php';
+require_once __DIR__ . '/ar_helper.php';
 
-if (!isset($_SESSION['user_id'])) {
-    header("Location: /NexGen/CODE/PHP/index.php");
+/* SECURITY: config.php applies the hardened cookie settings and starts the
+   session before any authenticated dashboard logic runs. */
+enforceSessionTimeout();
+
+if (!function_exists('dashboardInvalidateSession')) {
+    function dashboardInvalidateSession(string $message): void
+    {
+        $_SESSION = [];
+
+        if (ini_get('session.use_cookies')) {
+            $params = session_get_cookie_params();
+            setcookie(
+                session_name(),
+                '',
+                time() - 42000,
+                $params['path'],
+                $params['domain'],
+                $params['secure'],
+                $params['httponly']
+            );
+        }
+
+        if (session_status() === PHP_SESSION_ACTIVE) {
+            session_destroy();
+        }
+
+        /* Do not reuse the identifier of the invalidated session when creating
+           the short-lived flash-message session for the login page. */
+        session_id('');
+        session_start();
+        if ($message !== '') {
+            $_SESSION['error'] = $message;
+        }
+        $_SESSION['form_type'] = 'login';
+
+        header('Location: /NexGen/CODE/PHP/index.php');
+        exit();
+    }
+}
+
+if (empty($_SESSION['user_id'])) {
+    header('Location: /NexGen/CODE/PHP/index.php');
     exit();
 }
 
-if (!isset($_SESSION['role'])) {
-    session_unset();
-    session_destroy();
-    header("Location: /NexGen/CODE/PHP/index.php");
+/* SECURITY: refresh status, role, and permissions from the database on every
+   dashboard request. Revocations therefore take effect without waiting for
+   the user to sign out and back in. */
+$userId = (int)$_SESSION['user_id'];
+$account = null;
+
+try {
+    $accountStmt = $conn->prepare(
+        'SELECT username, full_name, profile_image, role, account_status,
+                can_inventory, can_sales, can_sales_analytics,
+                can_accounts_receivable
+         FROM users
+         WHERE id = ?
+         LIMIT 1'
+    );
+
+    if (!$accountStmt) {
+        throw new RuntimeException('Unable to prepare the dashboard account check.');
+    }
+
+    $accountStmt->bind_param('i', $userId);
+    $accountStmt->execute();
+    $account = $accountStmt->get_result()->fetch_assoc() ?: null;
+    $accountStmt->close();
+} catch (Throwable $e) {
+    error_log('NexGen dashboard account validation failed: ' . $e->getMessage());
+    http_response_code(503);
+    exit('The dashboard is temporarily unavailable. Please try again.');
+}
+
+if (!$account || (string)$account['account_status'] !== 'active') {
+    dashboardInvalidateSession('Your account is no longer active. Please contact the administrator.');
+}
+
+$role = (string)$account['role'];
+
+$_SESSION['username'] = (string)$account['username'];
+$_SESSION['full_name'] = (string)$account['full_name'];
+$_SESSION['profile_image'] = !empty($account['profile_image'])
+    ? (string)$account['profile_image']
+    : '/NexGen/uploads/default.png';
+$_SESSION['role'] = $role;
+$_SESSION['account_status'] = (string)$account['account_status'];
+$_SESSION['can_inventory'] = (int)$account['can_inventory'];
+$_SESSION['can_sales'] = (int)$account['can_sales'];
+$_SESSION['can_sales_analytics'] = (int)$account['can_sales_analytics'];
+$_SESSION['can_accounts_receivable'] = (int)$account['can_accounts_receivable'];
+
+if ($role === 'system_admin') {
+    header('Location: /NexGen/CODE/PHP/admin_dashboard.php');
     exit();
 }
 
-if ($_SESSION['role'] === 'system_admin') {
-    header("Location: /NexGen/CODE/PHP/admin_dashboard.php");
-    exit();
+if (!in_array($role, ['owner', 'employee'], true)) {
+    dashboardInvalidateSession('Your account role is not permitted to access this dashboard.');
 }
 
-if (!in_array($_SESSION['role'], ['owner', 'employee'], true)) {
-    session_unset();
-    session_destroy();
-    header("Location: /NexGen/CODE/PHP/index.php");
-    exit();
+/* MULTI-TENANCY: the dashboard is the safe landing page for an unassigned
+   account. Do not call nxRequireBusinessId() here because that helper redirects
+   missing workspaces back to dashboard.php and creates an infinite loop. */
+$activeWorkspace = nxInitializeUserWorkspace($conn);
+$businessId = (int)($activeWorkspace['business_id'] ?? 0);
+$hasActiveWorkspace = $businessId > 0;
+
+if (!$hasActiveWorkspace) {
+    unset(
+        $_SESSION['business_id'],
+        $_SESSION['branch_id'],
+        $_SESSION['business_entity_id'],
+        $_SESSION['business_code'],
+        $_SESSION['business_name'],
+        $_SESSION['business_type'],
+        $_SESSION['branch_code'],
+        $_SESSION['branch_name'],
+        $_SESSION['branch_address']
+    );
 }
 
-$businessId = nxRequireBusinessId($conn);
-$role = $_SESSION['role'];
 $isOwner = $role === 'owner';
-$isEmployee = $role === 'employee';
-$canInventory = (int)($_SESSION['can_inventory'] ?? 0) === 1;
-$canSales = (int)($_SESSION['can_sales'] ?? 0) === 1;
-$canSalesAnalytics = (int)($_SESSION['can_sales_analytics'] ?? 0) === 1;
-$canAccountsReceivable = (int)($_SESSION['can_accounts_receivable'] ?? 0) === 1;
+$canInventory = $hasActiveWorkspace && (int)$account['can_inventory'] === 1;
+$canSales = $hasActiveWorkspace && (int)$account['can_sales'] === 1;
+$canSalesAnalytics = $hasActiveWorkspace && (int)$account['can_sales_analytics'] === 1;
+$canAccountsReceivable = $hasActiveWorkspace
+    && (int)$account['can_accounts_receivable'] === 1
+    && nxArEnabled();
 $hasAnyBusinessModule = $canInventory || $canSales || $canSalesAnalytics || $canAccountsReceivable;
 
 $popupMessage = "";
@@ -50,6 +148,11 @@ if (isset($_SESSION['success'])) {
     unset($_SESSION['error']);
 }
 
+if (!$hasActiveWorkspace && $popupMessage === '') {
+    $popupMessage = 'Your account is not connected to an active SME business branch. Please contact the administrator.';
+    $popupType = 'error';
+}
+
 $pageTitle = $isOwner ? 'Owner Dashboard' : 'Employee Dashboard';
 $pageSubtitle = $isOwner
     ? 'Manage inventory levels and view sales analytics.'
@@ -61,7 +164,7 @@ $pageSubtitle = $isOwner
     <meta charset="UTF-8">
     <?php include __DIR__ . '/theme_init.php'; ?>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?php echo htmlspecialchars($pageTitle); ?> - NextGen</title>
+    <title><?php echo e($pageTitle); ?> - NexGen</title>
     <link rel="stylesheet" href="/NexGen/CODE/STYLE/dashboard.css">
     <link rel="stylesheet" href="/NexGen/CODE/STYLE/header.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
@@ -75,14 +178,14 @@ $pageSubtitle = $isOwner
                 <?php echo $popupType === 'success' ? '✓' : '!'; ?>
             </div>
             <h3><?php echo $popupType === 'success' ? 'Success' : 'Error'; ?></h3>
-            <p><?php echo htmlspecialchars($popupMessage); ?></p>
+            <p><?php echo e($popupMessage); ?></p>
         </div>
     </div>
 <?php endif; ?>
 
 <div class="dashboard-page">
 
-    <?php include 'header.php'; ?>
+    <?php include __DIR__ . '/header.php'; ?>
 
     <section class="top-video-area" id="topVideoArea">
         <div class="hero-bg-circuit" aria-hidden="true">
@@ -109,7 +212,7 @@ $pageSubtitle = $isOwner
 
                 <div class="modern-hero-text">
                     <h1><?php echo $isOwner ? 'Manage Your Business Smarter' : 'Work Faster Every Day'; ?></h1>
-                    <p><?php echo htmlspecialchars($pageSubtitle); ?></p>
+                    <p><?php echo e($pageSubtitle); ?></p>
 
                     <div class="modern-hero-actions">
                         <a href="#module-section" class="hero-btn modern-hero-btn">Open Modules</a>
@@ -125,7 +228,9 @@ $pageSubtitle = $isOwner
                 <h2><?php echo $isOwner ? 'Owner Modules' : 'Employee Modules'; ?></h2>
                 <p>
                     <?php
-                    if (!$hasAnyBusinessModule) {
+                    if (!$hasActiveWorkspace) {
+                        echo 'This account is not connected to an active business branch yet.';
+                    } elseif (!$hasAnyBusinessModule) {
                         echo 'No business modules are currently assigned to this account.';
                     } elseif ($isOwner) {
                         echo 'Access your assigned business tools in one modern workspace.';
@@ -279,7 +384,7 @@ $pageSubtitle = $isOwner
 
 </div>
 
-<?php include 'chatbot.php'; ?>
+<?php include __DIR__ . '/chatbot.php'; ?>
 <script src="/NexGen/CODE/JS/header.js"></script>
 <script src="/NexGen/CODE/JS/dashboard.js"></script>
 </body>

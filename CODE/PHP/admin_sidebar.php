@@ -12,6 +12,43 @@ if (!function_exists('e')) {
 $profileImage  = !empty($_SESSION['profile_image']) ? $_SESSION['profile_image'] : 'uploads/default.png';
 $adminFullName = $_SESSION['full_name'] ?? 'System Administrator';
 $currentPage   = basename($_SERVER['PHP_SELF']);
+$pendingRequestCount = 0;
+
+if (isset($conn) && $conn instanceof mysqli) {
+    $accountCountResult = $conn->query(
+        "SELECT COUNT(*) AS total
+         FROM registration_requests
+         WHERE request_status IN ('pending', 'resubmit')"
+    );
+    if ($accountCountResult instanceof mysqli_result) {
+        $pendingRequestCount += (int)($accountCountResult->fetch_assoc()['total'] ?? 0);
+    }
+
+    $workspaceTableResult = $conn->query(
+        "SELECT COUNT(*) AS total
+         FROM information_schema.tables
+         WHERE table_schema = DATABASE() AND table_name = 'workspace_requests'"
+    );
+    $workspaceTableExists = $workspaceTableResult instanceof mysqli_result
+        && (int)($workspaceTableResult->fetch_assoc()['total'] ?? 0) === 1;
+
+    if ($workspaceTableExists) {
+        $workspaceCountResult = $conn->query(
+            "SELECT COUNT(*) AS total
+             FROM workspace_requests
+             WHERE request_status = 'pending'"
+        );
+        if ($workspaceCountResult instanceof mysqli_result) {
+            $pendingRequestCount += (int)($workspaceCountResult->fetch_assoc()['total'] ?? 0);
+        }
+    }
+}
+
+$pendingPageActive = in_array(
+    $currentPage,
+    ['pending_requests.php', 'view_request.php', 'view_workspace_request.php'],
+    true
+);
 ?>
 
 <button type="button" class="mobile-nav-toggle" id="mobileNavToggle" aria-label="Open menu" aria-expanded="false" aria-controls="adminSidebar">
@@ -20,29 +57,55 @@ $currentPage   = basename($_SERVER['PHP_SELF']);
 <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
 <aside class="admin-sidebar admin-sidebar-custom" id="adminSidebar">
-    <div class="brand-box">
-        <div class="avatar-ring">
-            <img src="/NexGen/CODE/PHP/<?php echo e($profileImage); ?>" alt="Profile">
-            <span class="status-dot" title="Online"></span>
-        </div>
-        <div class="brand-meta">
-            <h2><?php echo e($adminFullName); ?></h2>
-            <p>System Administrator</p>
+    <div class="admin-profile" id="adminProfile">
+        <button
+            type="button"
+            class="brand-box admin-profile-toggle"
+            id="adminProfileToggle"
+            aria-expanded="false"
+            aria-controls="adminProfileDropdown"
+        >
+            <span class="avatar-ring">
+                <img src="/NexGen/CODE/PHP/<?php echo e($profileImage); ?>" alt="Profile">
+                <span class="status-dot" title="Online"></span>
+            </span>
+            <span class="brand-meta">
+                <span class="admin-profile-name"><?php echo e($adminFullName); ?></span>
+                <span class="admin-profile-role">System Administrator</span>
+            </span>
+            <i class="bi bi-chevron-down admin-profile-chevron" aria-hidden="true"></i>
+        </button>
+
+        <div class="admin-profile-dropdown" id="adminProfileDropdown" role="menu" aria-hidden="true">
+            <a
+                href="/NexGen/CODE/PHP/settings.php"
+                class="admin-profile-action <?php echo $currentPage === 'settings.php' ? 'active' : ''; ?>"
+                role="menuitem"
+            >
+                <i class="bi bi-gear"></i>
+                <span>Settings</span>
+            </a>
+            <button type="button" class="admin-profile-action admin-profile-logout" id="adminProfileLogout" role="menuitem">
+                <i class="bi bi-box-arrow-right"></i>
+                <span>Log Out</span>
+            </button>
         </div>
     </div>
 
     <nav class="admin-menu admin-menu-custom">
         <div class="admin-menu-main">
             <a href="admin_dashboard.php" class="<?php echo $currentPage === 'admin_dashboard.php' ? 'active' : ''; ?>"><i class="bi bi-house"></i><span>Dashboard</span></a>
-            <a href="pending_requests.php" class="<?php echo $currentPage === 'pending_requests.php' ? 'active' : ''; ?>"><i class="bi bi-clock-history"></i><span>Pending Requests</span></a>
+            <a href="pending_requests.php" class="<?php echo $pendingPageActive ? 'active' : ''; ?>">
+                <i class="bi bi-clock-history"></i><span>Pending Requests</span>
+                <?php if ($pendingRequestCount > 0): ?>
+                    <span class="admin-pending-count" aria-label="<?php echo (int)$pendingRequestCount; ?> pending requests">
+                        <?php echo $pendingRequestCount > 99 ? '99+' : (int)$pendingRequestCount; ?>
+                    </span>
+                <?php endif; ?>
+            </a>
             <a href="manage_users.php" class="<?php echo $currentPage === 'manage_users.php' ? 'active' : ''; ?>"><i class="bi bi-people"></i><span>Manage Users</span></a>
             <a href="accounts_masterlist.php" class="<?php echo $currentPage === 'accounts_masterlist.php' ? 'active' : ''; ?>"><i class="bi bi-list-ul"></i><span>Accounts Masterlist</span></a>
             <a href="admin_logs.php" class="<?php echo $currentPage === 'admin_logs.php' ? 'active' : ''; ?>"><i class="bi bi-file-earmark-text"></i><span>Admin Logs</span></a>
-            <a href="/NexGen/CODE/PHP/settings.php" class="<?php echo $currentPage === 'settings.php' ? 'active' : ''; ?>"><i class="bi bi-gear"></i><span>Settings</span></a>
-        </div>
-
-        <div class="admin-menu-bottom">
-            <a href="#" class="logout-link" onclick="openLogoutModal(event)"><i class="bi bi-box-arrow-right"></i><span>Log Out</span></a>
         </div>
     </nav>
 </aside>
@@ -73,6 +136,153 @@ $currentPage   = basename($_SERVER['PHP_SELF']);
     padding-bottom: 22px;
 }
 
+.admin-profile {
+    position: relative;
+    margin-bottom: 20px;
+    z-index: 80;
+}
+
+.admin-profile-toggle {
+    width: 100%;
+    margin-bottom: 0;
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.18s ease, border-color 0.18s ease;
+}
+
+.admin-profile-toggle:hover,
+.admin-profile-toggle:focus-visible,
+.admin-profile.open .admin-profile-toggle {
+    background: var(--card);
+    border-color: var(--glass-border);
+    border-radius: 14px;
+    outline: none;
+}
+
+.admin-profile-name,
+.admin-profile-role {
+    display: block;
+}
+
+.admin-profile-name {
+    font-family: var(--font-display);
+    font-size: 15px;
+    font-weight: 700;
+    line-height: 1.2;
+    word-break: break-word;
+    color: var(--white);
+}
+
+.admin-profile-role {
+    margin-top: 3px;
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    color: var(--gold);
+    word-break: break-word;
+}
+
+.admin-profile-chevron {
+    margin-left: auto;
+    flex-shrink: 0;
+    color: var(--muted);
+    font-size: 13px;
+    transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.admin-profile.open .admin-profile-chevron {
+    transform: rotate(180deg);
+    color: var(--gold);
+}
+
+.admin-profile-dropdown {
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    right: 0;
+    display: grid;
+    gap: 6px;
+    padding: 8px;
+    border: 1px solid var(--glass-border);
+    border-radius: 14px;
+    background: rgba(5, 11, 36, 0.98);
+    box-shadow: 0 18px 38px rgba(2, 4, 15, 0.46);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateY(-8px) scale(0.98);
+    transform-origin: top center;
+    transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s ease;
+}
+
+html[data-theme="light"] .admin-profile-dropdown {
+    background: rgba(255, 255, 255, 0.98);
+    box-shadow: 0 18px 38px rgba(11, 31, 115, 0.18);
+}
+
+.admin-profile.open .admin-profile-dropdown {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: translateY(0) scale(1);
+}
+
+.admin-profile-action {
+    width: 100%;
+    min-height: 42px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    box-sizing: border-box;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    font-size: 13.5px;
+    font-weight: 650;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+}
+
+.admin-profile-action i {
+    width: 18px;
+    flex-shrink: 0;
+    text-align: center;
+    font-size: 16px;
+}
+
+.admin-profile-action:hover,
+.admin-profile-action:focus-visible,
+.admin-profile-action.active {
+    background: var(--glass);
+    border-color: var(--glass-border);
+    color: var(--gold);
+    outline: none;
+}
+
+.admin-profile-logout {
+    color: #ff9d9d;
+}
+
+.admin-profile-logout:hover,
+.admin-profile-logout:focus-visible {
+    background: var(--danger-soft);
+    border-color: rgba(255, 107, 107, 0.22);
+    color: #ff6b6b;
+}
+
 .admin-menu-custom {
     display: flex;
     flex-direction: column;
@@ -90,8 +300,7 @@ $currentPage   = basename($_SERVER['PHP_SELF']);
     gap: 8px;
 }
 
-.admin-menu-main a,
-.admin-menu-bottom a {
+.admin-menu-main a {
     display: flex;
     align-items: center;
     gap: 10px;
@@ -99,16 +308,28 @@ $currentPage   = basename($_SERVER['PHP_SELF']);
     box-sizing: border-box;
 }
 
-.admin-menu-main a i,
-.admin-menu-bottom a i {
+.admin-menu-main a i {
     font-size: 16px;
     width: 18px;
     text-align: center;
     flex-shrink: 0;
 }
 
-.admin-menu-bottom {
-    margin-top: 18px;
+.admin-menu-main a .admin-pending-count {
+    margin-left: auto;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    border-radius: 999px;
+    background: #f7c873;
+    color: #342100;
+    font-size: 11px;
+    font-weight: 800;
+    line-height: 1;
 }
 
 .logout-confirm-overlay {
@@ -243,9 +464,6 @@ html[data-theme="light"] .logout-confirm-box p {
         gap: 8px;
     }
 
-    .admin-menu-bottom {
-        margin-top: 10px;
-    }
 }
 </style>
 
@@ -267,16 +485,39 @@ function closeLogoutModal() {
     }
 }
 
+function setAdminProfileMenu(isOpen) {
+    const profile = document.getElementById('adminProfile');
+    const toggle = document.getElementById('adminProfileToggle');
+    const dropdown = document.getElementById('adminProfileDropdown');
+
+    if (!profile || !toggle || !dropdown) return;
+
+    profile.classList.toggle('open', isOpen);
+    toggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    dropdown.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+}
+
+function closeAdminProfileMenu() {
+    setAdminProfileMenu(false);
+}
+
 document.addEventListener('click', function(e) {
     const modal = document.getElementById('logoutConfirmOverlay');
+    const profile = document.getElementById('adminProfile');
+
     if (e.target === modal) {
         closeLogoutModal();
+    }
+
+    if (profile && !profile.contains(e.target)) {
+        closeAdminProfileMenu();
     }
 });
 
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
         closeLogoutModal();
+        closeAdminProfileMenu();
         closeMobileSidebar();
     }
 });
@@ -299,6 +540,7 @@ function closeMobileSidebar() {
     if (sidebar) sidebar.classList.remove('mobile-open');
     if (overlay) overlay.classList.remove('show');
     if (toggle) toggle.setAttribute('aria-expanded', 'false');
+    closeAdminProfileMenu();
     document.body.style.overflow = '';
 }
 
@@ -306,6 +548,33 @@ document.addEventListener('DOMContentLoaded', function() {
     const toggleBtn = document.getElementById('mobileNavToggle');
     const overlay = document.getElementById('sidebarOverlay');
     const sidebar = document.getElementById('adminSidebar');
+    const profileToggle = document.getElementById('adminProfileToggle');
+    const profileDropdown = document.getElementById('adminProfileDropdown');
+    const profileLogout = document.getElementById('adminProfileLogout');
+
+    if (profileToggle) {
+        profileToggle.addEventListener('click', function() {
+            const isOpen = profileToggle.getAttribute('aria-expanded') === 'true';
+            setAdminProfileMenu(!isOpen);
+        });
+    }
+
+    if (profileDropdown) {
+        profileDropdown.querySelectorAll('a').forEach(function(link) {
+            link.addEventListener('click', function() {
+                closeAdminProfileMenu();
+                closeMobileSidebar();
+            });
+        });
+    }
+
+    if (profileLogout) {
+        profileLogout.addEventListener('click', function(e) {
+            closeAdminProfileMenu();
+            closeMobileSidebar();
+            openLogoutModal(e);
+        });
+    }
 
     if (toggleBtn) {
         toggleBtn.addEventListener('click', function() {
@@ -322,7 +591,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     if (sidebar) {
-        sidebar.querySelectorAll('.admin-menu-main a, .admin-menu-bottom a:not(.logout-link)').forEach(function(link) {
+        sidebar.querySelectorAll('.admin-menu-main a').forEach(function(link) {
             link.addEventListener('click', closeMobileSidebar);
         });
     }

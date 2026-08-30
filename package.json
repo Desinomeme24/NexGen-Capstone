@@ -3,7 +3,6 @@
   "private": true,
   "version": "1.0.0",
   "scripts": {
-    "start": "bash start.sh",
     "lint": "eslint \"CODE/JS/**/*.js\"",
     "lint:fix": "eslint \"CODE/JS/**/*.js\" --fix",
     "predeploy": "npm run lint"

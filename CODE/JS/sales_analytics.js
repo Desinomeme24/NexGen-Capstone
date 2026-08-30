@@ -90,6 +90,73 @@ document.addEventListener("DOMContentLoaded", function () {
     return "₱" + Number(value || 0).toLocaleString();
   }
 
+  function getToastRoot() {
+    let root = document.getElementById("nxToastRoot");
+    if (!root) {
+      root = document.createElement("div");
+      root.id = "nxToastRoot";
+      root.className = "nx-toast-root";
+      document.body.appendChild(root);
+    }
+    return root;
+  }
+
+  function showToast(message, type = "info", duration = 3200) {
+    const root = getToastRoot();
+    const toast = document.createElement("div");
+    toast.className = `nx-toast ${type}`;
+
+    const titleMap = {
+      success: "Success",
+      error: "Attention",
+      warning: "Notice",
+      info: "Message",
+    };
+
+    const accent = document.createElement("div");
+    accent.className = "nx-toast-accent";
+
+    const content = document.createElement("div");
+    content.className = "nx-toast-content";
+
+    const title = document.createElement("div");
+    title.className = "nx-toast-title";
+    title.textContent = titleMap[type] || "Message";
+
+    const msg = document.createElement("div");
+    msg.className = "nx-toast-message";
+    msg.textContent = String(message ?? "");
+
+    const closeBtn = document.createElement("button");
+    closeBtn.type = "button";
+    closeBtn.className = "nx-toast-close";
+    closeBtn.setAttribute("aria-label", "Close notification");
+    closeBtn.textContent = "×";
+
+    content.appendChild(title);
+    content.appendChild(msg);
+
+    toast.appendChild(accent);
+    toast.appendChild(content);
+    toast.appendChild(closeBtn);
+
+    root.appendChild(toast);
+
+    requestAnimationFrame(() => {
+      toast.classList.add("show");
+    });
+
+    const removeToast = () => {
+      toast.classList.remove("show");
+      setTimeout(() => {
+        if (toast.parentNode) toast.parentNode.removeChild(toast);
+      }, 220);
+    };
+
+    closeBtn.addEventListener("click", removeToast);
+    setTimeout(removeToast, duration);
+  }
+
   function percentFormatter(value, context) {
     const dataArr = context.chart.data.datasets[0].data || [];
     const sum = dataArr.reduce((a, b) => a + b, 0);
@@ -617,7 +684,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
         pdf.save("sales_analytics_dashboard.pdf");
       } catch (error) {
-        alert("PDF export failed.");
+        console.error("PDF export error:", error);
+        const root = getToastRoot();
+        if (root) {
+          showToast("PDF export failed. Please try again.", "error");
+        }
       }
 
       particleLayers.forEach((layer) => layer.classList.remove("is-exporting"));

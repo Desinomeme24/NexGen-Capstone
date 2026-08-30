@@ -40,6 +40,10 @@ document.addEventListener("DOMContentLoaded", function () {
   const saleConfirmCancel = document.getElementById("saleConfirmCancel");
   const saleConfirmYes = document.getElementById("saleConfirmYes");
 
+  function doSubmitSaleAjax() {
+   // Implemented below after all setup
+  }
+
   const products = Array.isArray(window.products) ? window.products : [];
   let selectedProduct = null;
   let visibleSearchProducts = [];
@@ -300,9 +304,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   function openSaleConfirm() {
     if (!saleConfirmOverlay || !saleConfirmYes) {
-      if (window.confirm("Are you sure you want to save this new sale?")) {
-        void doSubmitSaleAjax();
-      }
+      showToast("Custom confirmation modal is not available. Please try again.", "error");
       return;
     }
 

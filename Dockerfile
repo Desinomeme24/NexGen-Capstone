@@ -13,30 +13,31 @@ RUN docker-php-ext-install mysqli
 
 RUN npm install --omit=dev
 
-RUN rm -f \
-        /etc/apache2/mods-enabled/mpm_event.load \
-        /etc/apache2/mods-enabled/mpm_event.conf \
-        /etc/apache2/mods-enabled/mpm_worker.load \
-        /etc/apache2/mods-enabled/mpm_worker.conf \
-    && a2enmod mpm_prefork rewrite
+# Enable exactly one MPM
+RUN rm -f /etc/apache2/mods-enabled/mpm_*.load \
+          /etc/apache2/mods-enabled/mpm_*.conf \
+    && a2enmod mpm_prefork \
+    && a2enmod rewrite \
+    && apache2ctl configtest \
+    && apache2ctl -M | grep mpm
 
 RUN a2dissite 000-default \
     && rm -f /etc/apache2/sites-available/000-default.conf
 
-RUN echo '<VirtualHost *:80>\n\
-    ServerName localhost\n\
-    DocumentRoot /app/CODE/PHP\n\
-    <Directory /app/CODE/PHP>\n\
-        AllowOverride All\n\
-        Require all granted\n\
-        DirectoryIndex index.php\n\
-    </Directory>\n\
-    <FilesMatch "\.php$">\n\
-        SetHandler application/x-httpd-php\n\
-    </FilesMatch>\n\
-</VirtualHost>' > /etc/apache2/sites-available/nexgen.conf
+RUN printf '%s\n' \
+    '<VirtualHost *:80>' \
+    '    ServerName localhost' \
+    '    DocumentRoot /app/CODE/PHP' \
+    '    <Directory /app/CODE/PHP>' \
+    '        AllowOverride All' \
+    '        Require all granted' \
+    '        DirectoryIndex index.php' \
+    '    </Directory>' \
+    '</VirtualHost>' \
+    > /etc/apache2/sites-available/nexgen.conf
 
-RUN a2ensite nexgen
+RUN a2ensite nexgen \
+    && apache2ctl configtest
 
 EXPOSE 80
 

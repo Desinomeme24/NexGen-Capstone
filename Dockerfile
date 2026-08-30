@@ -10,8 +10,12 @@ WORKDIR /app
 
 COPY . .
 
-# Stop the build if NexGen's entry point is missing.
-RUN test -f /app/CODE/PHP/index.php
+# Stop the build if NexGen's required application folders are missing.
+RUN test -f /app/CODE/PHP/index.php \
+    && test -d /app/CODE/JS \
+    && test -d /app/CODE/STYLE \
+    && test -d /app/CODE/BACKEND \
+    && test -d /app/IMAGES
 
 # Install PHP MySQL extensions.
 RUN docker-php-ext-install mysqli pdo pdo_mysql
@@ -19,9 +23,15 @@ RUN docker-php-ext-install mysqli pdo pdo_mysql
 # Install production Node dependencies.
 RUN npm install --omit=dev
 
-# Copy the PHP application into Apache's standard web root.
+# Publish the PHP application and all browser-accessible assets. The source
+# layout is mapped to root-level URLs such as /JS, /STYLE, /BACKEND and /IMAGES.
+# VIDEOS is intentionally excluded from the deployed image.
 RUN rm -rf /var/www/html/* \
     && cp -a /app/CODE/PHP/. /var/www/html/ \
+    && cp -a /app/CODE/JS /var/www/html/JS \
+    && cp -a /app/CODE/STYLE /var/www/html/STYLE \
+    && cp -a /app/CODE/BACKEND /var/www/html/BACKEND \
+    && cp -a /app/IMAGES /var/www/html/IMAGES \
     && chown -R www-data:www-data /var/www/html
 
 # Enable exactly one MPM and Apache URL rewriting.

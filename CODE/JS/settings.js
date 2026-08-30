@@ -33,7 +33,11 @@ themeOptions.forEach((btn) => {
   btn.addEventListener("click", function () {
     const theme = this.dataset.themeChoice;
     htmlEl.setAttribute("data-theme", theme);
-    localStorage.setItem("nexgen-theme", theme);
+    try {
+      localStorage.setItem("nexgen-theme", theme);
+    } catch (error) {
+      console.warn("Could not save theme preference:", error);
+    }
     markActiveTheme(theme);
   });
 });
@@ -66,7 +70,11 @@ function openPanel(panelId) {
     panel.classList.toggle("active-panel", panel.id === panelId);
   });
 
-  localStorage.setItem("settingsActivePanel", panelId);
+  try {
+    localStorage.setItem("settingsActivePanel", panelId);
+  } catch (error) {
+    console.warn("Could not save active panel preference:", error);
+  }
 }
 
 function openSecurityMethod(methodId) {
@@ -82,7 +90,11 @@ function openSecurityMethod(methodId) {
     const selectedMethod = document.getElementById(methodId);
     if (selectedMethod) {
       selectedMethod.classList.add("active-method");
-      localStorage.setItem("settingsSecurityMethod", methodId);
+      try {
+        localStorage.setItem("settingsSecurityMethod", methodId);
+      } catch (error) {
+        console.warn("Could not save security method preference:", error);
+      }
     }
   }
 }
@@ -102,7 +114,11 @@ segmentedBtns.forEach((btn) => {
 
 if (accountForm) {
   accountForm.addEventListener("submit", function () {
-    localStorage.setItem("settingsActivePanel", "account-panel");
+    try {
+      localStorage.setItem("settingsActivePanel", "account-panel");
+    } catch (error) {
+      console.warn("Could not save panel preference:", error);
+    }
   });
 }
 
@@ -110,28 +126,44 @@ if (accountForm) {
   if (!form) return;
 
   form.addEventListener("submit", function () {
-    localStorage.setItem("settingsActivePanel", "workspace-panel");
+    try {
+      localStorage.setItem("settingsActivePanel", "workspace-panel");
+    } catch (error) {
+      console.warn("Could not save panel preference:", error);
+    }
   });
 });
 
 if (directPasswordForm) {
   directPasswordForm.addEventListener("submit", function () {
-    localStorage.setItem("settingsActivePanel", "security-panel");
-    localStorage.setItem("settingsSecurityMethod", "current-password-method");
+    try {
+      localStorage.setItem("settingsActivePanel", "security-panel");
+      localStorage.setItem("settingsSecurityMethod", "current-password-method");
+    } catch (error) {
+      console.warn("Could not save security preferences:", error);
+    }
   });
 }
 
 if (otpRequestForm) {
   otpRequestForm.addEventListener("submit", function () {
-    localStorage.setItem("settingsActivePanel", "security-panel");
-    localStorage.setItem("settingsSecurityMethod", "otp-method");
+    try {
+      localStorage.setItem("settingsActivePanel", "security-panel");
+      localStorage.setItem("settingsSecurityMethod", "otp-method");
+    } catch (error) {
+      console.warn("Could not save security preferences:", error);
+    }
   });
 }
 
 if (otpVerifyForm) {
   otpVerifyForm.addEventListener("submit", function () {
-    localStorage.setItem("settingsActivePanel", "security-panel");
-    localStorage.setItem("settingsSecurityMethod", "otp-method");
+    try {
+      localStorage.setItem("settingsActivePanel", "security-panel");
+      localStorage.setItem("settingsSecurityMethod", "otp-method");
+    } catch (error) {
+      console.warn("Could not save security preferences:", error);
+    }
   });
 }
 
@@ -139,10 +171,18 @@ const requestedPanel = new URLSearchParams(window.location.search).get("panel");
 const requestedPanelExists = requestedPanel
   ? Boolean(document.getElementById(requestedPanel))
   : false;
-const savedPanel = requestedPanelExists
-  ? requestedPanel
-  : localStorage.getItem("settingsActivePanel") || "account-panel";
-const savedMethod = localStorage.getItem("settingsSecurityMethod") || "";
+
+let savedPanel = "account-panel";
+let savedMethod = "";
+
+try {
+  savedPanel = requestedPanelExists
+    ? requestedPanel
+    : localStorage.getItem("settingsActivePanel") || "account-panel";
+  savedMethod = localStorage.getItem("settingsSecurityMethod") || "";
+} catch (error) {
+  console.warn("Could not read storage preferences:", error);
+}
 
 openPanel(savedPanel);
 
@@ -167,34 +207,58 @@ const popupBox = document.getElementById("popupBox");
 const popupText = popupBox ? popupBox.textContent.toLowerCase() : "";
 
 if (otpNewPassword) {
-  otpNewPassword.value = sessionStorage.getItem("otp_new_password") || "";
+  try {
+    otpNewPassword.value = sessionStorage.getItem("otp_new_password") || "";
+  } catch (error) {
+    console.warn("Could not read OTP password storage:", error);
+  }
 
   otpNewPassword.addEventListener("input", function () {
-    sessionStorage.setItem("otp_new_password", otpNewPassword.value);
+    try {
+      sessionStorage.setItem("otp_new_password", otpNewPassword.value);
+    } catch (error) {
+      console.warn("Could not save OTP password:", error);
+    }
   });
 }
 
 if (otpConfirmPassword) {
-  otpConfirmPassword.value =
-    sessionStorage.getItem("otp_confirm_password") || "";
+  try {
+    otpConfirmPassword.value =
+      sessionStorage.getItem("otp_confirm_password") || "";
+  } catch (error) {
+    console.warn("Could not read OTP confirm password storage:", error);
+  }
 
   otpConfirmPassword.addEventListener("input", function () {
-    sessionStorage.setItem("otp_confirm_password", otpConfirmPassword.value);
+    try {
+      sessionStorage.setItem("otp_confirm_password", otpConfirmPassword.value);
+    } catch (error) {
+      console.warn("Could not save OTP confirm password:", error);
+    }
   });
 }
 
 if (otpRequestForm) {
   otpRequestForm.addEventListener("submit", function () {
-    if (otpNewPassword) {
-      sessionStorage.setItem("otp_new_password", otpNewPassword.value);
-    }
-    if (otpConfirmPassword) {
-      sessionStorage.setItem("otp_confirm_password", otpConfirmPassword.value);
+    try {
+      if (otpNewPassword) {
+        sessionStorage.setItem("otp_new_password", otpNewPassword.value);
+      }
+      if (otpConfirmPassword) {
+        sessionStorage.setItem("otp_confirm_password", otpConfirmPassword.value);
+      }
+    } catch (error) {
+      console.warn("Could not save OTP temporary data:", error);
     }
   });
 }
 
 if (popupText.includes("password changed successfully")) {
-  sessionStorage.removeItem("otp_new_password");
-  sessionStorage.removeItem("otp_confirm_password");
+  try {
+    sessionStorage.removeItem("otp_new_password");
+    sessionStorage.removeItem("otp_confirm_password");
+  } catch (error) {
+    console.warn("Could not clear OTP temporary data:", error);
+  }
 }

@@ -42,13 +42,35 @@ if (!headers_sent()) {
     }
 }
 
-/* DATABASE CONNECTION */
-$host = (string)(getenv('NEXGEN_DB_HOST') ?: 'localhost');
-$dbname = (string)(getenv('NEXGEN_DB_NAME') ?: 'nexgen_db');
-$dbuser = (string)(getenv('NEXGEN_DB_USER') ?: 'root');
+/* DATABASE CONNECTION: Railway supplies NEXGEN_DB_* variables while the
+   fallbacks keep the same file usable with a local XAMPP installation. */
+$dbHostEnv = getenv('NEXGEN_DB_HOST');
+$dbPortEnv = getenv('NEXGEN_DB_PORT');
+$dbNameEnv = getenv('NEXGEN_DB_NAME');
+$dbUserEnv = getenv('NEXGEN_DB_USER');
 $dbPasswordEnv = getenv('NEXGEN_DB_PASSWORD');
+
+$host = $dbHostEnv === false || trim((string)$dbHostEnv) === ''
+    ? 'localhost'
+    : trim((string)$dbHostEnv);
+$dbname = $dbNameEnv === false || trim((string)$dbNameEnv) === ''
+    ? 'nexgen_db'
+    : trim((string)$dbNameEnv);
+$dbuser = $dbUserEnv === false || trim((string)$dbUserEnv) === ''
+    ? 'root'
+    : trim((string)$dbUserEnv);
 $dbpass = $dbPasswordEnv === false ? '' : (string)$dbPasswordEnv;
-$nxEnvironment = strtolower((string)(getenv('NEXGEN_ENV') ?: 'development'));
+
+$dbPortValue = $dbPortEnv === false || trim((string)$dbPortEnv) === ''
+    ? 3306
+    : filter_var(
+        trim((string)$dbPortEnv),
+        FILTER_VALIDATE_INT,
+        ['options' => ['min_range' => 1, 'max_range' => 65535]]
+    );
+$dbport = $dbPortValue === false ? 3306 : (int)$dbPortValue;
+
+$nxEnvironment = strtolower(trim((string)(getenv('NEXGEN_ENV') ?: 'development')));
 
 if ($nxEnvironment === 'production') {
     error_reporting(E_ALL);
@@ -57,14 +79,40 @@ if ($nxEnvironment === 'production') {
     ini_set('log_errors', '1');
 }
 
-if ($nxEnvironment === 'production' && ($dbuser === 'root' || $dbpass === '')) {
-    error_log('NexGen refused an unsafe production database configuration.');
-    http_response_code(503);
-    exit('The service is temporarily unavailable.');
+if ($nxEnvironment === 'production') {
+    $requiredDatabaseVariables = [
+        'NEXGEN_DB_HOST' => $dbHostEnv,
+        'NEXGEN_DB_PORT' => $dbPortEnv,
+        'NEXGEN_DB_NAME' => $dbNameEnv,
+        'NEXGEN_DB_USER' => $dbUserEnv,
+        'NEXGEN_DB_PASSWORD' => $dbPasswordEnv,
+    ];
+
+    foreach ($requiredDatabaseVariables as $variableName => $variableValue) {
+        if ($variableValue === false || trim((string)$variableValue) === '') {
+            error_log('NexGen is missing the required production variable: ' . $variableName);
+            http_response_code(503);
+            exit('The service is temporarily unavailable.');
+        }
+    }
+
+    if ($dbPortValue === false) {
+        error_log('NexGen received an invalid production database port.');
+        http_response_code(503);
+        exit('The service is temporarily unavailable.');
+    }
 }
 
 try {
-    $conn = new mysqli($host, $dbuser, $dbpass, $dbname);
+    mysqli_report(MYSQLI_REPORT_ERROR | MYSQLI_REPORT_STRICT);
+    $conn = mysqli_init();
+
+    if (!$conn) {
+        throw new RuntimeException('Unable to initialize the database client.');
+    }
+
+    $conn->options(MYSQLI_OPT_CONNECT_TIMEOUT, 10);
+    $conn->real_connect($host, $dbuser, $dbpass, $dbname, $dbport);
 } catch (Throwable $e) {
     error_log('NexGen database connection failed: ' . $e->getMessage());
     http_response_code(503);

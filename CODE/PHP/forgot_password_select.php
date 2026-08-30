@@ -1,6 +1,16 @@
 <?php
-session_start();
-require_once 'config.php';
+require_once __DIR__ . '/config.php';
+
+$fpPortal = nxNormalizeLoginPortal(
+    $_POST['portal']
+        ?? $_GET['portal']
+        ?? $_SESSION['fp_portal']
+        ?? $_SESSION['login_portal']
+        ?? 'client'
+);
+$_SESSION['fp_portal'] = $fpPortal;
+$loginPath = nxLoginPathForPortal($fpPortal);
+$forgotStartPath = '/NexGen/CODE/PHP/forgot_password.php?portal=' . rawurlencode($fpPortal);
 
 $popupMessage = "";
 $popupType = "";
@@ -19,7 +29,7 @@ $candidates = $_SESSION['fp_candidates'] ?? null;
 
 if (!$candidates) {
     $_SESSION['error'] = 'Please start the password reset process again.';
-    header('Location: /NexGen/CODE/PHP/forgot_password.php');
+    header('Location: ' . $forgotStartPath);
     exit();
 }
 ?>
@@ -51,6 +61,7 @@ if (!$candidates) {
         <p class="subtext">This email is linked to more than one account. Choose which one to reset.</p>
 
         <form action="/NexGen/CODE/PHP/send_forgot_otp.php" method="POST">
+            <input type="hidden" name="portal" value="<?php echo e($fpPortal); ?>">
             <div class="account-list">
                 <?php foreach ($candidates as $c): ?>
                     <label class="account-option">
@@ -66,8 +77,8 @@ if (!$candidates) {
         </form>
 
         <div class="links">
-            <a href="/NexGen/CODE/PHP/forgot_password.php">Start Over</a>
-            <a href="/NexGen/CODE/PHP/index.php">Back to Login</a>
+            <a href="<?php echo e($forgotStartPath); ?>">Start Over</a>
+            <a href="<?php echo e($loginPath); ?>">Back to Login</a>
         </div>
     </div>
 </div>

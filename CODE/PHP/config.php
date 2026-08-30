@@ -87,6 +87,18 @@ if (!defined('SESSION_TIMEOUT_SECONDS')) {
     define('SESSION_TIMEOUT_SECONDS', 600); // 10 minutes
 }
 
+/* AUTH PORTALS: keep administrator authentication on a dedicated route while
+   preserving the public/client portal for owners and employees. These paths
+   are centralized so timeouts, role guards, login processing, and logout all
+   return a user to the correct portal. */
+if (!defined('NEXGEN_CLIENT_LOGIN_PATH')) {
+    define('NEXGEN_CLIENT_LOGIN_PATH', '/NexGen/CODE/PHP/index.php');
+}
+
+if (!defined('NEXGEN_ADMIN_LOGIN_PATH')) {
+    define('NEXGEN_ADMIN_LOGIN_PATH', '/NexGen/CODE/PHP/admin_login.php');
+}
+
 /* =========================================================================
    COMMON HELPERS
    ========================================================================= */
@@ -707,6 +719,41 @@ if (!function_exists('validateCsrfToken')) {
 /* =========================================================================
    SESSION TIMEOUT / RBAC
    ========================================================================= */
+if (!function_exists('nxNormalizeLoginPortal')) {
+    function nxNormalizeLoginPortal(?string $portal): string
+    {
+        return strtolower(trim((string)$portal)) === 'admin' ? 'admin' : 'client';
+    }
+}
+
+if (!function_exists('nxLoginPathForPortal')) {
+    function nxLoginPathForPortal(?string $portal): string
+    {
+        return nxNormalizeLoginPortal($portal) === 'admin'
+            ? NEXGEN_ADMIN_LOGIN_PATH
+            : NEXGEN_CLIENT_LOGIN_PATH;
+    }
+}
+
+if (!function_exists('nxRoleMatchesLoginPortal')) {
+    function nxRoleMatchesLoginPortal(?string $role, ?string $portal): bool
+    {
+        $normalizedPortal = nxNormalizeLoginPortal($portal);
+        $normalizedRole = strtolower(trim((string)$role));
+
+        return $normalizedPortal === 'admin'
+            ? $normalizedRole === 'system_admin'
+            : in_array($normalizedRole, ['owner', 'employee'], true);
+    }
+}
+
+if (!function_exists('nxLoginPathForRole')) {
+    function nxLoginPathForRole(?string $role = null): string
+    {
+        return nxLoginPathForPortal($role === 'system_admin' ? 'admin' : 'client');
+    }
+}
+
 if (!function_exists('enforceSessionTimeout')) {
     function enforceSessionTimeout(int $timeoutSeconds = SESSION_TIMEOUT_SECONDS): void
     {
@@ -718,6 +765,7 @@ if (!function_exists('enforceSessionTimeout')) {
         $lastActivity = (int) ($_SESSION['last_activity'] ?? $now);
 
         if (($now - $lastActivity) > $timeoutSeconds) {
+            $loginPath = nxLoginPathForRole((string)($_SESSION['role'] ?? ''));
             $_SESSION = [];
 
             if (ini_get('session.use_cookies')) {
@@ -734,9 +782,11 @@ if (!function_exists('enforceSessionTimeout')) {
             }
 
             session_destroy();
+            session_id('');
             session_start();
             $_SESSION['error'] = 'Your session has expired due to inactivity. Please log in again.';
-            header("Location: /NexGen/CODE/PHP/index.php");
+            $_SESSION['form_type'] = 'login';
+            header('Location: ' . $loginPath);
             exit();
         }
 
@@ -748,7 +798,10 @@ if (!function_exists('requireRole')) {
     function requireRole(array $roles): void
     {
         if (!isset($_SESSION['user_id']) || !isset($_SESSION['role'])) {
-            header("Location: /NexGen/CODE/PHP/index.php");
+            $adminOnly = in_array('system_admin', $roles, true)
+                && !in_array('owner', $roles, true)
+                && !in_array('employee', $roles, true);
+            header('Location: ' . ($adminOnly ? NEXGEN_ADMIN_LOGIN_PATH : NEXGEN_CLIENT_LOGIN_PATH));
             exit();
         }
 
@@ -756,7 +809,10 @@ if (!function_exists('requireRole')) {
 
         if (!in_array($_SESSION['role'], $roles, true)) {
             $_SESSION['error'] = 'Unauthorized access.';
-            header("Location: /NexGen/CODE/PHP/dashboard.php");
+            $safeDashboard = $_SESSION['role'] === 'system_admin'
+                ? '/NexGen/CODE/PHP/admin_dashboard.php'
+                : '/NexGen/CODE/PHP/dashboard.php';
+            header('Location: ' . $safeDashboard);
             exit();
         }
     }

@@ -3,6 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "scripts": {
+    "start": "php -S 0.0.0.0:8080 -t CODE/PHP",
     "lint": "eslint \"CODE/JS/**/*.js\"",
     "lint:fix": "eslint \"CODE/JS/**/*.js\" --fix",
     "predeploy": "npm run lint"

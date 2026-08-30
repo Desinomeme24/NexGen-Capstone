@@ -80,7 +80,9 @@
     ) {
       document.documentElement.setAttribute("data-theme", savedTheme);
     }
-  } catch (error) {}
+  } catch (error) {
+    console.warn("Could not restore theme preference:", error);
+  }
 
   syncThemeToggle(getCurrentTheme());
 

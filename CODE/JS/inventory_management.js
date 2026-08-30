@@ -651,7 +651,12 @@ function openBatchesModal(productId, productName) {
     `/NexGen/CODE/PHP/inventory_batches.php?product_id=${encodeURIComponent(productId)}`,
     { headers: { "X-Requested-With": "XMLHttpRequest" } },
   )
-    .then((res) => res.json())
+    .then((res) => {
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      return res.json();
+    })
     .then((data) => {
       if (!data.success) {
         if (batchesModalBody) {
@@ -661,10 +666,11 @@ function openBatchesModal(productId, productName) {
       }
       renderBatchesTable(data.batches || []);
     })
-    .catch(() => {
+    .catch((error) => {
+      console.error("Failed to load batches:", error);
       if (batchesModalBody) {
         batchesModalBody.innerHTML =
-          '<tr><td colspan="5" class="batches-empty-state">Failed to load batches. Please try again.</td></tr>';
+          "<tr><td colspan=\"5\" class=\"batches-empty-state\">Failed to load batches. Please try again.</td></tr>";
       }
     });
 }

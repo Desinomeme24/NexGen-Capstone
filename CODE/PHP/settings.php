@@ -1,10 +1,13 @@
 <?php
-session_start();
-require_once("config.php");
+/* Load config before reading session state so this page uses the same hardened
+   cookie settings and role-aware timeout routing as both login portals. */
+require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/tenant_helper.php';
 
+enforceSessionTimeout();
+
 if (!isset($_SESSION['user_id'])) {
-    header("Location: /NexGen/CODE/PHP/index.php");
+    header('Location: ' . nxLoginPathForPortal((string)($_SESSION['login_portal'] ?? 'client')));
     exit();
 }
 

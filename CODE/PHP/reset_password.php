@@ -1,6 +1,16 @@
 <?php
-session_start();
-require_once 'config.php';
+require_once __DIR__ . '/config.php';
+
+$fpPortal = nxNormalizeLoginPortal(
+    $_POST['portal']
+        ?? $_GET['portal']
+        ?? $_SESSION['fp_portal']
+        ?? $_SESSION['login_portal']
+        ?? 'client'
+);
+$_SESSION['fp_portal'] = $fpPortal;
+$loginPath = nxLoginPathForPortal($fpPortal);
+$forgotStartPath = '/NexGen/CODE/PHP/forgot_password.php?portal=' . rawurlencode($fpPortal);
 
 $popupMessage = "";
 $popupType = "";
@@ -17,7 +27,7 @@ if (isset($_SESSION['success'])) {
 
 if (empty($_SESSION['fp_selected_user_id'])) {
     $_SESSION['error'] = 'Please start the password reset process again.';
-    header('Location: /NexGen/CODE/PHP/forgot_password.php');
+    header('Location: ' . $forgotStartPath);
     exit();
 }
 
@@ -51,26 +61,28 @@ $resetEmail = $_SESSION['fp_email'] ?? '';
         <p class="subtext">Enter the OTP sent to your email and set a new password.</p>
 
         <form action="/NexGen/CODE/PHP/process_reset_password.php" method="POST">
+            <input type="hidden" name="portal" value="<?php echo e($fpPortal); ?>">
             <label>Email Address</label>
             <input type="email" value="<?php echo htmlspecialchars($resetEmail); ?>" readonly>
 
             <label>OTP Code</label>
-            <input type="text" name="otp_code" maxlength="6" required placeholder="Enter 6-digit OTP">
+            <input type="text" name="otp_code" maxlength="6" inputmode="numeric" pattern="[0-9]{6}" required placeholder="Enter 6-digit OTP">
 
             <label>New Password</label>
-            <input type="password" name="new_password" required placeholder="Enter new password">
+            <input type="password" name="new_password" minlength="12" maxlength="64" required placeholder="Enter new password" autocomplete="new-password">
 
             <label>Confirm New Password</label>
-            <input type="password" name="confirm_new_password" required placeholder="Confirm new password">
+            <input type="password" name="confirm_new_password" minlength="12" maxlength="64" required placeholder="Confirm new password" autocomplete="new-password">
 
             <button type="submit" class="main-btn">Reset Password</button>
         </form>
 
         <div class="links">
             <form action="/NexGen/CODE/PHP/send_forgot_otp.php" method="POST" class="inline-form">
+                <input type="hidden" name="portal" value="<?php echo e($fpPortal); ?>">
                 <button type="submit" class="link-btn">Resend OTP</button>
             </form>
-            <a href="/NexGen/CODE/PHP/index.php">Back to Login</a>
+            <a href="<?php echo e($loginPath); ?>">Back to Login</a>
         </div>
     </div>
 </div>

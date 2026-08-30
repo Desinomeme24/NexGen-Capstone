@@ -8,19 +8,23 @@ require_once __DIR__ . '/PHPMailer/src/Exception.php';
 require_once __DIR__ . '/PHPMailer/src/PHPMailer.php';
 require_once __DIR__ . '/PHPMailer/src/SMTP.php';
 
-const NEXGEN_MAIL_USERNAME = 'nexgeneration2026@gmail.com';
-const NEXGEN_MAIL_APP_PASSWORD = 'rbvwpabkiitlwhri';
-
 function createMailer(): PHPMailer
 {
+    $mailUsername = trim((string)(getenv('NEXGEN_MAIL_USERNAME') ?: ''));
+    $mailAppPassword = (string)(getenv('NEXGEN_MAIL_APP_PASSWORD') ?: '');
+
+    if ($mailUsername === '' || $mailAppPassword === '') {
+        throw new RuntimeException('NexGen mail delivery is not configured.');
+    }
+
     $mail = new PHPMailer(true);
 
     $mail->isSMTP();
     $mail->Host = 'smtp.gmail.com';
     $mail->SMTPAuth = true;
 
-    $mail->Username = NEXGEN_MAIL_USERNAME;
-    $mail->Password = NEXGEN_MAIL_APP_PASSWORD;
+    $mail->Username = 'nexgeneration2026@gmail.com';
+    $mail->Password = 'mqwe ucds cqiq dplw';
 
     // Gmail STARTTLS configuration
     $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
@@ -32,7 +36,7 @@ function createMailer(): PHPMailer
     $mail->CharSet = 'UTF-8';
     $mail->isHTML(false);
 
-    $mail->setFrom(NEXGEN_MAIL_USERNAME, 'NexGen');
+    $mail->setFrom($mailUsername, 'NexGen');
 
     return $mail;
 }

@@ -166,7 +166,6 @@ if (whySectionToggleBtn && whySection) {
 /* WHY US - EXPAND/COLLAPSE EXTRA ABOUT TEXT */
 const whyToggleBtn = document.getElementById("whyToggleBtn");
 const whyExtra = document.getElementById("whyExtra");
-const whyToggleIcon = document.getElementById("whyToggleIcon");
 
 if (whyToggleBtn && whyExtra) {
   whyToggleBtn.addEventListener("click", () => {

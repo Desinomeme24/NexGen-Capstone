@@ -1,6 +1,14 @@
 <?php
-session_start();
-require_once 'config.php';
+require_once __DIR__ . '/config.php';
+
+$fpPortal = nxNormalizeLoginPortal(
+    $_POST['portal']
+        ?? $_GET['portal']
+        ?? $_SESSION['fp_portal']
+        ?? $_SESSION['login_portal']
+        ?? 'client'
+);
+$_SESSION['fp_portal'] = $fpPortal;
 
 date_default_timezone_set('Asia/Manila');
 
@@ -58,11 +66,17 @@ unset($_SESSION['fp_candidates'], $_SESSION['fp_selected_user_id'], $_SESSION['f
 | Gmail, so this can legitimately match more than one row.
 */
 
+$portalRoleFilter = $fpPortal === 'admin'
+    ? "u.role = 'system_admin'"
+    : "u.role IN ('owner', 'employee')";
+
 $stmt = $conn->prepare(
     "SELECT u.id, u.username, b.business_name
      FROM users u
      LEFT JOIN businesses b ON b.id = u.business_id
-     WHERE u.email = ? AND u.account_status = 'active'"
+     WHERE u.email = ?
+       AND u.account_status = 'active'
+       AND {$portalRoleFilter}"
 );
 
 if (!$stmt) {

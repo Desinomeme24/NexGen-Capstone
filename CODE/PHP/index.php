@@ -3,14 +3,20 @@ require_once __DIR__ . '/config.php';
 
 if (isset($_SESSION['user_id'])) {
     enforceSessionTimeout();
+} else {
+    /* The public landing page always establishes the client recovery context,
+       even if the same browser previously visited the administrator portal. */
+    $_SESSION['login_portal'] = 'client';
+    $_SESSION['fp_portal'] = 'client';
 }
 
-/* CAPTCHA: Generate manual image captcha for login and signup */
-$loginCaptcha = generateImageCaptcha('login_form');
+/* CAPTCHA: client authentication has its own challenge namespace so a token
+   created on this portal cannot be replayed through the administrator portal. */
+$loginCaptcha = generateImageCaptcha('client_login_form');
 $signupCaptcha = generateImageCaptcha('signup_form');
 
-/* SECURITY: Generate CSRF tokens for login and signup forms */
-$loginCsrfToken = generateCsrfToken('login_form');
+/* SECURITY: Generate portal-specific CSRF tokens for login and signup forms. */
+$loginCsrfToken = generateCsrfToken('client_login_form');
 $signupCsrfToken = generateCsrfToken('signup_form');
 
 $popupMessage = "";
@@ -3695,6 +3701,7 @@ html[data-theme="light"] .signup-modern-box .signup-form-panel input[type="file"
                 <span class="or-divider" style="font-size:12px; color:#777; margin-bottom:15px; display:block;">or use your account</span>
 
                 <form action="/NexGen/CODE/PHP/login_process.php" method="POST" id="loginForm">
+                    <input type="hidden" name="login_portal" value="client">
                     <input type="hidden" name="csrf_token" value="<?php echo e($loginCsrfToken); ?>">
                     <div class="glass-field">
                         <span class="glass-field-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.6"></circle><path d="M4.5 20c1.2-3.8 4.2-5.8 7.5-5.8s6.3 2 7.5 5.8"></path></svg></span>

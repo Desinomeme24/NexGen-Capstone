@@ -1,14 +1,17 @@
 <?php
-session_start();
-include 'config.php';
-require_once 'mailer_config.php';
+/* Load config first so this recovery endpoint uses the same hardened session
+   cookie settings as both login portals. */
+require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/mailer_config.php';
+
+$_SESSION['login_portal'] = 'admin';
 
 if (
     !isset($_SESSION['lockout_user_id'], $_SESSION['lockout_username'], $_SESSION['lockout_role']) ||
     $_SESSION['lockout_role'] !== 'system_admin'
 ) {
     $_SESSION['error'] = "No locked admin account found for OTP unlock.";
-    header("Location: /NexGen/CODE/PHP/index.php");
+    header('Location: ' . NEXGEN_ADMIN_LOGIN_PATH);
     exit();
 }
 
@@ -18,7 +21,7 @@ $adminUsername = (string)$_SESSION['lockout_username'];
 $stmt = $conn->prepare("SELECT id, username, full_name, email, role, locked_until, otp_code, otp_expires_at FROM users WHERE id = ? AND role = 'system_admin' LIMIT 1");
 if (!$stmt) {
     $_SESSION['error'] = "Database error while checking locked admin account.";
-    header("Location: /NexGen/CODE/PHP/index.php");
+    header('Location: ' . NEXGEN_ADMIN_LOGIN_PATH);
     exit();
 }
 
@@ -30,7 +33,7 @@ $stmt->close();
 
 if (!$admin) {
     $_SESSION['error'] = "Admin account not found.";
-    header("Location: /NexGen/CODE/PHP/index.php");
+    header('Location: ' . NEXGEN_ADMIN_LOGIN_PATH);
     exit();
 }
 
@@ -42,7 +45,7 @@ if (empty($admin['locked_until']) || strtotime((string)$admin['locked_until']) <
         $_SESSION['lockout_user_id'],
         $_SESSION['lockout_role']
     );
-    header("Location: /NexGen/CODE/PHP/index.php");
+    header('Location: ' . NEXGEN_ADMIN_LOGIN_PATH);
     exit();
 }
 
@@ -65,11 +68,21 @@ if (!isset($_SESSION['admin_unlock_otp_sent']) || $_SESSION['admin_unlock_otp_se
     $otp = (string) random_int(100000, 999999);
     $expiresAt = date('Y-m-d H:i:s', strtotime('+5 minutes'));
 
-    $otpStmt = $conn->prepare("UPDATE users SET otp_code = ?, otp_expires_at = ? WHERE id = ?");
-    if ($otpStmt) {
-        $otpStmt->bind_param("ssi", $otp, $expiresAt, $adminId);
-        $otpStmt->execute();
-        $otpStmt->close();
+    $otpStmt = $conn->prepare("UPDATE users SET otp_code = ?, otp_expires_at = ? WHERE id = ? AND role = 'system_admin'");
+    if (!$otpStmt) {
+        $_SESSION['error'] = "Unable to prepare the administrator unlock code right now.";
+        header('Location: ' . NEXGEN_ADMIN_LOGIN_PATH);
+        exit();
+    }
+
+    $otpStmt->bind_param("ssi", $otp, $expiresAt, $adminId);
+    $otpStored = $otpStmt->execute();
+    $otpStmt->close();
+
+    if (!$otpStored) {
+        $_SESSION['error'] = "Unable to prepare the administrator unlock code right now.";
+        header('Location: ' . NEXGEN_ADMIN_LOGIN_PATH);
+        exit();
     }
 
     try {
@@ -83,9 +96,10 @@ if (!isset($_SESSION['admin_unlock_otp_sent']) || $_SESSION['admin_unlock_otp_se
         $_SESSION['success'] = "A 6-digit OTP has been sent to the admin email.";
         header("Location: /NexGen/CODE/PHP/admin_unlock_otp.php");
         exit();
-    } catch (Exception $e) {
+    } catch (Throwable $e) {
+        error_log('NexGen administrator unlock email failed: ' . $e->getMessage());
         $_SESSION['error'] = "Failed to send admin unlock OTP email.";
-        header("Location: /NexGen/CODE/PHP/index.php");
+        header('Location: ' . NEXGEN_ADMIN_LOGIN_PATH);
         exit();
     }
 }
@@ -102,8 +116,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'verify_unlock_otp') {
         $otpInput = trim($_POST['otp_code'] ?? '');
 
-        if ($otpInput === '') {
-            $_SESSION['error'] = "Please enter the OTP.";
+        if (!preg_match('/^[0-9]{6}$/D', $otpInput)) {
+            $_SESSION['error'] = "Please enter the complete 6-digit OTP.";
             header("Location: /NexGen/CODE/PHP/admin_unlock_otp.php");
             exit();
         }
@@ -158,12 +172,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             WHERE id = ?
               AND role = 'system_admin'
         ");
-        if ($unlockStmt) {
-            $unlockStmt->bind_param("i", $adminId);
-            $unlockStmt->execute();
-            $unlockStmt->close();
+        if (!$unlockStmt) {
+            $_SESSION['error'] = "Unable to unlock the administrator account right now.";
+            header("Location: /NexGen/CODE/PHP/admin_unlock_otp.php");
+            exit();
         }
 
+        $unlockStmt->bind_param("i", $adminId);
+        $unlockSucceeded = $unlockStmt->execute() && $unlockStmt->affected_rows === 1;
+        $unlockStmt->close();
+
+        if (!$unlockSucceeded) {
+            $_SESSION['error'] = "Unable to unlock the administrator account right now.";
+            header("Location: /NexGen/CODE/PHP/admin_unlock_otp.php");
+            exit();
+        }
+
+        session_regenerate_id(true);
         unset(
             $_SESSION['lockout_until_ts'],
             $_SESSION['lockout_username'],
@@ -173,7 +198,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         );
 
         $_SESSION['success'] = "Admin account unlocked successfully. You may now log in again.";
-        header("Location: /NexGen/CODE/PHP/index.php");
+        header('Location: ' . NEXGEN_ADMIN_LOGIN_PATH);
         exit();
     }
 
@@ -181,11 +206,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $otp = (string) random_int(100000, 999999);
         $expiresAt = date('Y-m-d H:i:s', strtotime('+5 minutes'));
 
-        $otpStmt = $conn->prepare("UPDATE users SET otp_code = ?, otp_expires_at = ? WHERE id = ?");
-        if ($otpStmt) {
-            $otpStmt->bind_param("ssi", $otp, $expiresAt, $adminId);
-            $otpStmt->execute();
-            $otpStmt->close();
+        $otpStmt = $conn->prepare("UPDATE users SET otp_code = ?, otp_expires_at = ? WHERE id = ? AND role = 'system_admin'");
+        if (!$otpStmt) {
+            $_SESSION['error'] = "Unable to prepare a new administrator unlock code right now.";
+            header("Location: /NexGen/CODE/PHP/admin_unlock_otp.php");
+            exit();
+        }
+
+        $otpStmt->bind_param("ssi", $otp, $expiresAt, $adminId);
+        $otpStored = $otpStmt->execute();
+        $otpStmt->close();
+
+        if (!$otpStored) {
+            $_SESSION['error'] = "Unable to prepare a new administrator unlock code right now.";
+            header("Location: /NexGen/CODE/PHP/admin_unlock_otp.php");
+            exit();
         }
 
         try {
@@ -198,7 +233,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['success'] = "A new OTP has been sent to the admin email.";
             header("Location: /NexGen/CODE/PHP/admin_unlock_otp.php");
             exit();
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
+            error_log('NexGen administrator unlock resend failed: ' . $e->getMessage());
             $_SESSION['error'] = "Failed to resend OTP.";
             header("Location: /NexGen/CODE/PHP/admin_unlock_otp.php");
             exit();
@@ -207,7 +243,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'cancel_unlock') {
         unset($_SESSION['admin_unlock_otp_sent']);
-        header("Location: /NexGen/CODE/PHP/index.php");
+        header('Location: ' . NEXGEN_ADMIN_LOGIN_PATH);
         exit();
     }
 }

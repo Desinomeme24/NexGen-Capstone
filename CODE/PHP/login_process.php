@@ -1,20 +1,41 @@
 <?php
-session_start();
+/* config.php starts the hardened session before any authentication state is
+   read or written. Starting a session before loading it would bypass those
+   cookie controls. */
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/tenant_helper.php';
 
 if ($_SERVER["REQUEST_METHOD"] !== "POST") {
     $_SESSION['error'] = "Invalid request.";
     $_SESSION['form_type'] = 'login';
-    header("Location: /NexGen/CODE/PHP/index.php");
+    header('Location: ' . NEXGEN_CLIENT_LOGIN_PATH);
     exit();
 }
 
+/* PORTAL ISOLATION: the submitted portal selects a distinct CSRF/CAPTCHA
+   namespace and redirect target. Missing or invented portal values are
+   rejected instead of silently falling back to another authentication path. */
+$loginPortal = strtolower(trim((string)($_POST['login_portal'] ?? '')));
+
+if (!in_array($loginPortal, ['admin', 'client'], true)) {
+    $_SESSION['error'] = 'Invalid login portal request. Please open the login page again.';
+    $_SESSION['form_type'] = 'login';
+    header('Location: ' . NEXGEN_CLIENT_LOGIN_PATH);
+    exit();
+}
+
+$loginPage = $loginPortal === 'admin'
+    ? NEXGEN_ADMIN_LOGIN_PATH
+    : NEXGEN_CLIENT_LOGIN_PATH;
+$loginFormKey = $loginPortal === 'admin'
+    ? 'admin_login_form'
+    : 'client_login_form';
+
 /* SECURITY: CSRF validation */
-if (!validateCsrfToken('login_form', $_POST['csrf_token'] ?? '')) {
+if (!validateCsrfToken($loginFormKey, $_POST['csrf_token'] ?? '')) {
     $_SESSION['error'] = "Invalid or expired login form token.";
     $_SESSION['form_type'] = 'login';
-    header("Location: /NexGen/CODE/PHP/index.php");
+    header('Location: ' . $loginPage);
     exit();
 }
 
@@ -25,7 +46,7 @@ $captchaSelection = $_POST['captcha_selection'] ?? [];
 if ($username === '' || $password === '') {
     $_SESSION['error'] = "Please enter your username and password.";
     $_SESSION['form_type'] = 'login';
-    header("Location: /NexGen/CODE/PHP/index.php");
+    header('Location: ' . $loginPage);
     exit();
 }
 
@@ -44,9 +65,10 @@ $sql = "SELECT id, username, full_name, email, password, profile_image, role, ac
 $stmt = $conn->prepare($sql);
 
 if (!$stmt) {
-    $_SESSION['error'] = "Database error: " . $conn->error;
+    error_log('NexGen login query preparation failed: ' . $conn->error);
+    $_SESSION['error'] = "The login service is temporarily unavailable. Please try again.";
     $_SESSION['form_type'] = 'login';
-    header("Location: /NexGen/CODE/PHP/index.php");
+    header('Location: ' . $loginPage);
     exit();
 }
 
@@ -57,64 +79,85 @@ $result = $stmt->get_result();
 if ($result->num_rows !== 1) {
     $stmt->close();
 
-    /*
-    |--------------------------------------------------------------------------
-    | STEP 2: IF NOT FOUND IN users, CHECK registration_requests
-    |--------------------------------------------------------------------------
-    */
-    $requestSql = "SELECT username, request_status, admin_remarks, full_name
-                   FROM registration_requests
-                   WHERE username = ?
-                   ORDER BY id DESC
-                   LIMIT 1";
+    /* Registration status belongs only to the client portal. The isolated
+       administrator endpoint never exposes signup/request information. */
+    if ($loginPortal === 'client') {
+        $requestSql = "SELECT username, request_status, admin_remarks, full_name
+                       FROM registration_requests
+                       WHERE username = ?
+                       ORDER BY id DESC
+                       LIMIT 1";
 
-    $requestStmt = $conn->prepare($requestSql);
+        $requestStmt = $conn->prepare($requestSql);
 
-    if ($requestStmt) {
-        $requestStmt->bind_param("s", $username);
-        $requestStmt->execute();
-        $requestResult = $requestStmt->get_result();
-        $requestData = $requestResult->fetch_assoc();
-        $requestStmt->close();
+        if ($requestStmt) {
+            $requestStmt->bind_param("s", $username);
+            $requestStmt->execute();
+            $requestResult = $requestStmt->get_result();
+            $requestData = $requestResult->fetch_assoc();
+            $requestStmt->close();
 
-        if ($requestData) {
-            $requestStatus = strtolower(trim((string)($requestData['request_status'] ?? '')));
-            $remarks = trim((string)($requestData['admin_remarks'] ?? ''));
+            if ($requestData) {
+                $requestStatus = strtolower(trim((string)($requestData['request_status'] ?? '')));
+                $remarks = trim((string)($requestData['admin_remarks'] ?? ''));
 
-            switch ($requestStatus) {
-                case 'pending':
-                    $_SESSION['error'] = "Your account request is still pending admin approval. Please wait for confirmation.";
-                    $_SESSION['form_type'] = 'login';
-                    header("Location: /NexGen/CODE/PHP/index.php");
-                    exit();
+                switch ($requestStatus) {
+                    case 'pending':
+                        $_SESSION['error'] = "Your account request is still pending admin approval. Please wait for confirmation.";
+                        $_SESSION['form_type'] = 'login';
+                        header('Location: ' . $loginPage);
+                        exit();
 
-                case 'rejected':
-                    $_SESSION['error'] = $remarks !== ''
-                        ? "Your account request has been rejected. Reason: " . $remarks
-                        : "Your account request has been rejected by the admin. Please contact the administrator for more details.";
-                    $_SESSION['form_type'] = 'login';
-                    header("Location: /NexGen/CODE/PHP/index.php");
-                    exit();
+                    case 'rejected':
+                        $_SESSION['error'] = $remarks !== ''
+                            ? "Your account request has been rejected. Reason: " . $remarks
+                            : "Your account request has been rejected by the admin. Please contact the administrator for more details.";
+                        $_SESSION['form_type'] = 'login';
+                        header('Location: ' . $loginPage);
+                        exit();
 
-                case 'resubmit':
-                    $_SESSION['error'] = $remarks !== ''
-                        ? "Your account request needs resubmission. Please update the following: " . $remarks
-                        : "Your account request needs to be resubmitted. Please review your submitted information and try again.";
-                    $_SESSION['form_type'] = 'login';
-                    header("Location: /NexGen/CODE/PHP/index.php");
-                    exit();
+                    case 'resubmit':
+                        $_SESSION['error'] = $remarks !== ''
+                            ? "Your account request needs resubmission. Please update the following: " . $remarks
+                            : "Your account request needs to be resubmitted. Please review your submitted information and try again.";
+                        $_SESSION['form_type'] = 'login';
+                        header('Location: ' . $loginPage);
+                        exit();
+                }
             }
         }
     }
 
     $_SESSION['error'] = "Invalid username or password.";
     $_SESSION['form_type'] = 'login';
-    header("Location: /NexGen/CODE/PHP/index.php");
+    header('Location: ' . $loginPage);
     exit();
 }
 
 $user = $result->fetch_assoc();
 $stmt->close();
+
+/* SERVER-SIDE ROLE BOUNDARY: UI separation alone is not a security control.
+   Reject an account whose stored role does not belong to the submitted portal
+   before lockout or session state can cross between the two login routes. */
+$portalRoleAllowed = $loginPortal === 'admin'
+    ? (string)$user['role'] === 'system_admin'
+    : in_array((string)$user['role'], ['owner', 'employee'], true);
+
+if (!$portalRoleAllowed) {
+    $_SESSION['error'] = 'Invalid username or password.';
+    $_SESSION['form_type'] = 'login';
+    unset(
+        $_SESSION['lockout_until_ts'],
+        $_SESSION['lockout_username'],
+        $_SESSION['lockout_user_id'],
+        $_SESSION['lockout_role'],
+        $_SESSION['attempt_warning'],
+        $_SESSION['attempts_left']
+    );
+    header('Location: ' . $loginPage);
+    exit();
+}
 
 /* SECURITY: Check current lock first */
 if (isUserLocked($user)) {
@@ -125,14 +168,21 @@ if (isUserLocked($user)) {
 
     if ($isPermanentLock) {
         $_SESSION['error'] = "This account was automatically locked after 5 consecutive failed login attempts. Please contact the system administrator to unlock it.";
-        unset(
-            $_SESSION['lockout_until_ts'],
-            $_SESSION['lockout_username'],
-            $_SESSION['lockout_user_id'],
-            $_SESSION['lockout_role'],
-            $_SESSION['attempt_warning'],
-            $_SESSION['attempts_left']
-        );
+        unset($_SESSION['lockout_until_ts'], $_SESSION['attempt_warning'], $_SESSION['attempts_left']);
+
+        if ((string)$user['role'] === 'system_admin') {
+            /* Preserve only the administrator identity needed by the separate
+               OTP-unlock page. The password and OTP are never stored here. */
+            $_SESSION['lockout_username'] = (string)$user['username'];
+            $_SESSION['lockout_user_id'] = (int)$user['id'];
+            $_SESSION['lockout_role'] = 'system_admin';
+        } else {
+            unset(
+                $_SESSION['lockout_username'],
+                $_SESSION['lockout_user_id'],
+                $_SESSION['lockout_role']
+            );
+        }
     } else {
         $_SESSION['error'] = "Three consecutive login attempts failed. This account is temporarily locked for 1 minute; 2 attempts remain after the cooldown.";
         $_SESSION['lockout_until_ts'] = $lockUntilTs;
@@ -141,7 +191,7 @@ if (isUserLocked($user)) {
         $_SESSION['lockout_role'] = (string)$user['role'];
     }
 
-    header("Location: /NexGen/CODE/PHP/index.php");
+    header('Location: ' . $loginPage);
     exit();
 }
 
@@ -183,14 +233,19 @@ function recordFailedAttempt(mysqli $conn, array $user, string $reason = 'Invali
 
     if ($isPermanentLock) {
         $_SESSION['error'] = "This account has been automatically locked after 5 consecutive failed login attempts. Please contact the system administrator to unlock it.";
-        unset(
-            $_SESSION['lockout_until_ts'],
-            $_SESSION['lockout_username'],
-            $_SESSION['lockout_user_id'],
-            $_SESSION['lockout_role'],
-            $_SESSION['attempt_warning'],
-            $_SESSION['attempts_left']
-        );
+        unset($_SESSION['lockout_until_ts'], $_SESSION['attempt_warning'], $_SESSION['attempts_left']);
+
+        if ((string)$user['role'] === 'system_admin') {
+            $_SESSION['lockout_username'] = (string)$user['username'];
+            $_SESSION['lockout_user_id'] = (int)$user['id'];
+            $_SESSION['lockout_role'] = 'system_admin';
+        } else {
+            unset(
+                $_SESSION['lockout_username'],
+                $_SESSION['lockout_user_id'],
+                $_SESSION['lockout_role']
+            );
+        }
     } elseif ($lockedUntil !== null) {
         $_SESSION['error'] = "Three consecutive login attempts failed. Your account is temporarily locked for 1 minute; 2 attempts remain after the cooldown.";
         $_SESSION['lockout_until_ts'] = strtotime($lockedUntil);
@@ -216,13 +271,13 @@ function recordFailedAttempt(mysqli $conn, array $user, string $reason = 'Invali
 | CAPTCHA: wrong captcha also counts as failed attempt
 |--------------------------------------------------------------------------
 */
-if (!validateImageCaptchaSelection('login_form', (array)$captchaSelection)) {
+if (!validateImageCaptchaSelection($loginFormKey, (array)$captchaSelection)) {
     recordFailedAttempt(
         $conn,
         $user,
         "Incorrect captcha selection."
     );
-    header("Location: /NexGen/CODE/PHP/index.php");
+    header('Location: ' . $loginPage);
     exit();
 }
 
@@ -237,7 +292,7 @@ if (!password_verify($password, $user['password'])) {
         $user,
         "Invalid username or password."
     );
-    header("Location: /NexGen/CODE/PHP/index.php");
+    header('Location: ' . $loginPage);
     exit();
 }
 
@@ -300,7 +355,7 @@ if ($user['account_status'] !== 'active') {
 
     $_SESSION['error'] = $message;
     $_SESSION['form_type'] = 'login';
-    header("Location: /NexGen/CODE/PHP/index.php");
+    header('Location: ' . $loginPage);
     exit();
 }
 
@@ -309,6 +364,10 @@ if ($user['account_status'] !== 'active') {
 | STEP 5: LOGIN SESSION
 |--------------------------------------------------------------------------
 */
+/* Prevent session fixation by issuing a new identifier only after the
+   credentials, portal role, CAPTCHA, lockout, and account status pass. */
+session_regenerate_id(true);
+
 $_SESSION['user_id'] = $user['id'];
 $_SESSION['username'] = $user['username'];
 $_SESSION['full_name'] = $user['full_name'];
@@ -319,6 +378,7 @@ $_SESSION['can_inventory'] = (int)($user['can_inventory'] ?? 0);
 $_SESSION['can_sales'] = (int)($user['can_sales'] ?? 0);
 $_SESSION['can_sales_analytics'] = (int)($user['can_sales_analytics'] ?? 0);
 $_SESSION['can_accounts_receivable'] = (int)($user['can_accounts_receivable'] ?? 0);
+$_SESSION['login_portal'] = $loginPortal;
 
 /* TENANT ISOLATION: always set business_id fresh from the authenticated
    user's own row, overwriting anything left over from a previous session.
@@ -339,10 +399,11 @@ if (in_array($user['role'], ['owner', 'employee'], true)) {
     if (empty($activeWorkspace)) {
         session_unset();
         session_destroy();
+        session_id('');
         session_start();
         $_SESSION['error'] = 'Your account is not assigned to an active business branch. Please contact the administrator.';
         $_SESSION['form_type'] = 'login';
-        header('Location: /NexGen/CODE/PHP/index.php');
+        header('Location: ' . $loginPage);
         exit();
     }
 }
@@ -363,8 +424,8 @@ if ($updateLastLogin) {
     $updateLastLogin->close();
 }
 
-/* decide redirect target */
-$redirectUrl = "/NexGen/CODE/PHP/index.php";
+/* Decide redirect target only after the portal/role boundary has passed. */
+$redirectUrl = $loginPage;
 
 if ($user['role'] === 'system_admin') {
     $redirectUrl = "/NexGen/CODE/PHP/admin_dashboard.php";
@@ -373,11 +434,12 @@ if ($user['role'] === 'system_admin') {
 } else {
     session_unset();
     session_destroy();
+    session_id('');
     session_start();
 
     $_SESSION['error'] = "Invalid user role.";
     $_SESSION['form_type'] = 'login';
-    header("Location: /NexGen/CODE/PHP/index.php");
+    header('Location: ' . $loginPage);
     exit();
 }
 

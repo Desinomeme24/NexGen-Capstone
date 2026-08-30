@@ -1,7 +1,16 @@
 <?php
-session_start();
-require_once 'config.php';
-require_once 'mailer_config.php';
+require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/mailer_config.php';
+
+$fpPortal = nxNormalizeLoginPortal(
+    $_POST['portal']
+        ?? $_GET['portal']
+        ?? $_SESSION['fp_portal']
+        ?? $_SESSION['login_portal']
+        ?? 'client'
+);
+$_SESSION['fp_portal'] = $fpPortal;
+$forgotStartPage = 'forgot_password.php?portal=' . rawurlencode($fpPortal);
 
 date_default_timezone_set('Asia/Manila');
 
@@ -50,7 +59,7 @@ if (isset($_POST['selected_user_id'])) {
     $selectedId = (int) $_POST['selected_user_id'];
 
     if (!isset($candidates[$selectedId])) {
-        forgotPasswordRedirect('That selection is no longer valid. Please start again.', 'error', 'forgot_password.php', ['restart' => true]);
+        forgotPasswordRedirect('That selection is no longer valid. Please start again.', 'error', $forgotStartPage, ['restart' => true]);
     }
 
     $_SESSION['fp_selected_user_id'] = $selectedId;
@@ -60,7 +69,7 @@ if (isset($_POST['selected_user_id'])) {
 $userId = isset($_SESSION['fp_selected_user_id']) ? (int) $_SESSION['fp_selected_user_id'] : 0;
 
 if ($userId <= 0) {
-    forgotPasswordRedirect('Please start the password reset process again.', 'error', 'forgot_password.php', ['restart' => true]);
+    forgotPasswordRedirect('Please start the password reset process again.', 'error', $forgotStartPage, ['restart' => true]);
 }
 
 /*
@@ -70,7 +79,7 @@ if ($userId <= 0) {
 */
 
 $stmt = $conn->prepare(
-    "SELECT id, email, full_name, otp_expires_at
+    "SELECT id, email, full_name, role, otp_expires_at
      FROM users
      WHERE id = ? AND account_status = 'active'
      LIMIT 1"
@@ -92,7 +101,14 @@ $stmt->close();
 
 if (!$user) {
     unset($_SESSION['fp_selected_user_id']);
-    forgotPasswordRedirect('Account not found. Please start again.', 'error', 'forgot_password.php', ['restart' => true]);
+    forgotPasswordRedirect('Account not found. Please start again.', 'error', $forgotStartPage, ['restart' => true]);
+}
+
+/* Never let an account selected in one portal cross into the other portal's
+   recovery flow, even if session state or POST data is altered. */
+if (!nxRoleMatchesLoginPortal((string)($user['role'] ?? ''), $fpPortal)) {
+    unset($_SESSION['fp_selected_user_id'], $_SESSION['fp_candidates'], $_SESSION['fp_email']);
+    forgotPasswordRedirect('Account not found. Please start again.', 'error', $forgotStartPage, ['restart' => true]);
 }
 
 /*
@@ -159,7 +175,7 @@ try {
     $mail->Body    = $emailBody;
 
     $mail->send();
-} catch (Exception $e) {
+} catch (Throwable $e) {
     error_log(
         'Forgot password PHPMailer error for user ID ' .
         (int) $user['id'] .

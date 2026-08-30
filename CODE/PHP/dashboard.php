@@ -10,6 +10,7 @@ enforceSessionTimeout();
 if (!function_exists('dashboardInvalidateSession')) {
     function dashboardInvalidateSession(string $message): void
     {
+        $loginPath = nxLoginPathForRole((string)($_SESSION['role'] ?? ''));
         $_SESSION = [];
 
         if (ini_get('session.use_cookies')) {
@@ -38,7 +39,7 @@ if (!function_exists('dashboardInvalidateSession')) {
         }
         $_SESSION['form_type'] = 'login';
 
-        header('Location: /NexGen/CODE/PHP/index.php');
+        header('Location: ' . $loginPath);
         exit();
     }
 }

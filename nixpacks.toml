@@ -1,0 +1,11 @@
+[providers]
+# Tell Nixpacks to use both PHP and Node.js
+nixpacks = ["php", "nodejs"]
+
+[phases.setup]
+# Install Node.js dependencies for npm (Bootstrap, etc.)
+cmds = ["npm install --production"]
+
+[phases.start]
+# Start PHP built-in server serving the CODE/PHP directory
+cmd = "php -S 0.0.0.0:8080 -t CODE/PHP"

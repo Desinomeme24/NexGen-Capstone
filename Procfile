@@ -1,1 +1,1 @@
-web: php -S 0.0.0.0:${PORT:-8080} -t CODE/PHP
+web: docker-entrypoint.sh apache2-foreground

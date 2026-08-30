@@ -130,6 +130,57 @@ try {
 }
 date_default_timezone_set('Asia/Manila');
 
+/* APPLICATION PATHS: keep one codebase working when XAMPP serves NexGen from
+   /NexGen and Railway serves the published application from the domain root. */
+$nxIsProduction = $nxEnvironment === 'production';
+
+if (!defined('NEXGEN_APP_BASE_PATH')) {
+    define('NEXGEN_APP_BASE_PATH', $nxIsProduction ? '' : '/NexGen/CODE/PHP');
+}
+
+if (!defined('NEXGEN_PROJECT_BASE_PATH')) {
+    define('NEXGEN_PROJECT_BASE_PATH', $nxIsProduction ? '' : '/NexGen');
+}
+
+if (!defined('NEXGEN_CODE_BASE_PATH')) {
+    define('NEXGEN_CODE_BASE_PATH', $nxIsProduction ? '' : '/NexGen/CODE');
+}
+
+if (!function_exists('nxPathJoin')) {
+    function nxPathJoin(string $basePath, string $path = ''): string
+    {
+        $normalizedBase = rtrim($basePath, '/');
+        $normalizedPath = ltrim($path, '/');
+
+        if ($normalizedPath === '') {
+            return $normalizedBase === '' ? '/' : $normalizedBase . '/';
+        }
+
+        return $normalizedBase . '/' . $normalizedPath;
+    }
+}
+
+if (!function_exists('nxAppUrl')) {
+    function nxAppUrl(string $path = ''): string
+    {
+        return nxPathJoin(NEXGEN_APP_BASE_PATH, $path);
+    }
+}
+
+if (!function_exists('nxProjectUrl')) {
+    function nxProjectUrl(string $path = ''): string
+    {
+        return nxPathJoin(NEXGEN_PROJECT_BASE_PATH, $path);
+    }
+}
+
+if (!function_exists('nxCodeUrl')) {
+    function nxCodeUrl(string $path = ''): string
+    {
+        return nxPathJoin(NEXGEN_CODE_BASE_PATH, $path);
+    }
+}
+
 /* SESSION SECURITY: timeout constant */
 if (!defined('SESSION_TIMEOUT_SECONDS')) {
     define('SESSION_TIMEOUT_SECONDS', 600); // 10 minutes
@@ -140,11 +191,11 @@ if (!defined('SESSION_TIMEOUT_SECONDS')) {
    are centralized so timeouts, role guards, login processing, and logout all
    return a user to the correct portal. */
 if (!defined('NEXGEN_CLIENT_LOGIN_PATH')) {
-    define('NEXGEN_CLIENT_LOGIN_PATH', '/NexGen/CODE/PHP/index.php');
+    define('NEXGEN_CLIENT_LOGIN_PATH', nxAppUrl('index.php'));
 }
 
 if (!defined('NEXGEN_ADMIN_LOGIN_PATH')) {
-    define('NEXGEN_ADMIN_LOGIN_PATH', '/NexGen/CODE/PHP/admin_login.php');
+    define('NEXGEN_ADMIN_LOGIN_PATH', nxAppUrl('admin_login.php'));
 }
 
 /* =========================================================================

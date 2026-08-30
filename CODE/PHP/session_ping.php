@@ -6,7 +6,7 @@
    filling out a long form (e.g. the sales wizard) doesn't get silently
    logged out - and lose unsaved form data - just because they haven't
    triggered a full page/AJAX request in a while. */
-session_start();
+require_once __DIR__ . '/config.php';
 header('Content-Type: application/json; charset=UTF-8');
 
 if (!isset($_SESSION['user_id'])) {

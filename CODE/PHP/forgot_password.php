@@ -1,6 +1,15 @@
 <?php
-session_start();
-require_once 'config.php';
+require_once __DIR__ . '/config.php';
+
+$fpPortal = nxNormalizeLoginPortal(
+    $_GET['portal']
+        ?? $_POST['portal']
+        ?? $_SESSION['fp_portal']
+        ?? $_SESSION['login_portal']
+        ?? 'client'
+);
+$_SESSION['fp_portal'] = $fpPortal;
+$loginPath = nxLoginPathForPortal($fpPortal);
 
 $popupMessage = "";
 $popupType = "";
@@ -28,7 +37,7 @@ if (isset($_SESSION['success'])) {
 <?php if (!empty($popupMessage)): ?>
     <div class="popup-overlay" id="popupOverlay">
         <div class="popup-box <?php echo $popupType; ?>" id="popupBox">
-            <div class="popup-icon"><?php echo $popupType === 'success' ? '��✓' : '!'; ?></div>
+            <div class="popup-icon"><?php echo $popupType === 'success' ? '✓' : '!'; ?></div>
             <h3><?php echo $popupType === 'success' ? 'Success' : 'Error'; ?></h3>
             <p><?php echo htmlspecialchars($popupMessage); ?></p>
         </div>
@@ -43,6 +52,7 @@ if (isset($_SESSION['success'])) {
         <p class="subtext">Enter your email address to look up your account.</p>
 
         <form action="/NexGen/CODE/PHP/forgot_password_lookup.php" method="POST">
+            <input type="hidden" name="portal" value="<?php echo e($fpPortal); ?>">
             <label>Email Address</label>
             <input type="email" name="email" required placeholder="Enter your email address">
 
@@ -50,7 +60,7 @@ if (isset($_SESSION['success'])) {
         </form>
 
         <div class="links">
-            <a href="/NexGen/CODE/PHP/index.php">Back to Login</a>
+            <a href="<?php echo e($loginPath); ?>">Back to Login</a>
         </div>
     </div>
 </div>

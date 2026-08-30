@@ -3,16 +3,17 @@ require_once 'config.php';
 
 $isTimeoutLogout = isset($_GET['timeout']) && $_GET['timeout'] === '1';
 $isManualLogout = $_SERVER['REQUEST_METHOD'] === 'POST';
+$loginPage = nxLoginPathForRole((string)($_SESSION['role'] ?? ''));
 
 if (!$isTimeoutLogout && !$isManualLogout) {
-    header("Location: /NexGen/CODE/PHP/index.php");
+    header('Location: ' . $loginPage);
     exit();
 }
 
 /* SECURITY: CSRF validation only for manual logout */
 if ($isManualLogout && !validateCsrfToken('logout_form', $_POST['csrf_token'] ?? '')) {
     $_SESSION['error'] = "Invalid or expired logout form token.";
-    header("Location: /NexGen/CODE/PHP/index.php");
+    header('Location: ' . $loginPage);
     exit();
 }
 
@@ -32,6 +33,7 @@ if (ini_get('session.use_cookies')) {
 }
 
 session_destroy();
+session_id('');
 session_start();
 
 if ($isTimeoutLogout) {
@@ -41,6 +43,6 @@ if ($isTimeoutLogout) {
     $_SESSION['success'] = "You have been logged out successfully.";
 }
 
-header("Location: /NexGen/CODE/PHP/index.php");
+header('Location: ' . $loginPage);
 exit();
 ?>

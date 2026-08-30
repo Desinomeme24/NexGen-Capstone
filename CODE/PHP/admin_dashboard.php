@@ -6,7 +6,7 @@ require_once __DIR__ . '/tenant_helper.php';
 enforceSessionTimeout();
 
 if (!isset($_SESSION['user_id'])) {
-    header('Location: /NexGen/CODE/PHP/index.php');
+    header('Location: ' . NEXGEN_ADMIN_LOGIN_PATH);
     exit();
 }
 

@@ -30,7 +30,6 @@ RUN rm -rf /var/www/html/* \
     && cp -a /app/CODE/PHP/. /var/www/html/ \
     && cp -a /app/CODE/JS /var/www/html/JS \
     && cp -a /app/CODE/STYLE /var/www/html/STYLE \
-    && cp -a /app/CODE/BACKEND /var/www/html/BACKEND \
     && cp -a /app/IMAGES /var/www/html/IMAGES \
     && chown -R www-data:www-data /var/www/html
 

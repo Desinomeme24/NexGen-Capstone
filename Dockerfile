@@ -10,38 +10,29 @@ WORKDIR /app
 
 COPY . .
 
-# MySQL support for the PHP application.
-RUN docker-php-ext-install mysqli
+# Stop the build if NexGen's entry point is missing.
+RUN test -f /app/CODE/PHP/index.php
 
-# Install only production Node dependencies.
+# Install PHP MySQL extensions.
+RUN docker-php-ext-install mysqli pdo pdo_mysql
+
+# Install production Node dependencies.
 RUN npm install --omit=dev
 
-# Ensure Apache loads exactly one MPM and enable URL rewriting.
+# Copy the PHP application into Apache's standard web root.
+RUN rm -rf /var/www/html/* \
+    && cp -a /app/CODE/PHP/. /var/www/html/ \
+    && chown -R www-data:www-data /var/www/html
+
+# Enable exactly one MPM and Apache URL rewriting.
 RUN rm -f /etc/apache2/mods-enabled/mpm_*.load \
           /etc/apache2/mods-enabled/mpm_*.conf \
     && a2enmod mpm_prefork rewrite \
+    && sed -ri 's/AllowOverride None/AllowOverride All/g' \
+        /etc/apache2/apache2.conf \
     && apache2ctl configtest \
     && apache2ctl -M | grep mpm
 
-# Serve the NexGen PHP application.
-RUN a2dissite 000-default \
-    && rm -f /etc/apache2/sites-available/000-default.conf \
-    && printf '%s\n' \
-        '<VirtualHost *:80>' \
-        '    ServerName localhost' \
-        '    DocumentRoot /app/CODE/PHP' \
-        '    <Directory /app/CODE/PHP>' \
-        '        AllowOverride All' \
-        '        Require all granted' \
-        '        DirectoryIndex index.php' \
-        '    </Directory>' \
-        '</VirtualHost>' \
-        > /etc/apache2/sites-available/nexgen.conf \
-    && a2ensite nexgen \
-    && apache2ctl configtest
-
 EXPOSE 80
 
-# Normalize the MPM again at runtime before starting Apache. This protects
-# against startup-time configuration overrides in the deployment environment.
 CMD ["sh", "-c", "rm -f /etc/apache2/mods-enabled/mpm_*.load /etc/apache2/mods-enabled/mpm_*.conf && a2enmod mpm_prefork && apache2ctl configtest && exec apache2-foreground"]

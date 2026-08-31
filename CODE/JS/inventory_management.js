@@ -670,7 +670,7 @@ function openBatchesModal(productId, productName) {
       console.error("Failed to load batches:", error);
       if (batchesModalBody) {
         batchesModalBody.innerHTML =
-          "<tr><td colspan=\"5\" class=\"batches-empty-state\">Failed to load batches. Please try again.</td></tr>";
+          '<tr><td colspan="5" class="batches-empty-state">Failed to load batches. Please try again.</td></tr>';
       }
     });
 }

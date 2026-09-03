@@ -14,7 +14,6 @@ COPY . .
 RUN test -f /app/CODE/PHP/index.php \
     && test -d /app/CODE/JS \
     && test -d /app/CODE/STYLE \
-    && test -d /app/CODE/BACKEND \
     && test -d /app/IMAGES
 
 # Install PHP MySQL extensions.
@@ -24,7 +23,7 @@ RUN docker-php-ext-install mysqli pdo pdo_mysql
 RUN npm install --omit=dev
 
 # Publish the PHP application and all browser-accessible assets. The source
-# layout is mapped to root-level URLs such as /JS, /STYLE, /BACKEND and /IMAGES.
+# layout is mapped to root-level URLs such as /JS, /STYLE, and /IMAGES.
 # VIDEOS is intentionally excluded from the deployed image.
 RUN rm -rf /var/www/html/* \
     && cp -a /app/CODE/PHP/. /var/www/html/ \

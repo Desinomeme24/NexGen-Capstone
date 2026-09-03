@@ -15,7 +15,7 @@ function nxPasswordChangeRedirect(string $message, string $type = 'error'): void
 }
 
 if (!isset($_SESSION['user_id'])) {
-    header('Location: ' . NEXGEN_CLIENT_LOGIN_PATH);
+    header('Location: ' . nxLoginPathForRole((string)($_SESSION['role'] ?? '')));
     exit();
 }
 

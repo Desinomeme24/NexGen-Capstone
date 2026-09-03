@@ -3662,6 +3662,283 @@ html[data-theme="light"] .signup-modern-box .signup-form-panel input[type="file"
   color: #666 !important;
 }
 
+/* ========== FINAL RESPONSIVE HEADER + AUTH MODALS ========== */
+/* Keep off-canvas navigation and decorative content from widening the
+   document on phones and tablets. */
+@media (max-width: 980px) {
+  html,
+  body {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  header,
+  .nav,
+  .hero,
+  .hero-grid {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .nav {
+    gap: 12px;
+  }
+
+  .logo {
+    min-width: 0;
+    flex: 0 1 auto;
+    white-space: nowrap;
+  }
+
+  .nav-cta {
+    min-width: 0;
+    flex: 0 0 auto;
+    margin-left: auto;
+  }
+
+  .nav-toggle {
+    flex: 0 0 44px;
+    padding: 0;
+    line-height: 1;
+  }
+
+  .nav-links {
+    max-width: 100vw;
+  }
+
+  .hero-grid > *,
+  .hero-content {
+    min-width: 0;
+    max-width: 100%;
+  }
+}
+
+/* Collapse the split authentication cards for portrait tablets and phones. */
+@media (max-width: 820px) {
+  .modal {
+    padding: 16px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .modal-box.login-modern-box,
+  .modal-box.signup-modern-box {
+    width: 100%;
+    max-width: 420px;
+    min-height: 0;
+    max-height: calc(100vh - 32px);
+    max-height: calc(100dvh - 32px);
+    margin: auto;
+    flex-direction: column;
+    border-radius: 22px;
+  }
+
+  .login-info-panel,
+  .signup-info-panel {
+    display: none;
+  }
+
+  .login-form-panel,
+  .signup-form-panel {
+    width: 100%;
+    min-width: 0;
+    flex: 0 0 auto;
+    padding: 28px 24px 24px;
+  }
+
+  .signup-form-panel {
+    max-height: calc(100vh - 32px);
+    max-height: calc(100dvh - 32px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .signup-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .signup-grid .full-width {
+    grid-column: auto;
+  }
+
+  .signup-grid > * {
+    min-width: 0;
+  }
+
+  .glass-field input,
+  .signup-form-panel input,
+  .signup-form-panel select,
+  .signup-form-panel textarea {
+    font-size: 16px !important;
+  }
+
+  .login-modern-box .close-modal,
+  .signup-modern-box .close-modal {
+    top: 6px !important;
+    right: 8px !important;
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px;
+    line-height: 1;
+  }
+}
+
+/* Phone sizing: retain visible page gutters and compact modal spacing. */
+@media (max-width: 560px) {
+  .wrap {
+    width: 100%;
+    max-width: 100%;
+    padding-right: 18px;
+    padding-left: 18px;
+  }
+
+  .nav,
+  header.scrolled .nav {
+    padding: 14px 16px;
+    gap: 8px;
+  }
+
+  .logo {
+    gap: 7px;
+    font-size: 20px;
+  }
+
+  .logo-img {
+    width: 34px;
+    height: 34px;
+  }
+
+  .nav-cta {
+    gap: 7px;
+  }
+
+  .landing-theme-toggle,
+  .nav-toggle {
+    width: 40px;
+    height: 40px;
+    flex-basis: 40px;
+  }
+
+  .nav-cta .btn {
+    padding: 9px 14px;
+  }
+
+  .team-join {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    max-width: 100%;
+  }
+
+  .team-join-label {
+    max-width: none;
+  }
+
+  .modal {
+    padding: 12px;
+  }
+
+  .modal-box.login-modern-box,
+  .modal-box.signup-modern-box {
+    max-width: 390px;
+    max-height: calc(100vh - 24px);
+    max-height: calc(100dvh - 24px);
+    border-radius: 18px;
+  }
+
+  .login-form-panel,
+  .signup-form-panel {
+    padding: 24px 18px 20px;
+  }
+
+  .signup-form-panel {
+    max-height: calc(100vh - 24px);
+    max-height: calc(100dvh - 24px);
+  }
+
+  .login-form-panel h2,
+  .signup-form-panel h2 {
+    margin-bottom: 12px;
+    font-size: 24px;
+  }
+
+  .captcha-checkbox-card {
+    gap: 8px;
+    min-width: 0;
+    padding: 12px;
+  }
+
+  .captcha-checkbox-left {
+    min-width: 0;
+  }
+
+  .captcha-checkbox-right {
+    min-width: 56px;
+  }
+}
+
+/* Extra room for compact Android phones and iPhone SE-sized screens. */
+@media (max-width: 360px) {
+  .wrap {
+    padding-right: 14px;
+    padding-left: 14px;
+  }
+
+  .nav,
+  header.scrolled .nav {
+    padding: 12px;
+    gap: 6px;
+  }
+
+  .logo {
+    gap: 6px;
+    font-size: 18px;
+  }
+
+  .logo-img {
+    width: 30px;
+    height: 30px;
+  }
+
+  .nav-cta {
+    gap: 6px;
+  }
+
+  .landing-theme-toggle,
+  .nav-toggle {
+    width: 38px;
+    height: 38px;
+    flex-basis: 38px;
+  }
+
+  .nav-cta .btn {
+    padding: 8px 11px;
+    font-size: 12px;
+  }
+
+  .login-form-panel,
+  .signup-form-panel {
+    padding: 22px 14px 18px;
+  }
+
+  .captcha-checkbox-card {
+    padding: 10px;
+  }
+
+  .captcha-checkbox-left label {
+    font-size: 12px !important;
+  }
+
+  .captcha-checkbox-right {
+    min-width: 52px;
+  }
+}
+
 </style>
 </head>
 <body>

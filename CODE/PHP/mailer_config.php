@@ -23,8 +23,8 @@ function createMailer(): PHPMailer
     $mail->Host = 'smtp.gmail.com';
     $mail->SMTPAuth = true;
 
-    $mail->Username = 'nexgeneration2026@gmail.com';
-    $mail->Password = 'mqwe ucds cqiq dplw';
+    $mail->Username = $mailUsername;
+    $mail->Password = $mailAppPassword;
 
     // Gmail STARTTLS configuration
     $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;

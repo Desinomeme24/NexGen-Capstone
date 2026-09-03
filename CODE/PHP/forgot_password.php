@@ -30,7 +30,7 @@ if (isset($_SESSION['success'])) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Forgot Password - NextGen</title>
-    <link rel="stylesheet" href="/NexGen/CODE/STYLE/forgot_password.css">
+    <link rel="stylesheet" href="<?php echo e(nxCodeUrl('STYLE/forgot_password.css')); ?>">
 </head>
 <body>
 
@@ -46,12 +46,12 @@ if (isset($_SESSION['success'])) {
 
 <div class="forgot-page">
     <div class="forgot-card">
-        <img src="/NexGen/IMAGES/NGlogo.png" alt="Logo" class="forgot-logo">
+        <img src="<?php echo e(nxProjectUrl('IMAGES/NGlogo.png')); ?>" alt="Logo" class="forgot-logo">
 
         <h1>Forgot Password</h1>
         <p class="subtext">Enter your email address to look up your account.</p>
 
-        <form action="/NexGen/CODE/PHP/forgot_password_lookup.php" method="POST">
+        <form action="<?php echo e(nxAppUrl('forgot_password_lookup.php')); ?>" method="POST">
             <input type="hidden" name="portal" value="<?php echo e($fpPortal); ?>">
             <label>Email Address</label>
             <input type="email" name="email" required placeholder="Enter your email address">
@@ -65,6 +65,6 @@ if (isset($_SESSION['success'])) {
     </div>
 </div>
 
-<script src="/NexGen/CODE/JS/forgot_password.js"></script>
+<script src="<?php echo e(nxCodeUrl('JS/forgot_password.js')); ?>"></script>
 </body>
 </html>

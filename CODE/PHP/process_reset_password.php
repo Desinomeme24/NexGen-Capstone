@@ -29,7 +29,7 @@ function prpRespond(bool $success, string $message, string $type, string $page, 
     }
 
     $_SESSION[$type] = $message;
-    header('Location: /NexGen/CODE/PHP/' . $page);
+    header('Location: ' . nxAppUrl($page));
     exit();
 }
 

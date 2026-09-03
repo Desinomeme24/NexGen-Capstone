@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/config.php';
-require_once __DIR__ . '/mailer_config.php';
+require_once __DIR__ . '/resend_config.php';
 
 $fpPortal = nxNormalizeLoginPortal(
     $_POST['portal']
@@ -39,7 +39,7 @@ function forgotPasswordRedirect(
     }
 
     $_SESSION[$type] = $message;
-    header('Location: /NexGen/CODE/PHP/' . $page);
+    header('Location: ' . nxAppUrl($page));
     exit();
 }
 
@@ -164,24 +164,23 @@ $emailBody =
 
 /*
 |--------------------------------------------------------------------------
-| SEND THROUGH PHPMAILER
+| SEND THROUGH RESEND HTTPS API
 |--------------------------------------------------------------------------
 */
 
 try {
-    $mail = createMailer();
-    $mail->addAddress($user['email'], $recipientName);
-    $mail->Subject = 'NexGen Password Reset OTP';
-    $mail->Body    = $emailBody;
-
-    $mail->send();
+    nxSendResendEmail(
+        (string)$user['email'],
+        $recipientName,
+        'NexGen Password Reset OTP',
+        $emailBody
+    );
 } catch (Throwable $e) {
     error_log(
-        'Forgot password PHPMailer error for user ID ' .
+        'Forgot password Resend error for user ID ' .
         (int) $user['id'] .
         ': ' .
-        $e->getMessage() .
-        (isset($mail) ? ' | SMTP: ' . $mail->ErrorInfo : '')
+        $e->getMessage()
     );
 
     forgotPasswordRedirect(
@@ -256,5 +255,5 @@ if ($isAjax) {
     exit();
 }
 
-header('Location: /NexGen/CODE/PHP/reset_password.php');
+header('Location: ' . nxAppUrl('reset_password.php'));
 exit();

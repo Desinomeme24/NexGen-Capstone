@@ -10,7 +10,7 @@ $fpPortal = nxNormalizeLoginPortal(
 );
 $_SESSION['fp_portal'] = $fpPortal;
 $loginPath = nxLoginPathForPortal($fpPortal);
-$forgotStartPath = '/NexGen/CODE/PHP/forgot_password.php?portal=' . rawurlencode($fpPortal);
+$forgotStartPath = nxAppUrl('forgot_password.php?portal=' . rawurlencode($fpPortal));
 
 $popupMessage = "";
 $popupType = "";
@@ -39,7 +39,7 @@ if (!$candidates) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Select Account - NextGen</title>
-    <link rel="stylesheet" href="/NexGen/CODE/STYLE/forgot_password.css">
+    <link rel="stylesheet" href="<?php echo e(nxCodeUrl('STYLE/forgot_password.css')); ?>">
 </head>
 <body>
 
@@ -55,12 +55,12 @@ if (!$candidates) {
 
 <div class="forgot-page">
     <div class="forgot-card">
-        <img src="/NexGen/IMAGES/NGlogo.png" alt="Logo" class="forgot-logo">
+        <img src="<?php echo e(nxProjectUrl('IMAGES/NGlogo.png')); ?>" alt="Logo" class="forgot-logo">
 
         <h1>Select Account</h1>
         <p class="subtext">This email is linked to more than one account. Choose which one to reset.</p>
 
-        <form action="/NexGen/CODE/PHP/send_forgot_otp.php" method="POST">
+        <form action="<?php echo e(nxAppUrl('send_forgot_otp.php')); ?>" method="POST">
             <input type="hidden" name="portal" value="<?php echo e($fpPortal); ?>">
             <div class="account-list">
                 <?php foreach ($candidates as $c): ?>
@@ -83,6 +83,6 @@ if (!$candidates) {
     </div>
 </div>
 
-<script src="/NexGen/CODE/JS/forgot_password.js"></script>
+<script src="<?php echo e(nxCodeUrl('JS/forgot_password.js')); ?>"></script>
 </body>
 </html>

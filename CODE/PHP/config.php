@@ -194,8 +194,12 @@ if (!defined('NEXGEN_CLIENT_LOGIN_PATH')) {
     define('NEXGEN_CLIENT_LOGIN_PATH', nxAppUrl('index.php'));
 }
 
+// Admin login on a separate route //
 if (!defined('NEXGEN_ADMIN_LOGIN_PATH')) {
-    define('NEXGEN_ADMIN_LOGIN_PATH', nxAppUrl('admin_login.php'));
+    define(
+        'NEXGEN_ADMIN_LOGIN_PATH',
+        nxProjectUrl('nx-control-1407')
+    );
 }
 
 /* =========================================================================

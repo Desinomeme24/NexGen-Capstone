@@ -630,6 +630,7 @@ unset($_SESSION['success'], $_SESSION['error']);
             </form>
 
             <div class="toolbar-icon-filters">
+                <?php if ($arEnabled): ?>
                 <div class="icon-filter-wrap">
                     <button type="button" class="icon-filter-btn <?php echo ($filter !== 'All') ? 'has-active' : ''; ?>" data-dropdown-toggle="statusFilterDropdown" aria-haspopup="true" aria-expanded="false" aria-label="Filter by status">
                         <i class="bi bi-funnel-fill"></i>
@@ -652,6 +653,7 @@ unset($_SESSION['success'], $_SESSION['error']);
                         </div>
                     </div>
                 </div>
+                <?php endif; ?>
 
                 <div class="icon-filter-wrap">
                     <button type="button" class="icon-filter-btn <?php echo ($period === 'range') ? 'has-active' : ''; ?>" data-dropdown-toggle="dateFilterDropdown" aria-haspopup="true" aria-expanded="false" aria-label="Filter by date">

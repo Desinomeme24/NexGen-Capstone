@@ -35,7 +35,7 @@ function fpLookupRedirect(
     }
 
     $_SESSION[$type] = $message;
-    header('Location: /NexGen/CODE/PHP/' . $page);
+    header('Location: ' . nxAppUrl($page));
     exit();
 }
 
@@ -108,7 +108,7 @@ if (count($accounts) === 1) {
         exit();
     }
 
-    header('Location: /NexGen/CODE/PHP/send_forgot_otp.php');
+    header('Location: ' . nxAppUrl('send_forgot_otp.php'));
     exit();
 }
 
@@ -134,5 +134,5 @@ if ($isAjax) {
     exit();
 }
 
-header('Location: /NexGen/CODE/PHP/forgot_password_select.php');
+header('Location: ' . nxAppUrl('forgot_password_select.php'));
 exit();

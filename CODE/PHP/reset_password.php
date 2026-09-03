@@ -10,7 +10,7 @@ $fpPortal = nxNormalizeLoginPortal(
 );
 $_SESSION['fp_portal'] = $fpPortal;
 $loginPath = nxLoginPathForPortal($fpPortal);
-$forgotStartPath = '/NexGen/CODE/PHP/forgot_password.php?portal=' . rawurlencode($fpPortal);
+$forgotStartPath = nxAppUrl('forgot_password.php?portal=' . rawurlencode($fpPortal));
 
 $popupMessage = "";
 $popupType = "";
@@ -39,7 +39,7 @@ $resetEmail = $_SESSION['fp_email'] ?? '';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Reset Password - NextGen</title>
-    <link rel="stylesheet" href="/NexGen/CODE/STYLE/forgot_password.css">
+    <link rel="stylesheet" href="<?php echo e(nxCodeUrl('STYLE/forgot_password.css')); ?>">
 </head>
 <body>
 
@@ -55,12 +55,12 @@ $resetEmail = $_SESSION['fp_email'] ?? '';
 
 <div class="forgot-page">
     <div class="forgot-card">
-        <img src="/NexGen/IMAGES/NGlogo.png" alt="Logo" class="forgot-logo">
+        <img src="<?php echo e(nxProjectUrl('IMAGES/NGlogo.png')); ?>" alt="Logo" class="forgot-logo">
 
         <h1>Reset Password</h1>
         <p class="subtext">Enter the OTP sent to your email and set a new password.</p>
 
-        <form action="/NexGen/CODE/PHP/process_reset_password.php" method="POST">
+        <form action="<?php echo e(nxAppUrl('process_reset_password.php')); ?>" method="POST">
             <input type="hidden" name="portal" value="<?php echo e($fpPortal); ?>">
             <label>Email Address</label>
             <input type="email" value="<?php echo htmlspecialchars($resetEmail); ?>" readonly>
@@ -78,7 +78,7 @@ $resetEmail = $_SESSION['fp_email'] ?? '';
         </form>
 
         <div class="links">
-            <form action="/NexGen/CODE/PHP/send_forgot_otp.php" method="POST" class="inline-form">
+            <form action="<?php echo e(nxAppUrl('send_forgot_otp.php')); ?>" method="POST" class="inline-form">
                 <input type="hidden" name="portal" value="<?php echo e($fpPortal); ?>">
                 <button type="submit" class="link-btn">Resend OTP</button>
             </form>
@@ -87,6 +87,6 @@ $resetEmail = $_SESSION['fp_email'] ?? '';
     </div>
 </div>
 
-<script src="/NexGen/CODE/JS/forgot_password.js"></script>
+<script src="<?php echo e(nxCodeUrl('JS/forgot_password.js')); ?>"></script>
 </body>
 </html>

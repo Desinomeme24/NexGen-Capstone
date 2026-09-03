@@ -66,9 +66,6 @@ if (isset($_SESSION['role']) && $_SESSION['role'] === 'system_admin') {
     $backLink = "/NexGen/CODE/PHP/admin_dashboard.php";
 }
 
-$otpNewPasswordValue = $_SESSION['otp_new_password_plain'] ?? '';
-$otpConfirmPasswordValue = $_SESSION['otp_confirm_password_plain'] ?? '';
-
 /* SECURITY: Generate CSRF tokens for settings forms */
 $accountCsrfToken = generateCsrfToken('update_account_form');
 $directPasswordCsrfToken = generateCsrfToken('change_password_direct_form');
@@ -425,7 +422,7 @@ $workspaceCsrfToken = generateCsrfToken('workspace_action');
                             </div>
                         </div>
 
-                        <form action="/NexGen/CODE/PHP/change_password_direct.php" method="POST" class="password-form" id="directPasswordForm">
+                        <form action="<?php echo e(nxAppUrl('change_password_direct.php')); ?>" method="POST" class="password-form" id="directPasswordForm">
                             <input type="hidden" name="csrf_token" value="<?php echo e($directPasswordCsrfToken); ?>">
 
                             <div class="form-group full">
@@ -436,12 +433,12 @@ $workspaceCsrfToken = generateCsrfToken('workspace_action');
                             <div class="form-row">
                                 <div class="form-group">
                                     <label>New Password</label>
-                                    <input type="password" name="new_password" value="<?php echo htmlspecialchars($otpNewPasswordValue); ?>" required>
+                                    <input type="password" name="new_password" minlength="12" maxlength="64" required>
                                 </div>
 
                                 <div class="form-group">
                                     <label>Confirm New Password</label>
-                                    <input type="password" name="confirm_new_password" value="<?php echo htmlspecialchars($otpConfirmPasswordValue); ?>" required>
+                                    <input type="password" name="confirm_new_password" minlength="12" maxlength="64" required>
                                 </div>
                             </div>
 
@@ -466,7 +463,7 @@ $workspaceCsrfToken = generateCsrfToken('workspace_action');
                             <div>
                                 <div class="step-label"><span class="step-badge">1</span> Request a code</div>
 
-                                <form action="/NexGen/CODE/PHP/request_password_change.php" method="POST" class="password-form" id="otpRequestForm">
+                                <form action="<?php echo e(nxAppUrl('request_password_change.php')); ?>" method="POST" class="password-form" id="otpRequestForm">
                                     <input type="hidden" name="csrf_token" value="<?php echo e($requestOtpCsrfToken); ?>">
 
                                     <div class="form-group full">
@@ -477,12 +474,12 @@ $workspaceCsrfToken = generateCsrfToken('workspace_action');
                                     <div class="form-row">
                                         <div class="form-group">
                                             <label>New Password</label>
-                                            <input type="password" name="new_password" id="otpNewPassword" required>
+                                            <input type="password" name="new_password" id="otpNewPassword" minlength="12" maxlength="64" autocomplete="new-password" required>
                                         </div>
 
                                         <div class="form-group">
                                             <label>Confirm New Password</label>
-                                            <input type="password" name="confirm_new_password" id="otpConfirmPassword" required>
+                                            <input type="password" name="confirm_new_password" id="otpConfirmPassword" minlength="12" maxlength="64" autocomplete="new-password" required>
                                         </div>
                                     </div>
 
@@ -495,12 +492,12 @@ $workspaceCsrfToken = generateCsrfToken('workspace_action');
                             <div>
                                 <div class="step-label"><span class="step-badge">2</span> Verify &amp; confirm</div>
 
-                                <form action="/NexGen/CODE/PHP/verify_password_otp.php" method="POST" class="otp-form" id="otpVerifyForm">
+                                <form action="<?php echo e(nxAppUrl('verify_password_otp.php')); ?>" method="POST" class="otp-form" id="otpVerifyForm">
                                     <input type="hidden" name="csrf_token" value="<?php echo e($verifyOtpCsrfToken); ?>">
 
                                     <div class="form-group full">
                                         <label>Enter OTP sent to your email</label>
-                                        <input type="text" name="otp_code" maxlength="6" placeholder="Enter the 6-digit OTP" required>
+                                        <input type="text" name="otp_code" minlength="6" maxlength="6" inputmode="numeric" pattern="[0-9]{6}" autocomplete="one-time-code" placeholder="Enter the 6-digit OTP" required>
                                     </div>
 
                                     <div class="form-actions-left">

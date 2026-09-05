@@ -57,7 +57,7 @@ document.addEventListener("DOMContentLoaded", function () {
       headers.forEach((header, index) => {
         const title = normalize(header.innerText);
 
-        if (!centeredHeaders.includes(title)) return;
+        if (!centeredHeaders.includes(title)) {return;}
 
         header.classList.add("admin-col-center");
 
@@ -84,7 +84,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     return rows.filter((row) => {
       const cells = Array.from(row.children);
-      if (!cells.length) return false;
+      if (!cells.length) {return false;}
 
       // Ignore a single full-width "No records found" type row.
       if (cells.length === 1 && cells[0].hasAttribute("colspan")) {
@@ -102,7 +102,7 @@ document.addEventListener("DOMContentLoaded", function () {
       const rows = getRealDataRows(table);
       const wrap = table.closest(".table-wrap");
 
-      if (!wrap) return;
+      if (!wrap) {return;}
 
       if (rows.length > 10) {
         wrap.classList.add("admin-table-scrollable");
@@ -153,7 +153,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const observer = new MutationObserver((mutations) => {
     mutations.forEach((mutation) => {
       mutation.addedNodes.forEach((node) => {
-        if (node.nodeType !== 1) return;
+        if (node.nodeType !== 1) {return;}
 
         if (node.matches("table")) {
           alignTables(node.parentElement);

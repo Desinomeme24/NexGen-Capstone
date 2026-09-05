@@ -41,6 +41,13 @@ $showCategoryOpen = in_array(
     true
 );
 ?>
+<script>
+window.NEXGEN_PATHS = <?php echo json_encode([
+    'app' => nxAppUrl(),
+    'code' => nxCodeUrl(),
+    'project' => nxProjectUrl(),
+], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+</script>
 
 <aside class="sidebar" id="sidebar" aria-hidden="true">
     <div class="sidebar-top">
@@ -48,9 +55,10 @@ $showCategoryOpen = in_array(
     </div>
 
     <div class="profile-section">
-        <form action="/NexGen/CODE/PHP/update_profile_image.php" method="POST" enctype="multipart/form-data" class="profile-edit-form">
+        <form action="<?php echo e(nxAppUrl('update_profile_image.php')); ?>" method="POST" enctype="multipart/form-data" class="profile-edit-form">
+            <input type="hidden" name="csrf_token" value="<?php echo e(generateCsrfToken('profile_image_form')); ?>">
             <div class="profile-image-wrapper">
-                <img src="/NexGen/CODE/PHP/<?php echo htmlspecialchars($profileImage); ?>" alt="Profile" class="profile-img">
+                <img src="<?php echo e(nxAppUrl($profileImage)); ?>" alt="Profile" class="profile-img">
                 <label for="new_profile_image" class="edit-profile-btn">✎</label>
                 <input type="file" name="new_profile_image" id="new_profile_image" accept="image/*" hidden>
             </div>
@@ -63,12 +71,12 @@ $showCategoryOpen = in_array(
     </div>
 
     <nav class="sidebar-menu">
-        <a href="/NexGen/CODE/PHP/dashboard.php" class="menu-item <?php echo $currentPage === 'dashboard.php' ? 'active' : ''; ?>">
+        <a href="<?php echo e(nxAppUrl('dashboard.php')); ?>" class="menu-item <?php echo $currentPage === 'dashboard.php' ? 'active' : ''; ?>">
             <i class="bi bi-house-door-fill"></i>
             <span><?php echo $isOwner ? 'Owner Dashboard' : 'Employee Dashboard'; ?></span>
         </a>
 
-        <a href="/NexGen/CODE/PHP/about_us.php" class="menu-item <?php echo $currentPage === 'about_us.php' ? 'active' : ''; ?>">
+        <a href="<?php echo e(nxAppUrl('about_us.php')); ?>" class="menu-item <?php echo $currentPage === 'about_us.php' ? 'active' : ''; ?>">
             <i class="bi bi-info-circle-fill"></i>
             <span>About Us</span>
         </a>
@@ -85,28 +93,28 @@ $showCategoryOpen = in_array(
 
             <div class="dropdown-content <?php echo $showCategoryOpen ? 'show' : ''; ?>" id="categoryMenu" aria-hidden="<?php echo $showCategoryOpen ? 'false' : 'true'; ?>">
                 <?php if ($canInventory): ?>
-                <a href="/NexGen/CODE/PHP/inventory_management.php" class="<?php echo $currentPage === 'inventory_management.php' ? 'active-sub active-submenu' : ''; ?>">
+                <a href="<?php echo e(nxAppUrl('inventory_management.php')); ?>" class="<?php echo $currentPage === 'inventory_management.php' ? 'active-sub active-submenu' : ''; ?>">
                     <i class="bi bi-box-seam-fill"></i>
                     <span>Inventory Management</span>
                 </a>
                 <?php endif; ?>
 
                 <?php if ($canSales): ?>
-                    <a href="/NexGen/CODE/PHP/sales_recording.php" class="<?php echo $currentPage === 'sales_recording.php' ? 'active-sub active-submenu' : ''; ?>">
+                    <a href="<?php echo e(nxAppUrl('sales_recording.php')); ?>" class="<?php echo $currentPage === 'sales_recording.php' ? 'active-sub active-submenu' : ''; ?>">
                         <i class="bi bi-receipt-cutoff"></i>
                         <span>Sales</span>
                     </a>
                 <?php endif; ?>
 
                 <?php if ($canSalesAnalytics): ?>
-                    <a href="/NexGen/CODE/PHP/sales_analytics.php" class="<?php echo $currentPage === 'sales_analytics.php' ? 'active-sub active-submenu' : ''; ?>">
+                    <a href="<?php echo e(nxAppUrl('sales_analytics.php')); ?>" class="<?php echo $currentPage === 'sales_analytics.php' ? 'active-sub active-submenu' : ''; ?>">
                         <i class="bi bi-bar-chart-line-fill"></i>
                         <span>Sales Analytics</span>
                     </a>
                 <?php endif; ?>
 
                 <?php if ($canAccountsReceivable): ?>
-                    <a href="/NexGen/CODE/PHP/accounts_receivable.php" class="<?php echo $currentPage === 'accounts_receivable.php' ? 'active-sub active-submenu' : ''; ?>">
+                    <a href="<?php echo e(nxAppUrl('accounts_receivable.php')); ?>" class="<?php echo $currentPage === 'accounts_receivable.php' ? 'active-sub active-submenu' : ''; ?>">
                         <i class="bi bi-wallet2"></i>
                         <span>Accounts Receivable</span>
                     </a>
@@ -115,7 +123,7 @@ $showCategoryOpen = in_array(
         </div>
         <?php endif; ?>
 
-        <a href="/NexGen/CODE/PHP/settings.php" class="menu-item <?php echo $currentPage === 'settings.php' ? 'active' : ''; ?>">
+        <a href="<?php echo e(nxAppUrl('settings.php')); ?>" class="menu-item <?php echo $currentPage === 'settings.php' ? 'active' : ''; ?>">
             <i class="bi bi-gear-wide-connected"></i>
             <span>Settings</span>
         </a>
@@ -215,7 +223,7 @@ $showCategoryOpen = in_array(
                     </div>
                 <?php endif; ?>
                 <?php if ($isOwner): ?>
-                    <a href="/NexGen/CODE/PHP/settings.php?panel=workspace-panel" class="workspace-manage-link" title="Manage businesses and branches" aria-label="Manage businesses and branches">
+                    <a href="<?php echo e(nxAppUrl('settings.php?panel=workspace-panel')); ?>" class="workspace-manage-link" title="Manage businesses and branches" aria-label="Manage businesses and branches">
                         <i class="bi bi-plus-circle"></i>
                     </a>
                 <?php endif; ?>
@@ -238,7 +246,7 @@ $showCategoryOpen = in_array(
         <h3>Log out?</h3>
         <p>You’re about to end your current session.</p>
 
-       <form action="/NexGen/CODE/PHP/logout.php" method="POST" class="logout-form">
+       <form action="<?php echo e(nxAppUrl('logout.php')); ?>" method="POST" class="logout-form">
     <input type="hidden" name="csrf_token" value="<?php echo e(generateCsrfToken('logout_form')); ?>">
     <button type="button" class="logout-cancel-btn" onclick="closeLogoutModal()">Cancel</button>
     <button type="submit" class="logout-confirm-btn">Log Out</button>

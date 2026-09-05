@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/config.php';
-require_once __DIR__ . '/mailer_config.php';
+require_once __DIR__ . '/resend_config.php';
 
 function nxRejectRequestWantsJson(): bool
 {
@@ -184,16 +184,19 @@ try {
 
 /* A mail failure must not reverse the committed rejection. */
 try {
-    $mail = createMailer();
-    $mail->addAddress((string)$requestData['email'], (string)$requestData['full_name']);
-    $mail->Subject = 'NexGen Account Registration Rejected';
-    $mail->Body =
+    $emailBody =
         "Hello,\n\n" .
         "Your NexGen account registration was rejected by the administrator.\n\n" .
         "Reason:\n{$remarks}\n\n" .
         "If you need assistance, please contact the administrator.\n\n" .
         "Thank you.\n— NexGen System";
-    $mail->send();
+
+    nxSendResendEmail(
+        (string)$requestData['email'],
+        (string)($requestData['full_name'] ?: 'NexGen User'),
+        'NexGen Account Registration Rejected',
+        $emailBody
+    );
 } catch (Throwable $mailError) {
     error_log(
         "Rejection email failed for request #{$requestId}: " .

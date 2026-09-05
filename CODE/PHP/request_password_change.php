@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/resend_config.php';
+require_once __DIR__ . '/otp_security.php';
 
 date_default_timezone_set('Asia/Manila');
 
@@ -89,6 +90,14 @@ try {
 }
 
 $otpCode = str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+
+try {
+    $otpHash = nxHashOtp($otpCode);
+} catch (Throwable $e) {
+    error_log('Settings OTP hashing failed: ' . $e->getMessage());
+    nxPasswordChangeRedirect('Unable to secure the OTP right now. Please try again.');
+}
+
 $otpExpiresAt = date('Y-m-d H:i:s', time() + NX_SETTINGS_OTP_TTL_SECONDS);
 $recipientName = trim((string)($user['full_name'] ?? ''));
 if ($recipientName === '') {
@@ -128,7 +137,7 @@ if (!$updateStmt) {
     );
 }
 
-$updateStmt->bind_param('ssi', $otpCode, $otpExpiresAt, $userId);
+$updateStmt->bind_param('ssi', $otpHash, $otpExpiresAt, $userId);
 $otpSaved = $updateStmt->execute();
 if (!$otpSaved) {
     error_log('Settings OTP update error: ' . $updateStmt->error);

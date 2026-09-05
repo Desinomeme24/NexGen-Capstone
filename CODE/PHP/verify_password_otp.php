@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/otp_security.php';
 
 date_default_timezone_set('Asia/Manila');
 
@@ -60,7 +61,7 @@ if (strtotime((string)$user['otp_expires_at']) < time()) {
     nxVerifyPasswordOtpRedirect('OTP has expired. Please request a new one.');
 }
 
-if (!hash_equals((string)$user['otp_code'], $otpCode)) {
+if (!nxVerifyOtp($otpCode, (string)$user['otp_code'])) {
     nxVerifyPasswordOtpRedirect('Invalid OTP code.');
 }
 

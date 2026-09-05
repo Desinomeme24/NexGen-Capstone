@@ -3994,7 +3994,7 @@ html[data-theme="light"] .signup-modern-box .signup-form-panel input[type="file"
                     </div>
                     <p class="login-lock-note" id="loginLockNote" style="color:#dc3545; font-size:12px; margin-bottom:10px; display:none;">This specific account is temporarily locked.</p>
                     <div class="captcha-checkbox-wrap" style="margin:10px 0;"><div class="captcha-checkbox-card"><div class="captcha-checkbox-left" style="gap:8px;"><input type="checkbox" id="loginRobotCheck"><label for="loginRobotCheck" style="font-size:13px; margin:0;">I'm not a robot</label></div><div class="captcha-checkbox-right"><img src="data:image/png;base64,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" alt="reCAPTCHA" width="32" height="32" style="width:32px;height:32px;object-fit:contain;display:block;" aria-hidden="true"><span>Manual<br>Captcha</span></div></div><div class="captcha-verified-text" id="loginVerifiedText" style="color:#28a745; font-size:12px; margin-top:5px; display:none;">Captcha verified.</div></div>
-                    <div style="text-align:center; margin:10px 0 20px;"><a href="/NexGen/CODE/PHP/forgot_password.php" id="forgotPasswordLink" style="color:#777; font-size:13px; text-decoration:none;">Forgot Your Password?</a></div>
+                    <div style="text-align:center; margin:10px 0 20px;"><a href="<?php echo e(nxAppUrl('forgot_password.php?portal=client')); ?>" id="forgotPasswordLink" style="color:#777; font-size:13px; text-decoration:none;">Forgot Your Password?</a></div>
                     <button type="submit" class="glass-login-btn" id="loginSubmitBtn">Sign In</button>
                 </form>
             </div>
@@ -5863,6 +5863,13 @@ document.addEventListener('DOMContentLoaded', function() {
     const forgotStartOverFromSelect = document.getElementById('forgotStartOverFromSelect');
     const forgotStartOverFromOtp = document.getElementById('forgotStartOverFromOtp');
 
+    const forgotEndpoints = Object.freeze({
+        lookup: <?php echo json_encode(nxAppUrl('forgot_password_lookup.php'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>,
+        sendOtp: <?php echo json_encode(nxAppUrl('send_forgot_otp.php'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>,
+        reset: <?php echo json_encode(nxAppUrl('process_reset_password.php'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>
+    });
+    const forgotPortal = 'client';
+
     let forgotCooldownInterval = null;
 
     function showForgotStep(name) {
@@ -5953,7 +5960,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function requestForgotOtp(formData, alertEl) {
-        return fpPost('/NexGen/CODE/PHP/send_forgot_otp.php', formData)
+        if (!formData.has('portal')) formData.append('portal', forgotPortal);
+        return fpPost(forgotEndpoints.sendOtp, formData)
             .then(function(data) {
                 if (!data.success) {
                     if (data.restart) {
@@ -5986,9 +5994,10 @@ document.addEventListener('DOMContentLoaded', function() {
             clearForgotAlert(forgotEmailAlert);
             const fd = new FormData();
             fd.append('email', forgotEmailInput.value.trim());
+            fd.append('portal', forgotPortal);
             forgotEmailSubmitBtn.disabled = true;
             forgotEmailSubmitBtn.textContent = 'Please wait...';
-            fpPost('/NexGen/CODE/PHP/forgot_password_lookup.php', fd)
+            fpPost(forgotEndpoints.lookup, fd)
                 .then(function(data) {
                     if (!data.success) {
                         setForgotAlert(forgotEmailAlert, data.message || 'Something went wrong.', 'error');
@@ -5996,7 +6005,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                     if (data.matched === 0) {
                         setForgotAlert(forgotEmailAlert, data.message, 'success');
-                        return requestForgotOtp(new FormData(), forgotEmailAlert);
+                        return;
                     }
                     if (data.matched === 1) {
                         return requestForgotOtp(new FormData(), forgotEmailAlert);
@@ -6046,9 +6055,10 @@ document.addEventListener('DOMContentLoaded', function() {
             fd.append('otp_code', forgotOtpInput.value.trim());
             fd.append('new_password', forgotNewPassword.value);
             fd.append('confirm_new_password', forgotConfirmPassword.value);
+            fd.append('portal', forgotPortal);
             forgotResetSubmitBtn.disabled = true;
             forgotResetSubmitBtn.textContent = 'Please wait...';
-            fpPost('/NexGen/CODE/PHP/process_reset_password.php', fd)
+            fpPost(forgotEndpoints.reset, fd)
                 .then(function(data) {
                     if (!data.success) {
                         if (data.restart) {

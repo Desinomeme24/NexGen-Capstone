@@ -313,6 +313,13 @@ if (session_status() === PHP_SESSION_ACTIVE) {
 
         .text-link:hover, .text-link:focus-visible { color: white; text-decoration: underline; outline: none; }
 
+        button.text-link {
+            padding: 0;
+            border: 0;
+            background: transparent;
+            cursor: pointer;
+        }
+
         .submit-btn {
             width: 100%;
             min-height: 50px;
@@ -396,6 +403,87 @@ if (session_status() === PHP_SESSION_ACTIVE) {
         .notice-dialog .dialog-actions { justify-content: center; margin: 22px -28px -28px; }
         .timer { display: block; margin: 14px 0 2px; color: var(--accent); font-size: 2.15rem; font-weight: 850; letter-spacing: 0.06em; }
 
+        .forgot-dialog { width: min(510px, 100%); }
+        .forgot-body { padding: 8px 22px 24px; }
+        .forgot-step[hidden] { display: none !important; }
+
+        .forgot-alert {
+            display: none;
+            margin-bottom: 14px;
+            padding: 11px 13px;
+            border: 1px solid;
+            border-radius: 12px;
+            font-size: 0.78rem;
+            line-height: 1.5;
+        }
+
+        .forgot-alert.show { display: block; }
+        .forgot-alert.error { color: var(--danger); background: var(--danger-bg); border-color: rgba(255, 130, 130, 0.28); }
+        .forgot-alert.success { color: var(--success); background: var(--success-bg); border-color: rgba(121, 230, 154, 0.27); }
+
+        .forgot-field { margin-bottom: 13px; }
+        .forgot-field label { display: block; margin-bottom: 7px; color: #dce7fb; font-size: 0.78rem; font-weight: 700; }
+        .forgot-field .input-wrap input { padding-left: 16px; }
+        .forgot-field .input-wrap.has-toggle input { padding-right: 48px; }
+
+        .forgot-submit {
+            width: 100%;
+            min-height: 48px;
+            margin-top: 3px;
+            border: 0;
+            border-radius: 14px;
+            background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+            color: #17213b;
+            font-weight: 850;
+            cursor: pointer;
+        }
+
+        .forgot-submit:disabled, .forgot-link-btn:disabled { cursor: wait; opacity: 0.62; }
+        .forgot-account-list { display: grid; gap: 9px; margin-bottom: 15px; }
+
+        .forgot-account-option {
+            display: flex;
+            align-items: center;
+            gap: 11px;
+            padding: 12px 13px;
+            border: 1px solid var(--line);
+            border-radius: 13px;
+            background: rgba(4, 14, 39, 0.62);
+            color: var(--text);
+            cursor: pointer;
+        }
+
+        .forgot-account-option:has(input:checked) { border-color: var(--accent); background: rgba(247, 202, 132, 0.09); }
+        .forgot-account-option input { accent-color: var(--accent-strong); }
+        .forgot-account-option .account-business { display: block; margin-top: 3px; color: var(--muted); font-size: 0.7rem; }
+
+        .forgot-email-note { margin: 0 0 16px; color: var(--muted); font-size: 0.8rem; line-height: 1.5; }
+        .forgot-email-note strong { color: var(--text); overflow-wrap: anywhere; }
+
+        .forgot-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-top: 16px;
+            padding-top: 14px;
+            border-top: 1px solid var(--line);
+            color: var(--muted);
+            font-size: 0.75rem;
+        }
+
+        .forgot-link-btn {
+            padding: 0;
+            border: 0;
+            background: transparent;
+            color: #b8c9ea;
+            font-weight: 750;
+            cursor: pointer;
+        }
+
+        .forgot-link-btn:hover, .forgot-link-btn:focus-visible { color: white; text-decoration: underline; outline: none; }
+        .forgot-otp-input { letter-spacing: 0.35em; text-align: center; font-size: 1.1rem; font-weight: 800; }
+
         @media (max-width: 820px) {
             .admin-page { padding: 18px; }
             .login-panel { padding: 34px 32px 30px; }
@@ -408,6 +496,8 @@ if (session_status() === PHP_SESSION_ACTIVE) {
             .login-actions { align-items: flex-start; flex-direction: column; gap: 8px; }
             .captcha-grid { gap: 5px; padding-inline: 15px; }
             .dialog-header, .dialog-actions { padding-left: 16px; padding-right: 16px; }
+            .forgot-body { padding-left: 16px; padding-right: 16px; }
+            .forgot-footer { align-items: flex-start; flex-direction: column; }
         }
 
         @media (prefers-reduced-motion: reduce) {
@@ -466,7 +556,7 @@ if (session_status() === PHP_SESSION_ACTIVE) {
                     </button>
 
                     <div class="login-actions">
-                        <a class="text-link" href="/NexGen/CODE/PHP/forgot_password.php?portal=admin">Forgot password?</a>
+                        <button class="text-link" type="button" id="adminForgotTrigger">Forgot password?</button>
                         <a class="text-link" href="/NexGen/CODE/PHP/admin_unlock_otp.php">Unlock administrator account</a>
                     </div>
 
@@ -477,6 +567,80 @@ if (session_status() === PHP_SESSION_ACTIVE) {
         </div>
     </section>
 </main>
+
+<div class="overlay" id="adminForgotDialog" role="dialog" aria-modal="true" aria-labelledby="adminForgotTitle" hidden>
+    <div class="dialog forgot-dialog">
+        <div class="dialog-header">
+            <div>
+                <h3 id="adminForgotTitle">Administrator password recovery</h3>
+                <p>Reset access for a NexGen system administrator account.</p>
+            </div>
+            <button class="dialog-close" type="button" id="adminForgotClose" aria-label="Close password recovery">×</button>
+        </div>
+
+        <div class="forgot-body">
+            <section class="forgot-step" id="adminForgotEmailStep">
+                <div class="forgot-alert" id="adminForgotEmailAlert" role="status" aria-live="polite"></div>
+                <form id="adminForgotEmailForm" novalidate>
+                    <div class="forgot-field">
+                        <label for="adminForgotEmail">Administrator email</label>
+                        <div class="input-wrap">
+                            <input type="email" id="adminForgotEmail" maxlength="254" autocomplete="email" placeholder="Enter your administrator email" required>
+                        </div>
+                    </div>
+                    <button class="forgot-submit" type="submit" id="adminForgotEmailSubmit">Continue</button>
+                </form>
+                <div class="forgot-footer">
+                    <span>Restricted to system administrators.</span>
+                    <button class="forgot-link-btn" type="button" id="adminForgotBackToLogin">Back to login</button>
+                </div>
+            </section>
+
+            <section class="forgot-step" id="adminForgotSelectStep" hidden>
+                <p class="forgot-email-note">Select the administrator account that should receive the reset code.</p>
+                <div class="forgot-alert" id="adminForgotSelectAlert" role="status" aria-live="polite"></div>
+                <form id="adminForgotSelectForm" novalidate>
+                    <div class="forgot-account-list" id="adminForgotAccountList"></div>
+                    <button class="forgot-submit" type="submit" id="adminForgotSelectSubmit">Send OTP</button>
+                </form>
+                <div class="forgot-footer">
+                    <span>Only eligible administrator accounts are listed.</span>
+                    <button class="forgot-link-btn" type="button" data-admin-forgot-restart>Start over</button>
+                </div>
+            </section>
+
+            <section class="forgot-step" id="adminForgotOtpStep" hidden>
+                <p class="forgot-email-note">Enter the six-digit code sent to <strong id="adminForgotMaskedEmail">your email</strong>.</p>
+                <div class="forgot-alert" id="adminForgotOtpAlert" role="status" aria-live="polite"></div>
+                <form id="adminForgotResetForm" novalidate>
+                    <div class="forgot-field">
+                        <label for="adminForgotOtp">One-time password</label>
+                        <div class="input-wrap">
+                            <input class="forgot-otp-input" type="text" id="adminForgotOtp" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" placeholder="000000" required>
+                        </div>
+                    </div>
+                    <div class="forgot-field">
+                        <label for="adminForgotNewPassword">New password</label>
+                        <div class="input-wrap">
+                            <input type="password" id="adminForgotNewPassword" minlength="12" maxlength="64" autocomplete="new-password" placeholder="Create a strong password" required>
+                        </div>
+                    </div>
+                    <div class="forgot-field">
+                        <label for="adminForgotConfirmPassword">Confirm new password</label>
+                        <div class="input-wrap">
+                            <input type="password" id="adminForgotConfirmPassword" minlength="12" maxlength="64" autocomplete="new-password" placeholder="Repeat your new password" required>
+                        </div>
+                    </div>
+                    <button class="forgot-submit" type="submit" id="adminForgotResetSubmit">Reset password</button>
+                </form>
+                <div class="forgot-footer">
+                    <button class="forgot-link-btn" type="button" id="adminForgotResend">Resend OTP</button>
+                    <button class="forgot-link-btn" type="button" data-admin-forgot-restart>Start over</button>
+                </div>
+            </section>
+        </div>
+    </div>
+</div>
 
 <div class="overlay" id="captchaDialog" role="dialog" aria-modal="true" aria-labelledby="captchaTitle" hidden>
     <div class="dialog">
@@ -570,9 +734,42 @@ if (session_status() === PHP_SESSION_ACTIVE) {
     const attemptDialog = document.getElementById('attemptDialog');
     const attemptMessage = document.getElementById('attemptMessage');
     const attemptOkay = document.getElementById('attemptOkay');
+    const adminForgotTrigger = document.getElementById('adminForgotTrigger');
+    const adminForgotDialog = document.getElementById('adminForgotDialog');
+    const adminForgotClose = document.getElementById('adminForgotClose');
+    const adminForgotBackToLogin = document.getElementById('adminForgotBackToLogin');
+    const adminForgotEmailForm = document.getElementById('adminForgotEmailForm');
+    const adminForgotEmail = document.getElementById('adminForgotEmail');
+    const adminForgotEmailAlert = document.getElementById('adminForgotEmailAlert');
+    const adminForgotEmailSubmit = document.getElementById('adminForgotEmailSubmit');
+    const adminForgotSelectForm = document.getElementById('adminForgotSelectForm');
+    const adminForgotAccountList = document.getElementById('adminForgotAccountList');
+    const adminForgotSelectAlert = document.getElementById('adminForgotSelectAlert');
+    const adminForgotSelectSubmit = document.getElementById('adminForgotSelectSubmit');
+    const adminForgotResetForm = document.getElementById('adminForgotResetForm');
+    const adminForgotOtp = document.getElementById('adminForgotOtp');
+    const adminForgotNewPassword = document.getElementById('adminForgotNewPassword');
+    const adminForgotConfirmPassword = document.getElementById('adminForgotConfirmPassword');
+    const adminForgotOtpAlert = document.getElementById('adminForgotOtpAlert');
+    const adminForgotResetSubmit = document.getElementById('adminForgotResetSubmit');
+    const adminForgotMaskedEmail = document.getElementById('adminForgotMaskedEmail');
+    const adminForgotResend = document.getElementById('adminForgotResend');
+    const adminForgotSteps = {
+        email: document.getElementById('adminForgotEmailStep'),
+        select: document.getElementById('adminForgotSelectStep'),
+        otp: document.getElementById('adminForgotOtpStep')
+    };
+
+    const adminForgotEndpoints = Object.freeze({
+        lookup: <?php echo json_encode(nxAppUrl('forgot_password_lookup.php'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>,
+        sendOtp: <?php echo json_encode(nxAppUrl('send_forgot_otp.php'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>,
+        reset: <?php echo json_encode(nxAppUrl('process_reset_password.php'), JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>
+    });
+    const adminForgotPortal = 'admin';
 
     let captchaVerified = false;
     let lastFocusedElement = null;
+    let adminForgotCooldownInterval = null;
 
     const lockoutActive = <?php echo $showLockCountdown ? 'true' : 'false'; ?>;
     const lockoutUntil = <?php echo (int)$lockoutUntilTs; ?>;
@@ -597,6 +794,144 @@ if (session_status() === PHP_SESSION_ACTIVE) {
         if (lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
             lastFocusedElement.focus();
         }
+    }
+
+    function showAdminForgotStep(name) {
+        Object.keys(adminForgotSteps).forEach((key) => {
+            if (adminForgotSteps[key]) adminForgotSteps[key].hidden = key !== name;
+        });
+
+        const focusTarget = name === 'email' ? adminForgotEmail : (name === 'otp' ? adminForgotOtp : null);
+        if (focusTarget) window.setTimeout(() => focusTarget.focus(), 50);
+    }
+
+    function setAdminForgotAlert(element, message, type) {
+        if (!element) return;
+        element.textContent = message;
+        element.className = 'forgot-alert show ' + type;
+    }
+
+    function clearAdminForgotAlert(element) {
+        if (!element) return;
+        element.textContent = '';
+        element.className = 'forgot-alert';
+    }
+
+    function resetAdminForgotWizard() {
+        if (adminForgotCooldownInterval !== null) {
+            window.clearInterval(adminForgotCooldownInterval);
+            adminForgotCooldownInterval = null;
+        }
+        if (adminForgotEmailForm) adminForgotEmailForm.reset();
+        if (adminForgotSelectForm) adminForgotSelectForm.reset();
+        if (adminForgotResetForm) adminForgotResetForm.reset();
+        if (adminForgotAccountList) adminForgotAccountList.replaceChildren();
+        if (adminForgotMaskedEmail) adminForgotMaskedEmail.textContent = 'your email';
+        clearAdminForgotAlert(adminForgotEmailAlert);
+        clearAdminForgotAlert(adminForgotSelectAlert);
+        clearAdminForgotAlert(adminForgotOtpAlert);
+        if (adminForgotResend) {
+            adminForgotResend.disabled = false;
+            adminForgotResend.textContent = 'Resend OTP';
+        }
+        showAdminForgotStep('email');
+    }
+
+    function startAdminForgotCooldown(seconds) {
+        if (!adminForgotResend) return;
+        if (adminForgotCooldownInterval !== null) window.clearInterval(adminForgotCooldownInterval);
+
+        let remaining = Math.max(0, Number.parseInt(seconds, 10) || 0);
+        if (remaining === 0) {
+            adminForgotResend.disabled = false;
+            adminForgotResend.textContent = 'Resend OTP';
+            return;
+        }
+
+        adminForgotResend.disabled = true;
+        adminForgotResend.textContent = 'Resend OTP (' + remaining + 's)';
+        adminForgotCooldownInterval = window.setInterval(() => {
+            remaining -= 1;
+            if (remaining <= 0) {
+                window.clearInterval(adminForgotCooldownInterval);
+                adminForgotCooldownInterval = null;
+                adminForgotResend.disabled = false;
+                adminForgotResend.textContent = 'Resend OTP';
+                return;
+            }
+            adminForgotResend.textContent = 'Resend OTP (' + remaining + 's)';
+        }, 1000);
+    }
+
+    function renderAdminForgotAccounts(candidates) {
+        if (!adminForgotAccountList) return;
+        adminForgotAccountList.replaceChildren();
+
+        candidates.forEach((candidate) => {
+            const label = document.createElement('label');
+            label.className = 'forgot-account-option';
+
+            const input = document.createElement('input');
+            input.type = 'radio';
+            input.name = 'selected_user_id';
+            input.value = String(Number(candidate.id));
+            input.required = true;
+
+            const copy = document.createElement('span');
+            copy.textContent = candidate.masked_username || 'Administrator account';
+
+            if (candidate.business_name) {
+                const business = document.createElement('span');
+                business.className = 'account-business';
+                business.textContent = candidate.business_name;
+                copy.appendChild(business);
+            }
+
+            label.append(input, copy);
+            adminForgotAccountList.appendChild(label);
+        });
+    }
+
+    function adminForgotPost(url, formData) {
+        return fetch(url, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' },
+            body: formData
+        }).then((response) => {
+            if (!response.ok) throw new Error('Password recovery request failed.');
+            return response.json();
+        });
+    }
+
+    function requestAdminForgotOtp(formData, alertElement) {
+        if (!formData.has('portal')) formData.append('portal', adminForgotPortal);
+
+        return adminForgotPost(adminForgotEndpoints.sendOtp, formData)
+            .then((data) => {
+                if (!data.success) {
+                    if (data.restart) {
+                        resetAdminForgotWizard();
+                        setAdminForgotAlert(adminForgotEmailAlert, data.message || 'Please start again.', 'error');
+                        return;
+                    }
+                    if (typeof data.cooldown_remaining === 'number') {
+                        showAdminForgotStep('otp');
+                        setAdminForgotAlert(adminForgotOtpAlert, data.message || 'Please wait before requesting another OTP.', 'error');
+                        startAdminForgotCooldown(data.cooldown_remaining);
+                        return;
+                    }
+                    setAdminForgotAlert(alertElement, data.message || 'Unable to send the OTP.', 'error');
+                    return;
+                }
+
+                if (adminForgotMaskedEmail) adminForgotMaskedEmail.textContent = data.masked_email || 'your email';
+                clearAdminForgotAlert(adminForgotOtpAlert);
+                showAdminForgotStep('otp');
+                startAdminForgotCooldown(data.cooldown || 60);
+            })
+            .catch(() => {
+                setAdminForgotAlert(alertElement, 'Something went wrong. Please try again.', 'error');
+            });
     }
 
     function loadCaptchaImages() {
@@ -635,6 +970,163 @@ if (session_status() === PHP_SESSION_ACTIVE) {
             password.type = reveal ? 'text' : 'password';
             passwordToggle.setAttribute('aria-pressed', reveal ? 'true' : 'false');
             passwordToggle.setAttribute('aria-label', reveal ? 'Hide password' : 'Show password');
+        });
+    }
+
+    if (adminForgotTrigger) {
+        adminForgotTrigger.addEventListener('click', () => {
+            resetAdminForgotWizard();
+            openDialog(adminForgotDialog);
+        });
+    }
+
+    if (adminForgotClose) {
+        adminForgotClose.addEventListener('click', () => {
+            closeDialog(adminForgotDialog);
+            resetAdminForgotWizard();
+        });
+    }
+
+    if (adminForgotBackToLogin) {
+        adminForgotBackToLogin.addEventListener('click', () => {
+            closeDialog(adminForgotDialog);
+            resetAdminForgotWizard();
+            if (username) username.focus();
+        });
+    }
+
+    document.querySelectorAll('[data-admin-forgot-restart]').forEach((button) => {
+        button.addEventListener('click', resetAdminForgotWizard);
+    });
+
+    if (adminForgotOtp) {
+        adminForgotOtp.addEventListener('input', () => {
+            adminForgotOtp.value = adminForgotOtp.value.replace(/[^0-9]/g, '').slice(0, 6);
+        });
+    }
+
+    if (adminForgotEmailForm) {
+        adminForgotEmailForm.addEventListener('submit', (event) => {
+            event.preventDefault();
+            clearAdminForgotAlert(adminForgotEmailAlert);
+
+            if (!adminForgotEmailForm.checkValidity()) {
+                adminForgotEmailForm.reportValidity();
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('email', adminForgotEmail.value.trim());
+            formData.append('portal', adminForgotPortal);
+            adminForgotEmailSubmit.disabled = true;
+            adminForgotEmailSubmit.textContent = 'Please wait...';
+
+            adminForgotPost(adminForgotEndpoints.lookup, formData)
+                .then((data) => {
+                    if (!data.success) {
+                        setAdminForgotAlert(adminForgotEmailAlert, data.message || 'Unable to look up that account.', 'error');
+                        return;
+                    }
+                    if (data.matched === 0) {
+                        setAdminForgotAlert(adminForgotEmailAlert, data.message || 'If an administrator account matches that email, an OTP has been sent.', 'success');
+                        return;
+                    }
+                    if (data.matched === 1) {
+                        return requestAdminForgotOtp(new FormData(), adminForgotEmailAlert);
+                    }
+
+                    renderAdminForgotAccounts(Array.isArray(data.candidates) ? data.candidates : []);
+                    showAdminForgotStep('select');
+                })
+                .catch(() => {
+                    setAdminForgotAlert(adminForgotEmailAlert, 'Something went wrong. Please try again.', 'error');
+                })
+                .finally(() => {
+                    adminForgotEmailSubmit.disabled = false;
+                    adminForgotEmailSubmit.textContent = 'Continue';
+                });
+        });
+    }
+
+    if (adminForgotSelectForm) {
+        adminForgotSelectForm.addEventListener('submit', (event) => {
+            event.preventDefault();
+            clearAdminForgotAlert(adminForgotSelectAlert);
+
+            const selected = adminForgotSelectForm.querySelector('input[name="selected_user_id"]:checked');
+            if (!selected) {
+                setAdminForgotAlert(adminForgotSelectAlert, 'Please select an administrator account.', 'error');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('selected_user_id', selected.value);
+            adminForgotSelectSubmit.disabled = true;
+            adminForgotSelectSubmit.textContent = 'Please wait...';
+
+            requestAdminForgotOtp(formData, adminForgotSelectAlert).finally(() => {
+                adminForgotSelectSubmit.disabled = false;
+                adminForgotSelectSubmit.textContent = 'Send OTP';
+            });
+        });
+    }
+
+    if (adminForgotResetForm) {
+        adminForgotResetForm.addEventListener('submit', (event) => {
+            event.preventDefault();
+            clearAdminForgotAlert(adminForgotOtpAlert);
+
+            if (!adminForgotResetForm.checkValidity()) {
+                adminForgotResetForm.reportValidity();
+                return;
+            }
+            if (adminForgotNewPassword.value !== adminForgotConfirmPassword.value) {
+                setAdminForgotAlert(adminForgotOtpAlert, 'Passwords do not match.', 'error');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('otp_code', adminForgotOtp.value.trim());
+            formData.append('new_password', adminForgotNewPassword.value);
+            formData.append('confirm_new_password', adminForgotConfirmPassword.value);
+            formData.append('portal', adminForgotPortal);
+            adminForgotResetSubmit.disabled = true;
+            adminForgotResetSubmit.textContent = 'Please wait...';
+
+            adminForgotPost(adminForgotEndpoints.reset, formData)
+                .then((data) => {
+                    if (!data.success) {
+                        if (data.restart) {
+                            resetAdminForgotWizard();
+                            setAdminForgotAlert(adminForgotEmailAlert, data.message || 'Please start again.', 'error');
+                            return;
+                        }
+                        setAdminForgotAlert(adminForgotOtpAlert, data.message || 'Unable to reset the password.', 'error');
+                        return;
+                    }
+
+                    setAdminForgotAlert(adminForgotOtpAlert, data.message || 'Password reset successful. You may now log in.', 'success');
+                    window.setTimeout(() => {
+                        closeDialog(adminForgotDialog);
+                        resetAdminForgotWizard();
+                        if (username) username.focus();
+                    }, 1200);
+                })
+                .catch(() => {
+                    setAdminForgotAlert(adminForgotOtpAlert, 'Something went wrong. Please try again.', 'error');
+                })
+                .finally(() => {
+                    adminForgotResetSubmit.disabled = false;
+                    adminForgotResetSubmit.textContent = 'Reset password';
+                });
+        });
+    }
+
+    if (adminForgotResend) {
+        adminForgotResend.addEventListener('click', () => {
+            if (adminForgotResend.disabled) return;
+            clearAdminForgotAlert(adminForgotOtpAlert);
+            requestAdminForgotOtp(new FormData(), adminForgotOtpAlert);
         });
     }
 
@@ -747,7 +1239,7 @@ if (session_status() === PHP_SESSION_ACTIVE) {
 
     document.addEventListener('keydown', (event) => {
         if (event.key !== 'Escape') return;
-        [captchaDialog, noticeDialog, attemptDialog].forEach((dialog) => {
+        [adminForgotDialog, captchaDialog, noticeDialog, attemptDialog].forEach((dialog) => {
             if (dialog && !dialog.hidden) closeDialog(dialog);
         });
     });

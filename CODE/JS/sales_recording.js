@@ -396,7 +396,7 @@ document.addEventListener("DOMContentLoaded", function () {
       code: safeText(product.product_code),
       name: safeText(product.product_name),
       imageUrl:
-        safeText(product.image_url) || "/NexGen/IMAGES/default-product.png",
+        safeText(product.image_url) || "../../IMAGES/default-product.svg",
       stock: safeNumber(product.stock_quantity),
       basePrice,
       discount,
@@ -482,7 +482,7 @@ document.addEventListener("DOMContentLoaded", function () {
       image.addEventListener(
         "error",
         function () {
-          image.src = "/NexGen/IMAGES/default-product.png";
+          image.src = "../../IMAGES/default-product.svg";
         },
         { once: true },
       );
@@ -601,7 +601,7 @@ document.addEventListener("DOMContentLoaded", function () {
     image?.addEventListener(
       "error",
       function () {
-        image.src = "/NexGen/IMAGES/default-product.png";
+        image.src = "../../IMAGES/default-product.svg";
       },
       { once: true },
     );
@@ -1010,7 +1010,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     try {
-      const response = await fetch("/NexGen/CODE/PHP/process_sale_ajax.php", {
+      const response = await fetch("process_sale_ajax.php", {
         method: "POST",
         body: formData,
       });
@@ -1040,8 +1040,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }, 1100);
 
         setTimeout(() => {
-          window.location.href =
-            "/NexGen/CODE/PHP/sale_view.php?id=" + data.sale_id;
+          window.location.href = "sale_view.php?id=" + data.sale_id;
         }, 2200);
       } else {
         showToast(data.message || "Failed to save sale.", "error", 4200);
@@ -1679,7 +1678,7 @@ document.addEventListener("DOMContentLoaded", function () {
       const name = row.dataset.productName || "Product";
       const code = row.dataset.productCode || "No product code";
       const imageUrl =
-        row.dataset.productImage || "/NexGen/IMAGES/default-product.png";
+        row.dataset.productImage || "../../IMAGES/default-product.svg";
       const qty = safeNumber(row.querySelector(".qty-input")?.value);
       const price = safeNumber(row.querySelector(".price-input")?.value);
       const discount = Math.min(
@@ -1709,7 +1708,7 @@ document.addEventListener("DOMContentLoaded", function () {
         image.addEventListener(
           "error",
           function () {
-            image.src = "/NexGen/IMAGES/default-product.png";
+            image.src = "../../IMAGES/default-product.svg";
           },
           { once: true },
         );

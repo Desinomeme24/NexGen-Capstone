@@ -15,7 +15,6 @@
     "dist/",
     "build/",
     "coverage/",
-    "CODE/PHP/PHPMailer/",
     "**/*.min.js"
   ],
   "globals": {

@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/config.php';
-require_once __DIR__ . '/mailer_config.php';
+require_once __DIR__ . '/resend_config.php';
 require_once __DIR__ . '/tenant_helper.php';
 
 if (
@@ -113,16 +113,19 @@ try {
         $_SESSION['flash'] = ['type' => 'notice-success', 'message' => 'Workspace request rejected successfully.'];
 
         try {
-            $mail = createMailer();
-            $mail->addAddress($request['email'], $request['full_name']);
-            $mail->Subject = 'NexGen Workspace Request Rejected';
-            $mail->Body =
+            $emailBody =
                 "Hello {$request['full_name']},\n\n" .
                 "Your {$request['request_type']} request {$request['request_code']} was rejected.\n\n" .
                 "Reason:\n{$remarks}\n\n" .
                 "You may submit another business or branch request from Settings.\n\n" .
                 "— NexGen System";
-            $mail->send();
+
+            nxSendResendEmail(
+                (string)$request['email'],
+                (string)($request['full_name'] ?: 'NexGen User'),
+                'NexGen Workspace Request Rejected',
+                $emailBody
+            );
         } catch (Throwable $mailError) {
             error_log('Workspace rejection email failed: ' . $mailError->getMessage());
         }
@@ -386,17 +389,20 @@ try {
     $_SESSION['last_activity'] = time();
 
     try {
-        $mail = createMailer();
-        $mail->addAddress($request['email'], $request['full_name']);
-        $mail->Subject = 'NexGen Workspace Request Approved';
-        $mail->Body =
+        $emailBody =
             "Hello {$request['full_name']},\n\n" .
             "Your {$request['request_type']} request {$request['request_code']} has been approved.\n" .
             "Business code: {$businessCode}\n" .
             "Branch code: {$branchCode}\n\n" .
             "The approved workspace is now available from your Businesses & Branches settings.\n\n" .
             "— NexGen System";
-        $mail->send();
+
+        nxSendResendEmail(
+            (string)$request['email'],
+            (string)($request['full_name'] ?: 'NexGen User'),
+            'NexGen Workspace Request Approved',
+            $emailBody
+        );
     } catch (Throwable $mailError) {
         error_log('Workspace approval email failed: ' . $mailError->getMessage());
     }

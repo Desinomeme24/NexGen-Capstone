@@ -1,54 +1,56 @@
 <?php
 /**
- * Ollama integration helpers for the NexGen chatbot.
- * Talks to a local Ollama server (default: http://127.0.0.1:11434) running
- * a pulled model (default: qwen3:8b).
+ * Ollama integration helpers for NexGen.
  *
- * To override the defaults, add this to config.php (before this file is
- * required, or anywhere earlier in the request):
- *
- *   define('OLLAMA_HOST', 'http://127.0.0.1:11434');
- *   define('OLLAMA_MODEL', 'qwen3:8b');
- *   define('OLLAMA_TIMEOUT', 25);
- *
- * Qwen3 models are "thinking" models: they can emit an internal reasoning
- * trace before the final answer. Control this per-call with the 'think'
- * option on ollama_generate()/ollama_chat() (see below). Ollama returns the
- * reasoning separately in $result['response']['thinking'] (generate) or
- * $result['message']['thinking'] (chat) when thinking is enabled — it is
- * NOT mixed into the visible response text.
+ * Optimized for qwen3:4b-instruct on CPU-first development machines:
+ * - thinking disabled by default
+ * - shorter generations
+ * - one shared HTTP transport for generate/chat/tool calls
+ * - keep-alive enabled to avoid reloading the model for every question
  */
 
 if (!defined('OLLAMA_HOST')) {
     define('OLLAMA_HOST', 'http://127.0.0.1:11434');
 }
 if (!defined('OLLAMA_MODEL')) {
-    define('OLLAMA_MODEL', 'qwen3:8b');
+    define('OLLAMA_MODEL', 'qwen3:4b-instruct');
 }
 if (!defined('OLLAMA_TIMEOUT')) {
-    // Generation itself is usually fast, but the FIRST request after Ollama
-    // has been idle has to load the model into RAM first, which can take
-    // 20-30s depending on the machine (qwen3:8b is larger than llama3.2:3b,
-    // so cold starts may run a bit longer). 60s covers a cold start; once
-    // the model is warm, replies come back in a couple of seconds.
-    define('OLLAMA_TIMEOUT', 60);
+    define('OLLAMA_TIMEOUT', 45);
+}
+
+$GLOBALS['OLLAMA_LAST_ERROR'] = null;
+
+function ollama_set_last_error(?string $message): void {
+    $GLOBALS['OLLAMA_LAST_ERROR'] = $message;
+}
+
+function ollama_last_error(): ?string {
+    return $GLOBALS['OLLAMA_LAST_ERROR'] ?? null;
 }
 
 /**
  * Low-level POST to the Ollama REST API.
- * Returns the decoded JSON body as an array, or null on any failure.
- * Never throws — callers should treat null as "AI unavailable" and fall
- * back to a canned reply.
+ * Returns decoded JSON as an array, or null on failure.
  */
 function ollama_post($path, array $payload) {
+    ollama_set_last_error(null);
     $url = rtrim(OLLAMA_HOST, '/') . $path;
+
+    $encoded = json_encode($payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    if ($encoded === false) {
+        $message = 'Could not encode request JSON: ' . json_last_error_msg();
+        ollama_set_last_error($message);
+        error_log('[Ollama] ' . $message);
+        return null;
+    }
 
     $ch = curl_init($url);
     curl_setopt_array($ch, [
         CURLOPT_POST => true,
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
-        CURLOPT_POSTFIELDS => json_encode($payload, JSON_UNESCAPED_UNICODE),
+        CURLOPT_POSTFIELDS => $encoded,
         CURLOPT_TIMEOUT => OLLAMA_TIMEOUT,
         CURLOPT_CONNECTTIMEOUT => 5,
     ]);
@@ -60,18 +62,24 @@ function ollama_post($path, array $payload) {
     curl_close($ch);
 
     if ($errorNo !== 0) {
-        error_log("[Ollama] cURL error ({$errorNo}): {$curlError}");
+        $message = "cURL error ({$errorNo}): {$curlError}";
+        ollama_set_last_error($message);
+        error_log('[Ollama] ' . $message);
         return null;
     }
 
     if ($httpCode < 200 || $httpCode >= 300) {
-        error_log("[Ollama] HTTP {$httpCode}: " . substr((string)$response, 0, 500));
+        $message = "HTTP {$httpCode}: " . substr((string)$response, 0, 1000);
+        ollama_set_last_error($message);
+        error_log('[Ollama] ' . $message);
         return null;
     }
 
-    $decoded = json_decode($response, true);
-    if (json_last_error() !== JSON_ERROR_NONE) {
-        error_log('[Ollama] Invalid JSON response: ' . json_last_error_msg());
+    $decoded = json_decode((string)$response, true);
+    if (json_last_error() !== JSON_ERROR_NONE || !is_array($decoded)) {
+        $message = 'Invalid JSON response: ' . json_last_error_msg();
+        ollama_set_last_error($message);
+        error_log('[Ollama] ' . $message);
         return null;
     }
 
@@ -79,54 +87,41 @@ function ollama_post($path, array $payload) {
 }
 
 /**
- * Single-turn completion (used for RAG answers and forecast narration).
- *
- * $options:
- *   - model        (string) override OLLAMA_MODEL
- *   - system       (string) system prompt
- *   - temperature  (float)  default 0.3
- *   - num_predict  (int)    max tokens to generate, default 350
- *   - think        (bool)   Qwen3 thinking mode. true = model reasons before
- *                           answering (slower, often more accurate on math/
- *                           logic); false = skip reasoning (faster, matches
- *                           old llama3.2:3b-style instant replies). Omit to
- *                           use the model's own default.
- *
- * Returns the trimmed response text, or null on failure. When 'think' is
- * enabled, pass return_thinking = true in $options to instead get back
- * ['answer' => ..., 'thinking' => ...].
+ * Single-turn completion.
  */
 function ollama_generate($prompt, array $options = []) {
     $payload = [
         'model' => $options['model'] ?? OLLAMA_MODEL,
         'prompt' => $prompt,
         'stream' => false,
+        'think' => $options['think'] ?? false,
+        'keep_alive' => $options['keep_alive'] ?? '30m',
         'options' => [
-            'temperature' => $options['temperature'] ?? 0.3,
-            'num_predict' => $options['num_predict'] ?? 350,
+            'temperature' => $options['temperature'] ?? 0.2,
+            'num_predict' => $options['num_predict'] ?? 96,
         ],
     ];
 
     if (!empty($options['system'])) {
         $payload['system'] = $options['system'];
     }
-
-    if (array_key_exists('think', $options)) {
-        $payload['think'] = (bool)$options['think'];
+    if (!empty($options['format'])) {
+        $payload['format'] = $options['format'];
+    }
+    if (isset($options['num_ctx'])) {
+        $payload['options']['num_ctx'] = (int)$options['num_ctx'];
     }
 
     $result = ollama_post('/api/generate', $payload);
-
-    if (!$result || !isset($result['response'])) {
+    if (!$result || !array_key_exists('response', $result)) {
         return null;
     }
 
-    $answer = trim($result['response']);
-
+    $answer = trim((string)$result['response']);
     if (!empty($options['return_thinking'])) {
         return [
             'answer' => $answer,
-            'thinking' => isset($result['thinking']) ? trim($result['thinking']) : null,
+            'thinking' => isset($result['thinking']) ? trim((string)$result['thinking']) : null,
         ];
     }
 
@@ -134,39 +129,64 @@ function ollama_generate($prompt, array $options = []) {
 }
 
 /**
- * Multi-turn chat completion, in case you want to add conversation-style
- * prompting later (e.g. multi-step forecasting dialogue).
- *
- * $messages = [['role' => 'system'|'user'|'assistant', 'content' => '...'], ...]
- * Returns the trimmed assistant reply text, or null on failure.
+ * Raw multi-turn chat. Returns the full Ollama response so callers can inspect
+ * message.tool_calls, message.content and timing metadata.
  */
-function ollama_chat(array $messages, array $options = []) {
+function ollama_chat_raw(array $messages, array $tools = [], array $options = []): ?array {
     $payload = [
         'model' => $options['model'] ?? OLLAMA_MODEL,
-        'messages' => $messages,
+        'messages' => array_values($messages),
         'stream' => false,
+        'think' => $options['think'] ?? false,
+        'keep_alive' => $options['keep_alive'] ?? '30m',
         'options' => [
-            'temperature' => $options['temperature'] ?? 0.3,
-            'num_predict' => $options['num_predict'] ?? 350,
+            'temperature' => $options['temperature'] ?? 0.1,
+            'num_predict' => $options['num_predict'] ?? 96,
         ],
     ];
 
-    if (array_key_exists('think', $options)) {
-        $payload['think'] = (bool)$options['think'];
+    if (!empty($tools)) {
+        $payload['tools'] = array_values($tools);
+    }
+    if (!empty($options['format'])) {
+        $payload['format'] = $options['format'];
+    }
+    if (isset($options['num_ctx'])) {
+        $payload['options']['num_ctx'] = (int)$options['num_ctx'];
     }
 
     $result = ollama_post('/api/chat', $payload);
-
-    if (!$result || !isset($result['message']['content'])) {
+    if (!$result || !isset($result['message']) || !is_array($result['message'])) {
+        if ($result) {
+            error_log('[Ollama] Chat response was missing message: ' . substr(json_encode($result), 0, 1000));
+        }
         return null;
     }
 
-    $answer = trim($result['message']['content']);
+    return $result;
+}
+
+/**
+ * Backward-compatible plain chat helper.
+ */
+function ollama_chat(array $messages, array $options = []) {
+    $tools = [];
+    if (!empty($options['tools']) && is_array($options['tools'])) {
+        $tools = $options['tools'];
+    }
+
+    $result = ollama_chat_raw($messages, $tools, $options);
+    if (!$result) {
+        return null;
+    }
+
+    $message = $result['message'];
+    $answer = trim((string)($message['content'] ?? ''));
 
     if (!empty($options['return_thinking'])) {
         return [
             'answer' => $answer,
-            'thinking' => isset($result['message']['thinking']) ? trim($result['message']['thinking']) : null,
+            'thinking' => isset($message['thinking']) ? trim((string)$message['thinking']) : null,
         ];
     }
 

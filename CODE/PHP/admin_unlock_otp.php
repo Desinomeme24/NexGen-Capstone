@@ -2,7 +2,7 @@
 /* Load config first so this recovery endpoint uses the same hardened session
    cookie settings as both login portals. */
 require_once __DIR__ . '/config.php';
-require_once __DIR__ . '/mailer_config.php';
+require_once __DIR__ . '/resend_config.php';
 require_once __DIR__ . '/otp_security.php';
 
 $_SESSION['login_portal'] = 'admin';
@@ -96,11 +96,12 @@ if (!isset($_SESSION['admin_unlock_otp_sent']) || $_SESSION['admin_unlock_otp_se
     }
 
     try {
-        $mail = createMailer();
-        $mail->addAddress($admin['email'], $admin['full_name'] ?: $admin['username']);
-        $mail->Subject = 'NextGen Admin Unlock OTP';
-        $mail->Body = "Your NextGen admin unlock OTP is: {$otp}\n\nThis code will expire in 5 minutes.\n\nUse this OTP to unlock your locked admin account.";
-        $mail->send();
+        nxSendResendEmail(
+            (string)$admin['email'],
+            (string)($admin['full_name'] ?: $admin['username']),
+            'NextGen Admin Unlock OTP',
+            "Your NextGen admin unlock OTP is: {$otp}\n\nThis code will expire in 5 minutes.\n\nUse this OTP to unlock your locked admin account."
+        );
 
         $_SESSION['admin_unlock_otp_sent'] = $adminId;
         $_SESSION['success'] = "A 6-digit OTP has been sent to the admin email.";
@@ -243,11 +244,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         try {
-            $mail = createMailer();
-            $mail->addAddress($admin['email'], $admin['full_name'] ?: $admin['username']);
-            $mail->Subject = 'NextGen Admin Unlock OTP (Resent)';
-            $mail->Body = "Your new NextGen admin unlock OTP is: {$otp}\n\nThis code will expire in 5 minutes.";
-            $mail->send();
+            nxSendResendEmail(
+                (string)$admin['email'],
+                (string)($admin['full_name'] ?: $admin['username']),
+                'NextGen Admin Unlock OTP (Resent)',
+                "Your new NextGen admin unlock OTP is: {$otp}\n\nThis code will expire in 5 minutes."
+            );
 
             $_SESSION['success'] = "A new OTP has been sent to the admin email.";
             header("Location: /NexGen/CODE/PHP/admin_unlock_otp.php");

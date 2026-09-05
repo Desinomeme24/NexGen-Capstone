@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/config.php';
-require_once __DIR__ . '/mailer_config.php';
+require_once __DIR__ . '/resend_config.php';
 require_once __DIR__ . '/tenant_helper.php';
 
 function nxApproveRequestWantsJson(): bool
@@ -461,10 +461,7 @@ try {
 
     /* Email errors must never reverse or hide the successful approval. */
     try {
-        $mail = createMailer();
-        $mail->addAddress($request['email'], $request['full_name']);
-        $mail->Subject = 'NexGen Account Registration Approved';
-        $mail->Body =
+        $emailBody =
             "Hello,\n\n" .
             "Your NexGen account registration has been approved.\n" .
             ($role === 'owner'
@@ -475,7 +472,13 @@ try {
                   "Your branch code is: {$branchCode}\n") .
             "You may now log in using your registered username and password.\n\n" .
             "Thank you.\n— NexGen System";
-        $mail->send();
+
+        nxSendResendEmail(
+            (string)$request['email'],
+            (string)($request['full_name'] ?: 'NexGen User'),
+            'NexGen Account Registration Approved',
+            $emailBody
+        );
     } catch (Throwable $mailError) {
         error_log(
             "Approval email failed for request #{$requestId}: " .

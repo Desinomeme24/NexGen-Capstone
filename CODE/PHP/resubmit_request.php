@@ -1,6 +1,6 @@
 <?php
 require_once __DIR__ . '/config.php';
-require_once __DIR__ . '/mailer_config.php';
+require_once __DIR__ . '/resend_config.php';
 require_once __DIR__ . '/tenant_helper.php';
 
 function nxResubmitRequestWantsJson(): bool
@@ -532,16 +532,19 @@ try {
 
 /* A mail failure must not reverse the committed request update. */
 try {
-    $mail = createMailer();
-    $mail->addAddress($email, $fullName);
-    $mail->Subject = 'NexGen Registration Requires Resubmission';
-    $mail->Body =
+    $emailBody =
         "Hello,\n\n" .
         "Your NexGen registration requires corrections before it can be approved.\n\n" .
         "Administrator instructions:\n{$remarks}\n\n" .
         "If any corrected information is inaccurate, please contact the administrator.\n\n" .
         "Thank you.\n— NexGen System";
-    $mail->send();
+
+    nxSendResendEmail(
+        (string)$email,
+        (string)($fullName ?: 'NexGen User'),
+        'NexGen Registration Requires Resubmission',
+        $emailBody
+    );
 } catch (Throwable $mailError) {
     error_log(
         "Resubmission email failed for request #{$requestId}: " .

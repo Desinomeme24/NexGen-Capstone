@@ -6,7 +6,7 @@
  *   NEXGEN_RESEND_API_KEY
  *
  * Optional environment variables:
- *   NEXGEN_RESEND_FROM_ADDRESS (defaults to onboarding@resend.dev for local testing)
+ *   NEXGEN_RESEND_FROM_ADDRESS (required in production)
  *   NEXGEN_RESEND_FROM_NAME    (defaults to NexGen)
  */
 
@@ -29,6 +29,10 @@ if (!function_exists('nxSendResendEmail')) {
 
         $fromAddress = trim((string)(getenv('NEXGEN_RESEND_FROM_ADDRESS') ?: ''));
         if ($fromAddress === '') {
+            $isProduction = strtolower(trim((string)(getenv('NEXGEN_ENV') ?: 'development'))) === 'production';
+            if ($isProduction) {
+                throw new RuntimeException('NexGen Resend sender address is not configured.');
+            }
             $fromAddress = 'onboarding@resend.dev';
         }
         if (!filter_var($fromAddress, FILTER_VALIDATE_EMAIL)) {
@@ -142,4 +146,3 @@ if (!function_exists('nxSendResendEmail')) {
         return $messageId;
     }
 }
-

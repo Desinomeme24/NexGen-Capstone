@@ -39,6 +39,13 @@ RUN rm -rf /var/www/html/* \
     && mkdir -p /var/lib/nexgen/private/valid_ids /var/www/html/uploads/products \
     && printf '%s\n' \
         'RewriteEngine On' \
+        'RewriteCond %{THE_REQUEST} \s/+NexGen/CODE/PHP/admin_login\.php(?:[?\s]|$) [NC]' \
+        'RewriteRule ^NexGen/CODE/PHP/admin_login\.php$ - [R=404,L,NC]' \
+        'RewriteRule ^NexGen/CODE/PHP/(.*)$ /$1 [END,NC]' \
+        'RewriteRule ^NexGen/CODE/STYLE/(.*)$ /STYLE/$1 [END,NC]' \
+        'RewriteRule ^NexGen/CODE/JS/(.*)$ /JS/$1 [END,NC]' \
+        'RewriteRule ^NexGen/IMAGES/(.*)$ /IMAGES/$1 [END,NC]' \
+        'RewriteRule ^NexGen/uploads/(.*)$ /uploads/$1 [END,NC]' \
         'RewriteRule ^nx-control-1407/?$ admin_login.php [END,NC]' \
         'RewriteCond %{THE_REQUEST} \s/+admin_login\.php(?:[?\s]|$) [NC]' \
         'RewriteRule ^admin_login\.php$ - [R=404,L,NC]' \

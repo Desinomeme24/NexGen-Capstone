@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/resend_config.php';
+require_once __DIR__ . '/otp_security.php';
 
 $fpPortal = nxNormalizeLoginPortal(
     $_POST['portal']
@@ -147,6 +148,17 @@ $otpCode = str_pad(
     STR_PAD_LEFT
 );
 
+try {
+    $otpHash = nxHashOtp($otpCode);
+} catch (Throwable $e) {
+    error_log('Forgot password OTP hashing failed: ' . $e->getMessage());
+    forgotPasswordRedirect(
+        'Unable to secure the reset code right now. Please try again.',
+        'error',
+        'reset_password.php'
+    );
+}
+
 $otpExpiresAt = date('Y-m-d H:i:s', time() + NX_FP_OTP_TTL_SECONDS);
 
 $recipientName = trim((string) ($user['full_name'] ?? ''));
@@ -219,7 +231,7 @@ if (!$updateStmt) {
 
 $updateStmt->bind_param(
     'ssi',
-    $otpCode,
+    $otpHash,
     $otpExpiresAt,
     $userId
 );

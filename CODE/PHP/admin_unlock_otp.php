@@ -3,6 +3,7 @@
    cookie settings as both login portals. */
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/mailer_config.php';
+require_once __DIR__ . '/otp_security.php';
 
 $_SESSION['login_portal'] = 'admin';
 
@@ -68,6 +69,15 @@ if (!isset($_SESSION['admin_unlock_otp_sent']) || $_SESSION['admin_unlock_otp_se
     $otp = (string) random_int(100000, 999999);
     $expiresAt = date('Y-m-d H:i:s', strtotime('+5 minutes'));
 
+    try {
+        $otpHash = nxHashOtp($otp);
+    } catch (Throwable $e) {
+        error_log('NexGen administrator unlock OTP hashing failed: ' . $e->getMessage());
+        $_SESSION['error'] = "Unable to secure the administrator unlock code right now.";
+        header('Location: ' . NEXGEN_ADMIN_LOGIN_PATH);
+        exit();
+    }
+
     $otpStmt = $conn->prepare("UPDATE users SET otp_code = ?, otp_expires_at = ? WHERE id = ? AND role = 'system_admin'");
     if (!$otpStmt) {
         $_SESSION['error'] = "Unable to prepare the administrator unlock code right now.";
@@ -75,7 +85,7 @@ if (!isset($_SESSION['admin_unlock_otp_sent']) || $_SESSION['admin_unlock_otp_se
         exit();
     }
 
-    $otpStmt->bind_param("ssi", $otp, $expiresAt, $adminId);
+    $otpStmt->bind_param("ssi", $otpHash, $expiresAt, $adminId);
     $otpStored = $otpStmt->execute();
     $otpStmt->close();
 
@@ -156,7 +166,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit();
         }
 
-        if (!hash_equals($storedOtp, $otpInput)) {
+        if (!nxVerifyOtp($otpInput, $storedOtp)) {
             $_SESSION['error'] = "Invalid OTP code.";
             header("Location: /NexGen/CODE/PHP/admin_unlock_otp.php");
             exit();
@@ -206,6 +216,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $otp = (string) random_int(100000, 999999);
         $expiresAt = date('Y-m-d H:i:s', strtotime('+5 minutes'));
 
+        try {
+            $otpHash = nxHashOtp($otp);
+        } catch (Throwable $e) {
+            error_log('NexGen administrator unlock OTP rehash failed: ' . $e->getMessage());
+            $_SESSION['error'] = "Unable to secure a new administrator unlock code right now.";
+            header("Location: /NexGen/CODE/PHP/admin_unlock_otp.php");
+            exit();
+        }
+
         $otpStmt = $conn->prepare("UPDATE users SET otp_code = ?, otp_expires_at = ? WHERE id = ? AND role = 'system_admin'");
         if (!$otpStmt) {
             $_SESSION['error'] = "Unable to prepare a new administrator unlock code right now.";
@@ -213,7 +232,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit();
         }
 
-        $otpStmt->bind_param("ssi", $otp, $expiresAt, $adminId);
+        $otpStmt->bind_param("ssi", $otpHash, $expiresAt, $adminId);
         $otpStored = $otpStmt->execute();
         $otpStmt->close();
 

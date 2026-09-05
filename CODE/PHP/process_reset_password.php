@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/otp_security.php';
 
 $fpPortal = nxNormalizeLoginPortal(
     $_POST['portal']
@@ -29,7 +30,7 @@ function prpRespond(bool $success, string $message, string $type, string $page, 
     }
 
     $_SESSION[$type] = $message;
-    header('Location: /NexGen/CODE/PHP/' . $page);
+    header('Location: ' . nxAppUrl($page));
     exit();
 }
 
@@ -39,14 +40,12 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST") {
 
 $userId = isset($_SESSION['fp_selected_user_id']) ? (int) $_SESSION['fp_selected_user_id'] : 0;
 
-// If no valid user ID (e.g., from forgot password lookup for non-existent account),
-// set up a mock user to prevent user enumeration via timing differences
+// Preserve a neutral failure path when no account was selected.
 if ($userId <= 0) {
-    // Mock user with OTP code of different length - hash_equals will safely return false
     $user = [
         'id' => $userId,
-        'otp_code' => '12345', // 5 chars - different from 6-digit user input
-        'otp_expires_at' => date('Y-m-d H:i:s', time() - 3600) // Expired 1 hour ago
+        'otp_code' => '',
+        'otp_expires_at' => date('Y-m-d H:i:s', time() - 3600)
     ];
 } else {
     $sql = "SELECT id, role, otp_code, otp_expires_at FROM users WHERE id = ? AND account_status = 'active' LIMIT 1";
@@ -123,7 +122,7 @@ if (empty($user['otp_code']) || empty($user['otp_expires_at'])) {
     prpRespond(false, "No valid OTP found. Please request a new one.", 'error', 'reset_password.php');
 }
 
-if (!hash_equals($user['otp_code'], $otp_code)) {
+if (!nxVerifyOtp($otp_code, (string)$user['otp_code'])) {
     prpRespond(false, "Invalid OTP code.", 'error', 'reset_password.php');
 }
 

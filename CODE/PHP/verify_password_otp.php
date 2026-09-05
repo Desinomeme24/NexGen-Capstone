@@ -1,99 +1,96 @@
 <?php
-session_start();
-include 'config.php';
+require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/otp_security.php';
 
 date_default_timezone_set('Asia/Manila');
 
+function nxVerifyPasswordOtpRedirect(string $message, string $type = 'error'): void
+{
+    $_SESSION[$type] = $message;
+    header('Location: ' . nxAppUrl('settings.php?panel=security-panel'));
+    exit();
+}
+
 if (!isset($_SESSION['user_id'])) {
-    header("Location: /NexGen/CODE/PHP/index.php");
+    header('Location: ' . nxLoginPathForRole((string)($_SESSION['role'] ?? '')));
     exit();
 }
 
-if ($_SERVER["REQUEST_METHOD"] !== "POST") {
-    $_SESSION['error'] = "Invalid request.";
-    header("Location: /NexGen/CODE/PHP/settings.php");
-    exit();
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    nxVerifyPasswordOtpRedirect('Invalid request.');
 }
 
-/* SECURITY: CSRF validation */
 if (!validateCsrfToken('verify_password_otp_form', $_POST['csrf_token'] ?? '')) {
-    $_SESSION['error'] = "Invalid or expired OTP verification form token.";
-    header("Location: /NexGen/CODE/PHP/settings.php");
-    exit();
+    nxVerifyPasswordOtpRedirect('Invalid or expired OTP verification form token.');
 }
 
-$user_id = $_SESSION['user_id'];
-$otp_code = trim($_POST['otp_code'] ?? '');
+$userId = (int)$_SESSION['user_id'];
+$otpCode = trim((string)($_POST['otp_code'] ?? ''));
+$pendingPasswordHash = (string)($_SESSION['pending_new_password'] ?? '');
 
-if ($otp_code === '') {
-    $_SESSION['error'] = "Please enter the OTP code.";
-    header("Location: /NexGen/CODE/PHP/settings.php");
-    exit();
+if (!preg_match('/^[0-9]{6}$/D', $otpCode)) {
+    nxVerifyPasswordOtpRedirect('Please enter the complete 6-digit OTP.');
 }
 
-if (!isset($_SESSION['pending_new_password']) || $_SESSION['pending_new_password'] === '') {
-    $_SESSION['error'] = "No pending password change found. Please request a new OTP.";
-    header("Location: /NexGen/CODE/PHP/settings.php");
-    exit();
+if ($pendingPasswordHash === '') {
+    nxVerifyPasswordOtpRedirect('No pending password change found. Please request a new OTP.');
 }
 
-$sql = "SELECT otp_code, otp_expires_at FROM users WHERE id = ? LIMIT 1";
-$stmt = $conn->prepare($sql);
+$stmt = $conn->prepare(
+    "SELECT otp_code, otp_expires_at
+     FROM users
+     WHERE id = ? AND account_status = 'active'
+     LIMIT 1"
+);
 
 if (!$stmt) {
-    $_SESSION['error'] = "Database error: failed to prepare OTP lookup.";
-    header("Location: /NexGen/CODE/PHP/settings.php");
-    exit();
+    error_log('Settings OTP verification lookup prepare error: ' . $conn->error);
+    nxVerifyPasswordOtpRedirect('Unable to process your request right now.');
 }
 
-$stmt->bind_param("i", $user_id);
+$stmt->bind_param('i', $userId);
 $stmt->execute();
-$result = $stmt->get_result();
-$user = $result->fetch_assoc();
+$user = $stmt->get_result()->fetch_assoc();
 $stmt->close();
 
 if (!$user || empty($user['otp_code']) || empty($user['otp_expires_at'])) {
-    $_SESSION['error'] = "No valid OTP found. Please request a new OTP.";
-    header("Location: /NexGen/CODE/PHP/settings.php");
-    exit();
+    nxVerifyPasswordOtpRedirect('No valid OTP found. Please request a new OTP.');
 }
 
-if ($otp_code !== $user['otp_code']) {
-    $_SESSION['error'] = "Invalid OTP code.";
-    header("Location: /NexGen/CODE/PHP/settings.php");
-    exit();
+if (strtotime((string)$user['otp_expires_at']) < time()) {
+    nxVerifyPasswordOtpRedirect('OTP has expired. Please request a new one.');
 }
 
-if (strtotime($user['otp_expires_at']) < time()) {
-    $_SESSION['error'] = "OTP has expired. Please request a new one.";
-    header("Location: /NexGen/CODE/PHP/settings.php");
-    exit();
+if (!nxVerifyOtp($otpCode, (string)$user['otp_code'])) {
+    nxVerifyPasswordOtpRedirect('Invalid OTP code.');
 }
 
-$new_password_hash = $_SESSION['pending_new_password'];
+$updateStmt = $conn->prepare(
+    'UPDATE users
+     SET password = ?, otp_code = NULL, otp_expires_at = NULL
+     WHERE id = ?'
+);
 
-$update_sql = "UPDATE users SET password = ?, otp_code = NULL, otp_expires_at = NULL WHERE id = ?";
-$update_stmt = $conn->prepare($update_sql);
-
-if (!$update_stmt) {
-    $_SESSION['error'] = "Database error: failed to prepare password update.";
-    header("Location: /NexGen/CODE/PHP/settings.php");
-    exit();
+if (!$updateStmt) {
+    error_log('Settings password update prepare error: ' . $conn->error);
+    nxVerifyPasswordOtpRedirect('Failed to update password.');
 }
 
-$update_stmt->bind_param("si", $new_password_hash, $user_id);
+$updateStmt->bind_param('si', $pendingPasswordHash, $userId);
+$passwordUpdated = $updateStmt->execute();
+if (!$passwordUpdated) {
+    error_log('Settings password update error: ' . $updateStmt->error);
+}
+$updateStmt->close();
 
-if ($update_stmt->execute()) {
-    unset($_SESSION['pending_new_password']);
-    unset($_SESSION['otp_new_password_plain']);
-    unset($_SESSION['otp_confirm_password_plain']);
-    $_SESSION['success'] = "Password changed successfully.";
-} else {
-    $_SESSION['error'] = "Failed to update password.";
+if (!$passwordUpdated) {
+    nxVerifyPasswordOtpRedirect('Failed to update password.');
 }
 
-$update_stmt->close();
+unset(
+    $_SESSION['pending_new_password'],
+    $_SESSION['otp_new_password_plain'],
+    $_SESSION['otp_confirm_password_plain']
+);
 
-header("Location: /NexGen/CODE/PHP/settings.php");
-exit();
-?>
+nxVerifyPasswordOtpRedirect('Password changed successfully.', 'success');

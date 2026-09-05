@@ -1,7 +1,3 @@
 [build]
-# Use nixpacks with PHP and Node.js providers
-builder = "nixpacks"
-
-[variables]
-# Explicitly set providers
-NIXPACKS_PROVIDERS = "php,nodejs"
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"

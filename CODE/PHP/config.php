@@ -671,7 +671,7 @@ if (!function_exists('generateImageCaptcha')) {
             $token = bin2hex(random_bytes(16));
             $items[] = [
                 'id' => $token,
-                'relative_path' => '/NexGen/CODE/PHP/captcha_image.php?form=' . rawurlencode($formKey) . '&id=' . rawurlencode($token),
+                'relative_path' => nxAppUrl('captcha_image.php?form=') . rawurlencode($formKey) . '&id=' . rawurlencode($token),
                 'is_correct' => true
             ];
             $imagePaths[$token] = $imgPath;
@@ -681,7 +681,7 @@ if (!function_exists('generateImageCaptcha')) {
             $token = bin2hex(random_bytes(16));
             $items[] = [
                 'id' => $token,
-                'relative_path' => '/NexGen/CODE/PHP/captcha_image.php?form=' . rawurlencode($formKey) . '&id=' . rawurlencode($token),
+                'relative_path' => nxAppUrl('captcha_image.php?form=') . rawurlencode($formKey) . '&id=' . rawurlencode($token),
                 'is_correct' => false
             ];
             $imagePaths[$token] = $item['path'];
@@ -913,8 +913,8 @@ if (!function_exists('requireRole')) {
         if (!in_array($_SESSION['role'], $roles, true)) {
             $_SESSION['error'] = 'Unauthorized access.';
             $safeDashboard = $_SESSION['role'] === 'system_admin'
-                ? '/NexGen/CODE/PHP/admin_dashboard.php'
-                : '/NexGen/CODE/PHP/dashboard.php';
+                ? nxAppUrl('admin_dashboard.php')
+                : nxAppUrl('dashboard.php');
             header('Location: ' . $safeDashboard);
             exit();
         }
@@ -1112,6 +1112,16 @@ if (!function_exists('nxPrivateValidIdDirectory')) {
         $configured = trim((string)(getenv('NEXGEN_PRIVATE_UPLOAD_DIR') ?: ''));
         if ($configured !== '') {
             return rtrim($configured, "\\/") . DIRECTORY_SEPARATOR . 'valid_ids';
+        }
+
+        if (!function_exists('nxPublicUploadDirectory')) {
+            function nxPublicUploadDirectory(): string
+            {
+                $configured = trim((string)(getenv('NEXGEN_PUBLIC_UPLOAD_DIR') ?: ''));
+                return $configured !== ''
+                    ? rtrim($configured, "\\/")
+                    : __DIR__ . DIRECTORY_SEPARATOR . 'uploads';
+            }
         }
 
         return dirname(__DIR__, 4) . DIRECTORY_SEPARATOR . 'nexgen_private'

@@ -8,7 +8,7 @@
   const initializedWidgets = new WeakSet();
 
   function initWidget(widget) {
-    if (initializedWidgets.has(widget)) return;
+    if (initializedWidgets.has(widget)) {return;}
     const toggleBtn = widget.querySelector("#nxChatbotToggle");
     const chatBox = widget.querySelector("#nxChatbotBox");
     const closeBtn = widget.querySelector("#nxChatbotClose");
@@ -31,7 +31,7 @@
       !messages ||
       !submitBtn
     )
-      return;
+      {return;}
 
     // Do not mark a partial widget ready; initialization can retry after parsing.
     initializedWidgets.add(widget);
@@ -70,11 +70,11 @@
 
     function removeTyping() {
       const typing = messages.querySelector(".nx-typing");
-      if (typing) typing.remove();
+      if (typing) {typing.remove();}
     }
 
     function renderBotReply(reply) {
-      if (!reply) return escapeHtml("No response received.");
+      if (!reply) {return escapeHtml("No response received.");}
       const trimmed = String(reply).trim();
 
       if (trimmed.includes("[OPEN_CONFIRM]|")) {
@@ -112,7 +112,7 @@
 
     async function sendMessage(text) {
       const message = (text || input.value).trim();
-      if (!message || requestInFlight) return;
+      if (!message || requestInFlight) {return;}
 
       appendMessage("user", escapeHtml(message).replace(/\n/g, "<br>"));
       input.value = "";
@@ -121,7 +121,7 @@
 
       activeController = new AbortController();
       const timeoutId = setTimeout(() => {
-        if (activeController) activeController.abort();
+        if (activeController) {activeController.abort();}
       }, REQUEST_TIMEOUT_MS);
 
       try {
@@ -197,7 +197,7 @@
     toggleBtn.addEventListener("click", function () {
       chatBox.classList.toggle("show");
       if (chatBox.classList.contains("show"))
-        setTimeout(() => input.focus(), 120);
+        {setTimeout(() => input.focus(), 120);}
     });
 
     closeBtn.addEventListener("click", function () {
@@ -212,7 +212,7 @@
     chips.forEach((chip) => {
       chip.addEventListener("click", function () {
         const text = this.textContent.trim();
-        if (!chatBox.classList.contains("show")) chatBox.classList.add("show");
+        if (!chatBox.classList.contains("show")) {chatBox.classList.add("show");}
         if (text.includes("<name>")) {
           input.value = text.replace("<name>", "");
           input.focus();
@@ -255,7 +255,7 @@
 
       if (cancelBtn) {
         const card = cancelBtn.closest(".nx-open-card");
-        if (card) card.remove();
+        if (card) {card.remove();}
       }
     });
   }
@@ -275,9 +275,9 @@
   document.addEventListener(
     "click",
     function (event) {
-      if (!(event.target instanceof Element)) return;
+      if (!(event.target instanceof Element)) {return;}
       const widget = event.target.closest(".nx-chatbot-widget");
-      if (widget) initWidget(widget);
+      if (widget) {initWidget(widget);}
     },
     true,
   );

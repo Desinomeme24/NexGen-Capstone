@@ -1,147 +1,71 @@
-# Railway Deployment Guide for NexGen
+# NexGen Railway Deployment
 
-## Current Configuration
+Railway must build and run the root `Dockerfile`. Do not use Nixpacks,
+`Procfile`, `start.sh`, or the removed `CODE/BACKEND` directory.
 
-Your `config.php` is already configured to read database credentials from environment variables:
+## 1. Repository and builder
 
-- `NEXGEN_DB_HOST` (defaults to `localhost`)
-- `NEXGEN_DB_NAME` (defaults to `nexgen_db`)
-- `NEXGEN_DB_USER` (defaults to `root`)
-- `NEXGEN_DB_PASSWORD` (no default, required)
+Push the root `Dockerfile`, `.dockerignore`, `railway.json`, and `railway.toml`.
+Railway service settings should show:
 
-## Railway Setup Steps
+- Builder: Dockerfile
+- Dockerfile path: `Dockerfile`
+- Source branch: the branch containing the intended commit
 
-### Step 1: Push Configuration Files to GitHub
+## 2. Required service variables
 
-First, commit and push the new Railway configuration files:
-- `railway.json` - Railway service configuration
-- `nixpacks.toml` - Build configuration for PHP + Node.js
-- `Procfile` - Process file configuration
-- Updated `package.json` - Added "start" script
+Set these on the PHP service. Never commit their values:
 
-```bash
-git add railway.json nixpacks.toml Procfile package.json
-git commit -m "Add Railway deployment configuration for PHP with Node.js build"
-git push origin main
+```text
+NEXGEN_ENV=production
+NEXGEN_FORCE_HTTPS=true
+NEXGEN_DB_HOST=${{MySQL.MYSQLHOST}}
+NEXGEN_DB_PORT=${{MySQL.MYSQLPORT}}
+NEXGEN_DB_NAME=${{MySQL.MYSQLDATABASE}}
+NEXGEN_DB_USER=${{MySQL.MYSQLUSER}}
+NEXGEN_DB_PASSWORD=${{MySQL.MYSQLPASSWORD}}
+NEXGEN_PRIVATE_UPLOAD_DIR=/var/lib/nexgen/private
+NEXGEN_PUBLIC_UPLOAD_DIR=/var/www/html/uploads
+NEXGEN_RESEND_API_KEY=<Railway secret>
+NEXGEN_RESEND_FROM_ADDRESS=<verified Resend sender>
+NEXGEN_RESEND_FROM_NAME=NexGen
 ```
 
-### Step 2: Add MySQL Database to Railway
+Railway supplies `PORT`; do not hardcode it. The Docker entrypoint listens on
+that value.
 
-1. Go to your Railway project dashboard: https://railway.app
-2. In your project, click **"+ Create"** → Select **"Database"** → **"MySQL"**
-3. Wait for MySQL to be provisioned (takes ~1-2 minutes)
-4. Click on the MySQL service to view connection details
+## 3. Persistent storage
 
-### Step 3: Set Environment Variables in Railway
+Attach Railway volumes to the PHP service:
 
-In your Railway project dashboard:
+- `/var/lib/nexgen/private` for identity documents
+- `/var/www/html/uploads` for profile and product images
 
-1. Click on your **web service** (the PHP app deployment)
-2. Go to **"Variables"** tab
-3. Add the following environment variables from your MySQL connection:
+Without these volumes, uploads disappear whenever the container is redeployed.
+Identity documents must never be stored in the Git repository or public web
+root.
 
-```
-NEXGEN_DB_HOST=      (copy from Railway MySQL)
-NEXGEN_DB_USER=      (copy from Railway MySQL, usually "root")
-NEXGEN_DB_PASSWORD=  (copy from Railway MySQL)
-NEXGEN_DB_NAME=nexgen_db
-PORT=8080
-```
+## 4. Database schema
 
-**To get Railway MySQL credentials:**
-- Click on the MySQL service in your Railway project
-- Go to **"Connect"** tab
-- Copy the host, username, and password from the connection string
+The schema is managed outside this repository. Import the approved schema into
+the Railway MySQL database using its connection details before testing the app.
+Do not recreate `CODE/BACKEND/nexgen_db.sql`; that path is intentionally absent.
 
-Example Railway MySQL connection string:
-```
-mysql://root:password@mysql.railway.internal:3306/railway
-```
+## 5. Deployment acceptance checks
 
-Extract:
-- Host: `mysql.railway.internal`
-- User: `root`
-- Password: `password`
-- Database: Keep as `nexgen_db` (will be created)
+After a deployment, verify:
 
-### Step 4: Upload Database Schema
+1. `/` loads without a PHP or database error.
+2. `/nx-control-1407` reaches the administrator login.
+3. Direct `/admin_login.php` returns 404.
+4. `/captcha_image.php` returns a CAPTCHA image.
+5. `/JS/...`, `/STYLE/...`, and `/IMAGES/...` return 200.
+6. Login, logout, timeout, password reset, and redirects work.
+7. Profile/product uploads work and survive a redeploy.
+8. Direct `/uploads/valid_ids/...` access is denied.
+9. Tenant filtering and administrator authorization remain enforced.
+10. Railway logs show the expected Git commit and no unresolved 404/500 errors.
 
-After MySQL is running in Railway, you need to import the database schema:
-
-**Option A: From Railway Dashboard**
-1. In Railway MySQL service, go to **"Connect"** tab
-2. Use a tool like MySQL Workbench or phpMyAdmin
-3. Connect using the provided credentials
-4. Import `CODE/BACKEND/nexgen_db.sql`
-
-**Option B: Using Command Line** (if you have MySQL client installed)
-```bash
-mysql -h <railway-host> -u <user> -p<password> < CODE/BACKEND/nexgen_db.sql
-```
-
-### Step 5: Trigger Deployment
-
-1. Your Railway project should auto-deploy when you pushed the config files
-2. If not, manually trigger a redeploy:
-   - Click **"Deploy"** button in Railway dashboard
-   - Or push a new commit to GitHub
-
-### Step 6: Verify Deployment
-
-1. In Railway, copy your web service **"Public URL"**
-2. Visit `https://your-railway-url.up.railway.app/` in your browser
-3. You should see the NexGen login page (if login.php/index.php is your entry point)
-4. Check the browser console for any errors
-
-## Troubleshooting
-
-### "502 Bad Gateway" or "503 Service Unavailable"
-- Check Railway build logs for PHP/Node.js errors
-- Verify all environment variables are set correctly
-- Ensure MySQL database is running and accessible
-
-### "Connection refused" or "Cannot connect to database"
-- Verify `NEXGEN_DB_HOST`, `NEXGEN_DB_USER`, `NEXGEN_DB_PASSWORD` are correct
-- Make sure MySQL service is running in Railway
-- Check that the database `nexgen_db` exists
-
-### "File not found" errors
-- The PHP app is served from the `CODE/PHP` directory (specified in `php -S ... -t CODE/PHP`)
-- Make sure your entry file is `CODE/PHP/index.php` or similar
-
-### Build fails with "No start command detected"
-- This is fixed by the new `package.json` "start" script and `Procfile`
-- Redeploy after pushing the new files
-
-## Environment Variables Checklist
-
-Before deployment, ensure these are set in Railway:
-
-- [ ] `NEXGEN_DB_HOST` = Your Railway MySQL host
-- [ ] `NEXGEN_DB_USER` = Your Railway MySQL user (usually `root`)
-- [ ] `NEXGEN_DB_PASSWORD` = Your Railway MySQL password
-- [ ] `NEXGEN_DB_NAME` = `nexgen_db`
-- [ ] `PORT` = `8080` (or Railway's default)
-
-## What Was Changed
-
-**New files for Railway deployment:**
-- `railway.json` - Service configuration
-- `nixpacks.toml` - Multi-provider build config (PHP + Node.js)
-- `Procfile` - Process startup command
-
-**Updated:**
-- `package.json` - Added "start" script to run PHP server
-
-**What it does:**
-1. Installs Node.js dependencies (Bootstrap via npm)
-2. Starts a PHP built-in server on port 8080
-3. Serves PHP files from the `CODE/PHP` directory
-4. Reads database credentials from environment variables
-
-## Notes
-
-- PHP built-in server is suitable for small-to-medium traffic
-- For production at scale, consider using Railway's Nginx/PHP option
-- Make sure MySQL backups are configured in Railway
-- Review security settings and firewall rules in Railway
+Test the newly deployed commit, not an older successful deployment. Never put
+database passwords, Resend keys, or other secrets in GitHub, source files, or
+screenshots.

@@ -10,3 +10,8 @@ build/
 !.env.example
 /VIDEOS/
 /CODE/BACKEND/
+/CODE/PHP/uploads/*
+!/CODE/PHP/uploads/
+!/CODE/PHP/uploads/.gitkeep
+!/CODE/PHP/uploads/products/
+!/CODE/PHP/uploads/products/.gitkeep

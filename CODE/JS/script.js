@@ -13,18 +13,18 @@ const goToSignup = document.getElementById("goToSignup");
 const goToLogin = document.getElementById("goToLogin");
 
 function openLoginModal() {
-    if (loginModal) loginModal.style.display = "flex";
-    if (signupModal) signupModal.style.display = "none";
+    if (loginModal) {loginModal.style.display = "flex";}
+    if (signupModal) {signupModal.style.display = "none";}
 }
 
 function openSignupModal() {
-    if (signupModal) signupModal.style.display = "flex";
-    if (loginModal) loginModal.style.display = "none";
+    if (signupModal) {signupModal.style.display = "flex";}
+    if (loginModal) {loginModal.style.display = "none";}
 }
 
 function closeModals() {
-    if (loginModal) loginModal.style.display = "none";
-    if (signupModal) signupModal.style.display = "none";
+    if (loginModal) {loginModal.style.display = "none";}
+    if (signupModal) {signupModal.style.display = "none";}
 }
 
 if (openLoginBtn) {
@@ -52,8 +52,8 @@ if (openLoginFromBot) {
     });
 }
 
-if (closeLogin) closeLogin.addEventListener("click", closeModals);
-if (closeSignup) closeSignup.addEventListener("click", closeModals);
+if (closeLogin) {closeLogin.addEventListener("click", closeModals);}
+if (closeSignup) {closeSignup.addEventListener("click", closeModals);}
 
 if (goToSignup) {
     goToSignup.addEventListener("click", function(e) {

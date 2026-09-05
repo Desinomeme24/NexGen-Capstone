@@ -149,7 +149,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const removeToast = () => {
       toast.classList.remove("show");
       setTimeout(() => {
-        if (toast.parentNode) toast.parentNode.removeChild(toast);
+        if (toast.parentNode) {toast.parentNode.removeChild(toast);}
       }, 220);
     };
 
@@ -160,7 +160,7 @@ document.addEventListener("DOMContentLoaded", function () {
   function percentFormatter(value, context) {
     const dataArr = context.chart.data.datasets[0].data || [];
     const sum = dataArr.reduce((a, b) => a + b, 0);
-    if (sum <= 0) return "0%";
+    if (sum <= 0) {return "0%";}
     return ((value / sum) * 100).toFixed(1) + "%";
   }
 
@@ -186,7 +186,7 @@ document.addEventListener("DOMContentLoaded", function () {
     ];
 
     targets.forEach((target, index) => {
-      if (target.querySelector(".design-orb")) return;
+      if (target.querySelector(".design-orb")) {return;}
 
       const orb = document.createElement("span");
       orb.className = "design-orb";
@@ -212,7 +212,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     cards.forEach((card) => {
       card.addEventListener("mousemove", (e) => {
-        if (window.innerWidth < 992) return;
+        if (window.innerWidth < 992) {return;}
 
         const rect = card.getBoundingClientRect();
         const x = e.clientX - rect.left;
@@ -233,7 +233,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function animateCounter(el, finalValue) {
-    if (!el) return;
+    if (!el) {return;}
 
     const text = el.textContent || "";
     const isPercent = text.includes("%");
@@ -241,7 +241,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const hasDecimal = text.includes(".") || !Number.isInteger(finalValue);
     const safeFinal = Number(finalValue || 0);
 
-    let start = 0;
+    const start = 0;
     const duration = 1200;
     const startTime = performance.now();
 
@@ -280,7 +280,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   function animateSummaryValues() {
     const summaryCards = document.querySelectorAll(".summary-card");
-    if (!summaryCards.length) return;
+    if (!summaryCards.length) {return;}
 
     const values = [
       Number(analyticsData.netProfit || 0),
@@ -356,7 +356,7 @@ document.addEventListener("DOMContentLoaded", function () {
     id: "chartAreaGlowPlugin",
     beforeDraw(chart) {
       const { ctx, chartArea } = chart;
-      if (!chartArea) return;
+      if (!chartArea) {return;}
 
       ctx.save();
       const grd = ctx.createLinearGradient(
@@ -399,13 +399,13 @@ document.addEventListener("DOMContentLoaded", function () {
             borderColor: (context) => {
               const { chart } = context;
               const { ctx, chartArea } = chart;
-              if (!chartArea) return "#59d4ff";
+              if (!chartArea) {return "#59d4ff";}
               return createLineGradient(ctx, chartArea);
             },
             backgroundColor: (context) => {
               const { chart } = context;
               const { ctx, chartArea } = chart;
-              if (!chartArea) return "rgba(89, 212, 255, 0.20)";
+              if (!chartArea) {return "rgba(89, 212, 255, 0.20)";}
               return createFillGradient(ctx, chartArea);
             },
             tension: 0.42,
@@ -492,7 +492,7 @@ document.addEventListener("DOMContentLoaded", function () {
             backgroundColor: (context) => {
               const { chart } = context;
               const { ctx, chartArea } = chart;
-              if (!chartArea) return "rgba(103,162,255,0.85)";
+              if (!chartArea) {return "rgba(103,162,255,0.85)";}
               return createBarGradient(ctx, chartArea);
             },
             borderRadius: 12,
@@ -643,7 +643,7 @@ document.addEventListener("DOMContentLoaded", function () {
   if (exportPdfBtn) {
     exportPdfBtn.addEventListener("click", async function () {
       const captureArea = document.getElementById("analyticsCaptureArea");
-      if (!captureArea || !window.jspdf || !window.html2canvas) return;
+      if (!captureArea || !window.jspdf || !window.html2canvas) {return;}
 
       const particleLayers = document.querySelectorAll(".particle-wave-layer");
       particleLayers.forEach((layer) => layer.classList.add("is-exporting"));
@@ -655,7 +655,7 @@ document.addEventListener("DOMContentLoaded", function () {
         '<i class="bi bi-file-earmark-pdf-fill"></i> Exporting...';
 
       try {
-        const canvas = await html2canvas(captureArea, {
+        const canvas = await window.html2canvas(captureArea, {
           scale: 2,
           useCORS: true,
           backgroundColor: "#08111d",
@@ -745,14 +745,14 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function createParticleWaveLayer(card, options = {}) {
-    if (!card || card.querySelector(".particle-wave-layer")) return null;
+    if (!card || card.querySelector(".particle-wave-layer")) {return null;}
 
     const layer = document.createElement("canvas");
     layer.className = "particle-wave-layer";
     card.appendChild(layer);
 
     const ctx = layer.getContext("2d");
-    if (!ctx) return null;
+    if (!ctx) {return null;}
 
     const settings = {
       spacing: options.spacing || 26,
@@ -934,6 +934,7 @@ document.addEventListener("DOMContentLoaded", function () {
   addMetricRings();
   addDecorativeOrbs();
   add3DHover();
+  addParticleWaves();
 
   setTimeout(() => {
     animateSummaryValues();

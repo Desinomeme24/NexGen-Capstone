@@ -85,14 +85,14 @@ function getStatusFilter() {
 }
 
 function openSidebarMenu() {
-  if (sidebar) sidebar.classList.add("active");
-  if (overlay) overlay.classList.add("show");
+  if (sidebar) {sidebar.classList.add("active");}
+  if (overlay) {overlay.classList.add("show");}
   document.body.style.overflow = "hidden";
 }
 
 function closeSidebarMenu() {
-  if (sidebar) sidebar.classList.remove("active");
-  if (overlay) overlay.classList.remove("show");
+  if (sidebar) {sidebar.classList.remove("active");}
+  if (overlay) {overlay.classList.remove("show");}
   document.body.style.overflow = "";
 }
 
@@ -100,13 +100,13 @@ window.openSidebarMenu = openSidebarMenu;
 window.closeSidebarMenu = closeSidebarMenu;
 
 function openModal(modal) {
-  if (!modal) return;
+  if (!modal) {return;}
   modal.classList.add("show");
   document.body.style.overflow = "hidden";
 }
 
 function closeModal(modal) {
-  if (!modal) return;
+  if (!modal) {return;}
   modal.classList.remove("show");
   document.body.style.overflow = "";
 }
@@ -114,7 +114,7 @@ function closeModal(modal) {
 /* PRODUCT WIZARDS (Add + Edit share the same step markup/classes) */
 function setupProductWizard(config) {
   const form = document.getElementById(config.formId);
-  if (!form) return null;
+  if (!form) {return null;}
 
   const stepper = document.getElementById(config.stepperId);
   const backBtn = document.getElementById(config.backBtnId);
@@ -156,8 +156,8 @@ function setupProductWizard(config) {
       });
     }
 
-    if (stepNumEl) stepNumEl.textContent = currentStep;
-    if (backBtn) backBtn.classList.toggle("is-visible", currentStep > 1);
+    if (stepNumEl) {stepNumEl.textContent = currentStep;}
+    if (backBtn) {backBtn.classList.toggle("is-visible", currentStep > 1);}
     if (nextBtn) {
       nextBtn.classList.toggle("is-visible", currentStep < totalSteps);
     }
@@ -168,7 +168,7 @@ function setupProductWizard(config) {
 
   function validateStep(step) {
     const panel = getStepPanel(step);
-    if (!panel) return true;
+    if (!panel) {return true;}
 
     const fields = panel.querySelectorAll("input, select, textarea");
     for (const field of fields) {
@@ -192,7 +192,7 @@ function setupProductWizard(config) {
 
   if (nextBtn) {
     nextBtn.addEventListener("click", () => {
-      if (!validateStep(currentStep)) return;
+      if (!validateStep(currentStep)) {return;}
       goToStep(currentStep + 1);
     });
   }
@@ -212,7 +212,7 @@ function setupProductWizard(config) {
         }
 
         for (let step = currentStep; step < targetStep; step++) {
-          if (!validateStep(step)) return;
+          if (!validateStep(step)) {return;}
         }
 
         goToStep(targetStep);
@@ -276,7 +276,7 @@ function escapeOverflowForActionMenus() {
 
   document.querySelectorAll(".action-menu-wrap").forEach((wrap) => {
     const menu = wrap.querySelector("[data-action-menu]");
-    if (!menu) return;
+    if (!menu) {return;}
 
     actionMenuAutoId += 1;
     const menuId = "action-menu-" + actionMenuAutoId;
@@ -312,8 +312,8 @@ function positionActionMenu(button, menu) {
 
   // Clamp so it never runs off either edge of the viewport.
   const maxLeft = window.innerWidth - menuRect.width - edgePadding;
-  if (left > maxLeft) left = maxLeft;
-  if (left < edgePadding) left = edgePadding;
+  if (left > maxLeft) {left = maxLeft;}
+  if (left < edgePadding) {left = edgePadding;}
 
   // Anchor the menu to the button instead of centering on it, so it
   // consistently opens in the same spot relative to whichever row was
@@ -328,8 +328,8 @@ function positionActionMenu(button, menu) {
   }
 
   const maxTop = window.innerHeight - menuRect.height - edgePadding;
-  if (top > maxTop) top = maxTop;
-  if (top < edgePadding) top = edgePadding;
+  if (top > maxTop) {top = maxTop;}
+  if (top < edgePadding) {top = edgePadding;}
 
   menu.style.top = `${top}px`;
   menu.style.left = `${left}px`;
@@ -338,7 +338,7 @@ function positionActionMenu(button, menu) {
 function closeFloatingTools(except = null) {
   if (floatingFilterBox && floatingFilterBox !== except) {
     floatingFilterBox.classList.remove("show");
-    if (filterToggleBtn) filterToggleBtn.setAttribute("aria-expanded", "false");
+    if (filterToggleBtn) {filterToggleBtn.setAttribute("aria-expanded", "false");}
   }
 }
 
@@ -350,7 +350,7 @@ function setValue(id, value) {
 }
 
 function toggleStockOrderFields() {
-  if (!stockMovementType) return;
+  if (!stockMovementType) {return;}
 
   const movement = stockMovementType.value;
 
@@ -366,13 +366,13 @@ function toggleStockOrderFields() {
 
 function showDynamicLoading() {
   const dynamicArea = getDynamicArea();
-  if (!dynamicArea) return;
+  if (!dynamicArea) {return;}
   dynamicArea.classList.add("is-loading");
 }
 
 function hideDynamicLoading() {
   const dynamicArea = getDynamicArea();
-  if (!dynamicArea) return;
+  if (!dynamicArea) {return;}
   dynamicArea.classList.remove("is-loading");
 }
 
@@ -433,7 +433,7 @@ async function refreshInventoryContent(url) {
 
 function submitFiltersInstantly() {
   const filterForm = getFilterForm();
-  if (!filterForm) return;
+  if (!filterForm) {return;}
 
   const formData = new FormData(filterForm);
   const query = new URLSearchParams();
@@ -507,7 +507,7 @@ if (categoryToggle && categoryMenu) {
 
   if (hasActiveSub) {
     categoryMenu.classList.add("show");
-    if (dropdownArrow) dropdownArrow.style.transform = "rotate(180deg)";
+    if (dropdownArrow) {dropdownArrow.style.transform = "rotate(180deg)";}
   }
 
   categoryToggle.addEventListener("click", () => {
@@ -523,7 +523,7 @@ if (categoryToggle && categoryMenu) {
 /* OPEN / CLOSE MODALS */
 if (openProductModal) {
   openProductModal.addEventListener("click", () => {
-    if (addProductWizard) addProductWizard.reset();
+    if (addProductWizard) {addProductWizard.reset();}
     openModal(productModal);
   });
 }
@@ -531,14 +531,14 @@ if (openProductModal) {
 if (closeProductModal) {
   closeProductModal.addEventListener("click", () => {
     closeModal(productModal);
-    if (addProductWizard) addProductWizard.reset();
+    if (addProductWizard) {addProductWizard.reset();}
   });
 }
 
 if (closeEditProductModal) {
   closeEditProductModal.addEventListener("click", () => {
     closeModal(editProductModal);
-    if (editProductWizard) editProductWizard.reset();
+    if (editProductWizard) {editProductWizard.reset();}
   });
 }
 
@@ -584,7 +584,7 @@ if (closeBatchesModal && batchesModal) {
 
 /* PRODUCT BATCHES: view a product's individual batches, drop expired ones */
 function escapeHtml(value) {
-  return String(value == null ? "" : value).replace(
+  return String(value === null || value === undefined ? "" : value).replace(
     /[&<>"']/g,
     (ch) =>
       ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
@@ -594,7 +594,7 @@ function escapeHtml(value) {
 }
 
 function renderBatchesTable(batches) {
-  if (!batchesModalBody) return;
+  if (!batchesModalBody) {return;}
 
   if (!batches.length) {
     batchesModalBody.innerHTML =
@@ -639,7 +639,7 @@ function renderBatchesTable(batches) {
 
 function openBatchesModal(productId, productName) {
   if (batchesProductName)
-    batchesProductName.textContent = productName || "Product";
+    {batchesProductName.textContent = productName || "Product";}
   if (batchesModalBody) {
     batchesModalBody.innerHTML =
       '<tr><td colspan="5" class="batches-empty-state">Loading...</td></tr>';
@@ -676,14 +676,14 @@ function openBatchesModal(productId, productName) {
 }
 
 function openDropBatchConfirm(batchId, batchNumber) {
-  if (!dropBatchConfirmOverlay) return;
+  if (!dropBatchConfirmOverlay) {return;}
   pendingDropBatchId = batchId;
-  if (dropBatchConfirmNumber) dropBatchConfirmNumber.textContent = batchNumber;
+  if (dropBatchConfirmNumber) {dropBatchConfirmNumber.textContent = batchNumber;}
   dropBatchConfirmOverlay.classList.add("show");
 }
 
 function closeDropBatchConfirm() {
-  if (!dropBatchConfirmOverlay) return;
+  if (!dropBatchConfirmOverlay) {return;}
   pendingDropBatchId = null;
   dropBatchConfirmOverlay.classList.remove("show");
 }
@@ -694,7 +694,7 @@ if (dropBatchCancelBtn) {
 
 if (dropBatchConfirmOverlay) {
   dropBatchConfirmOverlay.addEventListener("click", function (e) {
-    if (e.target === dropBatchConfirmOverlay) closeDropBatchConfirm();
+    if (e.target === dropBatchConfirmOverlay) {closeDropBatchConfirm();}
   });
 }
 
@@ -726,7 +726,7 @@ if (dropBatchConfirmBtn) {
   placeOrderModal,
   batchesModal,
 ].forEach((modal) => {
-  if (!modal) return;
+  if (!modal) {return;}
 
   modal.addEventListener("click", (event) => {
     if (event.target === modal) {
@@ -800,7 +800,7 @@ if (editProductImageInput && editPreviewImage) {
    lost after that swap. */
 function openPoHistoryModal() {
   const poModal = document.getElementById("poHistoryModal");
-  if (!poModal) return;
+  if (!poModal) {return;}
   poModal.classList.add("show");
   poModal.setAttribute("aria-hidden", "false");
   document.body.style.overflow = "hidden";
@@ -808,14 +808,14 @@ function openPoHistoryModal() {
 
 function closePoHistoryModal() {
   const poModal = document.getElementById("poHistoryModal");
-  if (!poModal) return;
+  if (!poModal) {return;}
   poModal.classList.remove("show");
   poModal.setAttribute("aria-hidden", "true");
   document.body.style.overflow = "";
 }
 
 document.addEventListener("keydown", (event) => {
-  if (event.key !== "Escape") return;
+  if (event.key !== "Escape") {return;}
   const poModal = document.getElementById("poHistoryModal");
   if (poModal && poModal.classList.contains("show")) {
     closePoHistoryModal();
@@ -895,7 +895,7 @@ document.addEventListener("click", (event) => {
     }
 
     closeAllMenus();
-    if (editProductWizard) editProductWizard.reset();
+    if (editProductWizard) {editProductWizard.reset();}
     openModal(editProductModal);
     return;
   }
@@ -908,12 +908,12 @@ document.addEventListener("click", (event) => {
     const onOrderAdd = document.getElementById("on_order_add");
     const deductCheckbox = document.getElementById("deduct_from_on_order");
 
-    if (productId) productId.value = stockButton.dataset.stockId;
-    if (productName) productName.value = stockButton.dataset.stockName;
+    if (productId) {productId.value = stockButton.dataset.stockId;}
+    if (productName) {productName.value = stockButton.dataset.stockName;}
     if (currentOnOrder)
-      currentOnOrder.value = stockButton.dataset.currentOnorder || "0";
-    if (onOrderAdd) onOrderAdd.value = "0";
-    if (deductCheckbox) deductCheckbox.checked = false;
+      {currentOnOrder.value = stockButton.dataset.currentOnorder || "0";}
+    if (onOrderAdd) {onOrderAdd.value = "0";}
+    if (deductCheckbox) {deductCheckbox.checked = false;}
 
     toggleStockOrderFields();
     closeAllMenus();
@@ -949,14 +949,14 @@ document.addEventListener("click", (event) => {
 
     const onOrderQty = receiveButton.dataset.receiveOnorder || "0";
 
-    if (productId) productId.value = receiveButton.dataset.receiveId;
-    if (productName) productName.value = receiveButton.dataset.receiveName;
-    if (expectedQty) expectedQty.value = onOrderQty;
+    if (productId) {productId.value = receiveButton.dataset.receiveId;}
+    if (productName) {productName.value = receiveButton.dataset.receiveName;}
+    if (expectedQty) {expectedQty.value = onOrderQty;}
 
     // Default the received quantity to what's expected. Editable so a
     // partial or over-shipment can still be recorded accurately.
-    if (quantity) quantity.value = onOrderQty;
-    if (remarks) remarks.value = "";
+    if (quantity) {quantity.value = onOrderQty;}
+    if (remarks) {remarks.value = "";}
 
     closeAllMenus();
     openModal(receiveShipmentModal);
@@ -971,12 +971,12 @@ document.addEventListener("click", (event) => {
     const quantity = document.getElementById("order_quantity");
     const remarks = document.getElementById("order_remarks");
 
-    if (productId) productId.value = placeOrderButton.dataset.orderId;
-    if (productName) productName.value = placeOrderButton.dataset.orderName;
+    if (productId) {productId.value = placeOrderButton.dataset.orderId;}
+    if (productName) {productName.value = placeOrderButton.dataset.orderName;}
     if (currentOnOrder)
-      currentOnOrder.value = placeOrderButton.dataset.orderCurrent || "0";
-    if (quantity) quantity.value = "";
-    if (remarks) remarks.value = "";
+      {currentOnOrder.value = placeOrderButton.dataset.orderCurrent || "0";}
+    if (quantity) {quantity.value = "";}
+    if (remarks) {remarks.value = "";}
 
     closeAllMenus();
     openModal(placeOrderModal);
@@ -993,7 +993,7 @@ document.addEventListener("click", (event) => {
       ? document.querySelector('[data-menu-id="' + menuId + '"]')
       : null;
 
-    if (!menu) return;
+    if (!menu) {return;}
 
     const isOpen = menu.classList.contains("show");
     closeAllMenus();

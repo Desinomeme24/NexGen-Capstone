@@ -40,10 +40,6 @@ document.addEventListener("DOMContentLoaded", function () {
   const saleConfirmCancel = document.getElementById("saleConfirmCancel");
   const saleConfirmYes = document.getElementById("saleConfirmYes");
 
-  function doSubmitSaleAjax() {
-   // Implemented below after all setup
-  }
-
   const products = Array.isArray(window.products) ? window.products : [];
   let selectedProduct = null;
   let visibleSearchProducts = [];
@@ -53,7 +49,7 @@ document.addEventListener("DOMContentLoaded", function () {
   let saleConfirmReturnFocus = null;
   let saleSubmissionInProgress = false;
 
-  if (saleForm) saleForm.noValidate = true;
+  if (saleForm) {saleForm.noValidate = true;}
 
   function safeText(value) {
     return String(value ?? "");
@@ -91,17 +87,17 @@ document.addEventListener("DOMContentLoaded", function () {
       customerEmailInput,
       customerAddressInput,
     ].forEach((input) => {
-      if (input) input.value = "";
+      if (input) {input.value = "";}
     });
   }
 
   function clearCustomerSelection() {
-    if (customerChoice) customerChoice.value = "";
-    if (customerIdInput) customerIdInput.value = "0";
-    if (dueDateInput) dueDateInput.value = "";
+    if (customerChoice) {customerChoice.value = "";}
+    if (customerIdInput) {customerIdInput.value = "0";}
+    if (dueDateInput) {dueDateInput.value = "";}
     clearNewCustomerInputs();
-    if (selectedCustomerSummary) selectedCustomerSummary.hidden = true;
-    if (newCustomerFields) newCustomerFields.hidden = true;
+    if (selectedCustomerSummary) {selectedCustomerSummary.hidden = true;}
+    if (newCustomerFields) {newCustomerFields.hidden = true;}
   }
 
   function renderSelectedCustomer(customer) {
@@ -114,19 +110,19 @@ document.addEventListener("DOMContentLoaded", function () {
 
     Object.entries(fields).forEach(([id, value]) => {
       const element = document.getElementById(id);
-      if (element) element.textContent = safeText(value);
+      if (element) {element.textContent = safeText(value);}
     });
   }
 
   function syncCustomerChoice() {
-    if (!customerChoice || !customerIdInput) return;
+    if (!customerChoice || !customerIdInput) {return;}
 
     const selectedValue = customerChoice.value;
     const isNewCustomer = selectedValue === "new";
     const selectedCustomer = customersById.get(selectedValue);
 
     customerIdInput.value = selectedCustomer ? selectedValue : "0";
-    if (newCustomerFields) newCustomerFields.hidden = !isNewCustomer;
+    if (newCustomerFields) {newCustomerFields.hidden = !isNewCustomer;}
     if (selectedCustomerSummary) {
       selectedCustomerSummary.hidden = !selectedCustomer;
     }
@@ -140,15 +136,15 @@ document.addEventListener("DOMContentLoaded", function () {
       clearNewCustomerInputs();
     }
 
-    if (customerNameInput) customerNameInput.required = isNewCustomer;
+    if (customerNameInput) {customerNameInput.required = isNewCustomer;}
   }
 
   function syncCustomerSection(clearWhenDisabled = false) {
-    if (!hasAccountsReceivable || !customerInfoCard) return;
+    if (!hasAccountsReceivable || !customerInfoCard) {return;}
 
     const enabled = isCreditSale();
     customerInfoCard.hidden = !enabled;
-    if (dueDateInput) dueDateInput.required = enabled;
+    if (dueDateInput) {dueDateInput.required = enabled;}
 
     if (!enabled && clearWhenDisabled) {
       clearCustomerSelection();
@@ -158,7 +154,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function validateCustomerDetails() {
-    if (!isCreditSale()) return true;
+    if (!isCreditSale()) {return true;}
 
     if (!dueDateInput?.value || !dueDateInput.checkValidity()) {
       showToast("Choose a valid due date for this receivable.", "warning");
@@ -266,7 +262,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const removeToast = () => {
       toast.classList.remove("show");
       setTimeout(() => {
-        if (toast.parentNode) toast.parentNode.removeChild(toast);
+        if (toast.parentNode) {toast.parentNode.removeChild(toast);}
       }, 220);
     };
 
@@ -275,7 +271,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function openSaleModal() {
-    if (!saleModal) return;
+    if (!saleModal) {return;}
     saleModalReturnFocus = document.activeElement;
     saleModal.classList.add("show");
     saleModal.setAttribute("aria-hidden", "false");
@@ -290,7 +286,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function closeSaleModal() {
-    if (!saleModal) return;
+    if (!saleModal) {return;}
     saleModal.classList.remove("show");
     saleModal.setAttribute("aria-hidden", "true");
     document.body.classList.remove("sale-app-open");
@@ -308,7 +304,7 @@ document.addEventListener("DOMContentLoaded", function () {
       return;
     }
 
-    if (saleConfirmOverlay.classList.contains("show")) return;
+    if (saleConfirmOverlay.classList.contains("show")) {return;}
 
     saleConfirmReturnFocus = document.activeElement;
     saleConfirmOverlay.classList.add("show");
@@ -320,7 +316,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function closeSaleConfirm({ restoreFocus = true } = {}) {
-    if (!saleConfirmOverlay) return;
+    if (!saleConfirmOverlay) {return;}
     saleConfirmOverlay.classList.remove("show");
     saleConfirmOverlay.setAttribute("aria-hidden", "true");
 
@@ -337,7 +333,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function syncOrderStatusWithPayment() {
-    if (!paymentStatus || !orderStatus) return;
+    if (!paymentStatus || !orderStatus) {return;}
     const status = paymentStatus.value;
     orderStatus.value = status === "Paid" ? "Fulfilled" : "Pending";
   }
@@ -413,31 +409,31 @@ document.addEventListener("DOMContentLoaded", function () {
   );
 
   function updateSearchResultHighlight() {
-    if (!productSearchResults) return;
+    if (!productSearchResults) {return;}
     productSearchResults
       .querySelectorAll(".product-search-option")
       .forEach((option, index) => {
         const active = index === activeSearchIndex;
         option.classList.toggle("is-active", active);
         option.setAttribute("aria-selected", active ? "true" : "false");
-        if (active) option.scrollIntoView({ block: "nearest" });
+        if (active) {option.scrollIntoView({ block: "nearest" });}
       });
   }
 
   function closeProductSearchResults() {
-    if (!productSearchResults || !productSearchInput) return;
+    if (!productSearchResults || !productSearchInput) {return;}
     productSearchResults.classList.remove("show");
     productSearchInput.setAttribute("aria-expanded", "false");
     activeSearchIndex = -1;
   }
 
   function renderProductSearchResults(query = "") {
-    if (!productSearchResults || !productSearchInput) return;
+    if (!productSearchResults || !productSearchInput) {return;}
 
     const normalizedQuery = safeText(query).trim().toLowerCase();
     visibleSearchProducts = searchableProducts
       .filter((product) => {
-        if (!normalizedQuery) return true;
+        if (!normalizedQuery) {return true;}
         return (
           product.name.toLowerCase().includes(normalizedQuery) ||
           product.code.toLowerCase().includes(normalizedQuery)
@@ -498,8 +494,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
   function clearProductSelection({ keepFocus = false } = {}) {
     selectedProduct = null;
-    if (selectedProductIdInput) selectedProductIdInput.value = "";
-    if (productSearchInput) productSearchInput.value = "";
+    if (selectedProductIdInput) {selectedProductIdInput.value = "";}
+    if (productSearchInput) {productSearchInput.value = "";}
     if (productEntryQty) {
       productEntryQty.value = "1";
       productEntryQty.removeAttribute("max");
@@ -508,28 +504,28 @@ document.addEventListener("DOMContentLoaded", function () {
       clearProductSearchBtn.classList.remove("show");
     }
     closeProductSearchResults();
-    if (keepFocus && productSearchInput) productSearchInput.focus();
+    if (keepFocus && productSearchInput) {productSearchInput.focus();}
   }
 
   function selectSearchProduct(product) {
-    if (!product || product.stock <= 0) return;
+    if (!product || product.stock <= 0) {return;}
     selectedProduct = product;
-    if (selectedProductIdInput) selectedProductIdInput.value = product.id;
-    if (productSearchInput) productSearchInput.value = product.name;
+    if (selectedProductIdInput) {selectedProductIdInput.value = product.id;}
+    if (productSearchInput) {productSearchInput.value = product.name;}
     if (productEntryQty) {
       productEntryQty.value = "1";
       productEntryQty.max = String(product.stock);
     }
-    if (clearProductSearchBtn) clearProductSearchBtn.classList.add("show");
+    if (clearProductSearchBtn) {clearProductSearchBtn.classList.add("show");}
     closeProductSearchResults();
     productEntryQty?.focus();
     productEntryQty?.select();
   }
 
   function resolveTypedProduct() {
-    if (selectedProduct) return selectedProduct;
+    if (selectedProduct) {return selectedProduct;}
     const query = safeText(productSearchInput?.value).trim().toLowerCase();
-    if (!query) return null;
+    if (!query) {return null;}
     return (
       searchableProducts.find(
         (product) =>
@@ -540,7 +536,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function updateItemsEmptyState() {
-    if (!itemsContainer) return;
+    if (!itemsContainer) {return;}
     const hasRows = Boolean(itemsContainer.querySelector(".item-row"));
     const existingEmpty = itemsContainer.querySelector(".items-empty-state");
 
@@ -556,7 +552,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function createItemRow(product, quantity) {
-    if (!itemsContainer || !product) return null;
+    if (!itemsContainer || !product) {return null;}
     updateItemsEmptyState();
     itemsContainer.querySelector(".items-empty-state")?.remove();
 
@@ -654,7 +650,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (existingRow) {
       const rowQtyInput = existingRow.querySelector(".qty-input");
-      if (rowQtyInput) rowQtyInput.value = String(requestedQty);
+      if (rowQtyInput) {rowQtyInput.value = String(requestedQty);}
       calculateRow(existingRow);
     } else {
       createItemRow(product, quantity);
@@ -667,7 +663,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const row = rowOrElement.closest
       ? rowOrElement.closest(".item-row")
       : rowOrElement;
-    if (!row) return;
+    if (!row) {return;}
 
     const qty = parseFloat(row.querySelector(".qty-input").value) || 0;
     const price = parseFloat(row.querySelector(".price-input").value) || 0;
@@ -689,8 +685,8 @@ document.addEventListener("DOMContentLoaded", function () {
     row.querySelector(".subtotal-input").value = formatMoney(subtotal);
     const discountInput = row.querySelector(".discount-percent-input");
     const lineSubtotalInput = row.querySelector(".line-subtotal-input");
-    if (discountInput) discountInput.value = String(discount);
-    if (lineSubtotalInput) lineSubtotalInput.value = formatMoney(subtotal);
+    if (discountInput) {discountInput.value = String(discount);}
+    if (lineSubtotalInput) {lineSubtotalInput.value = formatMoney(subtotal);}
 
     const discountNote = row.querySelector(".item-discount-note");
     if (discountNote) {
@@ -752,11 +748,11 @@ document.addEventListener("DOMContentLoaded", function () {
     );
     const settlementCard = document.getElementById("settlementCard");
 
-    if (changeDueEl) changeDueEl.textContent = formatMoney(settlement);
+    if (changeDueEl) {changeDueEl.textContent = formatMoney(settlement);}
     if (settlementLabel)
-      settlementLabel.textContent = isPaid ? "Change Due" : "Balance Due";
+      {settlementLabel.textContent = isPaid ? "Change Due" : "Balance Due";}
     if (reviewSettlementLabel)
-      reviewSettlementLabel.textContent = isPaid ? "Change Due" : "Balance Due";
+      {reviewSettlementLabel.textContent = isPaid ? "Change Due" : "Balance Due";}
     settlementCard?.classList.toggle("is-balance", !isPaid);
     return settlement;
   }
@@ -768,7 +764,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const receiptDiscountEl = document.getElementById("receiptDiscount");
     const receiptItemCountEl = document.getElementById("receiptItemCount");
     const receiptRowCountEl = document.getElementById("receiptRowCount");
-    if (!receiptLines) return;
+    if (!receiptLines) {return;}
 
     const rows = document.querySelectorAll(".item-row");
     let html = "";
@@ -795,14 +791,14 @@ document.addEventListener("DOMContentLoaded", function () {
       '<p class="receipt-empty">No items yet — add a product to see it here.</p>';
     const totals = getSaleTotals();
     if (receiptItemCountEl)
-      receiptItemCountEl.textContent = safeText(itemCount);
+      {receiptItemCountEl.textContent = safeText(itemCount);}
     if (receiptRowCountEl)
-      receiptRowCountEl.textContent = safeText(rows.length);
+      {receiptRowCountEl.textContent = safeText(rows.length);}
     if (receiptSubtotalEl)
-      receiptSubtotalEl.textContent = formatMoney(totals.subtotal);
+      {receiptSubtotalEl.textContent = formatMoney(totals.subtotal);}
     if (receiptDiscountEl)
-      receiptDiscountEl.textContent = formatMoney(totals.discount);
-    if (receiptTotalEl) receiptTotalEl.textContent = formatMoney(totals.total);
+      {receiptDiscountEl.textContent = formatMoney(totals.discount);}
+    if (receiptTotalEl) {receiptTotalEl.textContent = formatMoney(totals.total);}
   }
 
   function removeRow(button) {
@@ -815,7 +811,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function resetSaleForm() {
-    if (!saleForm) return;
+    if (!saleForm) {return;}
 
     saleForm.reset();
 
@@ -832,9 +828,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const receiptImageInput = document.getElementById("receiptImageInput");
     const attachReceiptText = document.getElementById("attachReceiptText");
-    if (receiptImageInput) receiptImageInput.value = "";
+    if (receiptImageInput) {receiptImageInput.value = "";}
     if (attachReceiptText)
-      attachReceiptText.textContent = "Attach Receipt Photo (optional)";
+      {attachReceiptText.textContent = "Attach Receipt Photo (optional)";}
 
     syncOrderStatusWithPayment();
     togglePaymentFields();
@@ -854,7 +850,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function togglePaymentFields(totalOverride) {
-    if (!paymentStatus) return;
+    if (!paymentStatus) {return;}
 
     const total =
       typeof totalOverride === "number" ? totalOverride : getGrandTotalValue();
@@ -902,7 +898,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function validateSaleForm() {
-    if (!saleForm) return false;
+    if (!saleForm) {return false;}
 
     const payment = paymentStatus ? paymentStatus.value : "Paid";
     const total = getGrandTotalValue();
@@ -984,7 +980,7 @@ document.addEventListener("DOMContentLoaded", function () {
         return false;
       }
     } else if (payment === "Unpaid" && amountPaid !== 0) {
-      if (amountPaidInput) amountPaidInput.value = "0.00";
+      if (amountPaidInput) {amountPaidInput.value = "0.00";}
     }
 
     syncOrderStatusWithPayment();
@@ -992,7 +988,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   async function doSubmitSaleAjax() {
-    if (!saleForm || saleSubmissionInProgress) return;
+    if (!saleForm || saleSubmissionInProgress) {return;}
 
     saleSubmissionInProgress = true;
     let saleSaved = false;
@@ -1078,15 +1074,15 @@ document.addEventListener("DOMContentLoaded", function () {
   async function submitSaleAjax(e) {
     e.preventDefault();
 
-    if (!saleForm || saleSubmissionInProgress) return;
-    if (!validateSaleForm()) return;
+    if (!saleForm || saleSubmissionInProgress) {return;}
+    if (!validateSaleForm()) {return;}
 
     openSaleConfirm();
   }
 
   if (saleConfirmYes) {
     saleConfirmYes.addEventListener("click", async function () {
-      if (saleSubmissionInProgress) return;
+      if (saleSubmissionInProgress) {return;}
       closeSaleConfirm({ restoreFocus: false });
       await doSubmitSaleAjax();
     });
@@ -1101,7 +1097,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     itemsContainer.addEventListener("click", function (e) {
       const removeButton = e.target.closest(".row-remove");
-      if (removeButton) removeRow(removeButton);
+      if (removeButton) {removeRow(removeButton);}
     });
   }
 
@@ -1116,7 +1112,7 @@ document.addEventListener("DOMContentLoaded", function () {
         productSearchInput.value.trim() !== selectedProduct.name
       ) {
         selectedProduct = null;
-        if (selectedProductIdInput) selectedProductIdInput.value = "";
+        if (selectedProductIdInput) {selectedProductIdInput.value = "";}
       }
       clearProductSearchBtn?.classList.toggle(
         "show",
@@ -1131,7 +1127,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (!productSearchResults?.classList.contains("show")) {
           renderProductSearchResults(productSearchInput.value);
         }
-        if (!visibleSearchProducts.length) return;
+        if (!visibleSearchProducts.length) {return;}
         const direction = e.key === "ArrowDown" ? 1 : -1;
         activeSearchIndex =
           (activeSearchIndex + direction + visibleSearchProducts.length) %
@@ -1158,13 +1154,13 @@ document.addEventListener("DOMContentLoaded", function () {
         }
       }
 
-      if (e.key === "Escape") closeProductSearchResults();
+      if (e.key === "Escape") {closeProductSearchResults();}
     });
   }
 
   productSearchResults?.addEventListener("click", function (e) {
     const option = e.target.closest(".product-search-option");
-    if (!option || option.disabled) return;
+    if (!option || option.disabled) {return;}
     selectSearchProduct(productsById.get(option.dataset.productId));
   });
 
@@ -1183,7 +1179,7 @@ document.addEventListener("DOMContentLoaded", function () {
   });
 
   document.addEventListener("click", function (e) {
-    if (!productCombobox?.contains(e.target)) closeProductSearchResults();
+    if (!productCombobox?.contains(e.target)) {closeProductSearchResults();}
   });
 
   if (saleForm) {
@@ -1192,7 +1188,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   saveSaleBtn?.addEventListener("click", function (event) {
     event.preventDefault();
-    if (!saleForm || saleSubmissionInProgress) return;
+    if (!saleForm || saleSubmissionInProgress) {return;}
 
     if (typeof saleForm.requestSubmit === "function") {
       saleForm.requestSubmit();
@@ -1265,7 +1261,7 @@ document.addEventListener("DOMContentLoaded", function () {
       e.stopPropagation();
       const targetId = btn.getAttribute("data-dropdown-toggle");
       const dropdown = document.getElementById(targetId);
-      if (!dropdown) return;
+      if (!dropdown) {return;}
 
       const willOpen = !dropdown.classList.contains("show");
       closeAllIconDropdowns();
@@ -1285,15 +1281,15 @@ document.addEventListener("DOMContentLoaded", function () {
           // Not enough room on the right — fall back to the left of the button.
           left = btnRect.left - ddRect.width - 10;
         }
-        if (left < margin) left = margin;
+        if (left < margin) {left = margin;}
         const maxLeft = window.innerWidth - ddRect.width - margin;
-        if (left > maxLeft) left = maxLeft;
+        if (left > maxLeft) {left = maxLeft;}
 
         // Align vertically with the button, nudged up if it would overflow the bottom.
         let top = btnRect.top;
         const maxTop = window.innerHeight - ddRect.height - margin;
-        if (top > maxTop) top = maxTop;
-        if (top < margin) top = margin;
+        if (top > maxTop) {top = maxTop;}
+        if (top < margin) {top = margin;}
 
         dropdown.style.left = left + "px";
         dropdown.style.top = top + "px";
@@ -1314,7 +1310,7 @@ document.addEventListener("DOMContentLoaded", function () {
   });
 
   document.addEventListener("keydown", function (e) {
-    if (e.key === "Escape") closeAllIconDropdowns();
+    if (e.key === "Escape") {closeAllIconDropdowns();}
   });
 
   /* ================= SALES LEDGER PAGINATION (click-based) ================= */
@@ -1331,7 +1327,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   function renderSalesPage() {
     const cards = getSaleCards();
-    if (!salesPagination) return;
+    if (!salesPagination) {return;}
 
     if (!cards.length) {
       salesPagination.innerHTML = "";
@@ -1339,8 +1335,8 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     const totalPages = Math.max(1, Math.ceil(cards.length / SALES_PAGE_SIZE));
-    if (salesCurrentPage > totalPages) salesCurrentPage = totalPages;
-    if (salesCurrentPage < 1) salesCurrentPage = 1;
+    if (salesCurrentPage > totalPages) {salesCurrentPage = totalPages;}
+    if (salesCurrentPage < 1) {salesCurrentPage = 1;}
 
     cards.forEach((card, index) => {
       const page = Math.floor(index / SALES_PAGE_SIZE) + 1;
@@ -1434,7 +1430,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   salesSearchForm?.addEventListener("submit", async function (event) {
     event.preventDefault();
-    if (!salesGrid || salesSearchButton?.disabled) return;
+    if (!salesGrid || salesSearchButton?.disabled) {return;}
 
     const requestUrl = new URL(
       salesSearchForm.action || window.location.href,
@@ -1514,25 +1510,25 @@ document.addEventListener("DOMContentLoaded", function () {
   const quickViewModal = document.getElementById("quickViewModal");
 
   function paymentBadgeClass(status) {
-    if (status === "Paid") return "paid";
-    if (status === "Unpaid") return "unpaid";
-    if (status === "Partially Paid") return "partial";
+    if (status === "Paid") {return "paid";}
+    if (status === "Unpaid") {return "unpaid";}
+    if (status === "Partially Paid") {return "partial";}
     return "";
   }
 
   function orderBadgeClass(status) {
-    if (status === "Fulfilled") return "fulfilled";
-    if (status === "Pending") return "pending";
+    if (status === "Fulfilled") {return "fulfilled";}
+    if (status === "Pending") {return "pending";}
     return "";
   }
 
   function openQuickView(btn) {
     const card = btn.closest(".sale-card");
-    if (!card || !quickViewModal) return;
+    if (!card || !quickViewModal) {return;}
 
     const setText = (id, value) => {
       const el = document.getElementById(id);
-      if (el) el.textContent = value;
+      if (el) {el.textContent = value;}
     };
 
     setText("qvSalesNo", card.dataset.salesNo || "—");
@@ -1568,14 +1564,14 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function closeQuickView() {
-    if (!quickViewModal) return;
+    if (!quickViewModal) {return;}
     quickViewModal.classList.remove("show");
     document.body.style.overflow = "auto";
   }
 
   if (quickViewModal) {
     quickViewModal.addEventListener("click", function (e) {
-      if (e.target === quickViewModal) closeQuickView();
+      if (e.target === quickViewModal) {closeQuickView();}
     });
   }
 
@@ -1606,11 +1602,11 @@ document.addEventListener("DOMContentLoaded", function () {
       dot.classList.toggle("done", dotStep < step);
     });
 
-    if (wizardBackBtn) wizardBackBtn.classList.toggle("hidden", step === 1);
+    if (wizardBackBtn) {wizardBackBtn.classList.toggle("hidden", step === 1);}
     if (wizardNextBtn)
-      wizardNextBtn.classList.toggle("hidden", step === WIZARD_TOTAL_STEPS);
+      {wizardNextBtn.classList.toggle("hidden", step === WIZARD_TOTAL_STEPS);}
     if (saveSaleBtn)
-      saveSaleBtn.classList.toggle("hidden", step !== WIZARD_TOTAL_STEPS);
+      {saveSaleBtn.classList.toggle("hidden", step !== WIZARD_TOTAL_STEPS);}
 
     if (step === 3) {
       renderWizardReview();
@@ -1644,7 +1640,7 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   function renderWizardReview() {
-    if (!reviewGrid) return;
+    if (!reviewGrid) {return;}
 
     const methodEl = document.getElementById("paymentMethod");
     const salesNoEl = saleForm?.querySelector('input[name="sales_no"]');
@@ -1678,7 +1674,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     document.querySelectorAll(".item-row").forEach((row) => {
       const productId = row.dataset.productId;
-      if (!productId || !productsById.has(productId)) return;
+      if (!productId || !productsById.has(productId)) {return;}
 
       const name = row.dataset.productName || "Product";
       const code = row.dataset.productCode || "No product code";
@@ -1725,14 +1721,14 @@ document.addEventListener("DOMContentLoaded", function () {
     const changeDue = updateChangeDue();
     const setMoney = (id, value) => {
       const element = document.getElementById(id);
-      if (element) element.textContent = formatMoney(value);
+      if (element) {element.textContent = formatMoney(value);}
     };
 
     setMoney("reviewSubtotal", totals.subtotal);
     setMoney("reviewDiscount", totals.discount);
     setMoney("reviewAmountPaid", amountPaid);
     setMoney("reviewChangeDue", changeDue);
-    if (reviewTotalEl) reviewTotalEl.textContent = formatMoney(totals.total);
+    if (reviewTotalEl) {reviewTotalEl.textContent = formatMoney(totals.total);}
 
     const receiptInput = document.getElementById("receiptImageInput");
     const reviewReceiptFile = document.getElementById("reviewReceiptFile");
@@ -1745,7 +1741,7 @@ document.addEventListener("DOMContentLoaded", function () {
   if (wizardNextBtn) {
     wizardNextBtn.addEventListener("click", function () {
       const nextStep = wizardCurrentStep + 1;
-      if (canOpenWizardStep(nextStep)) goToWizardStep(nextStep);
+      if (canOpenWizardStep(nextStep)) {goToWizardStep(nextStep);}
     });
   }
 
@@ -1758,7 +1754,7 @@ document.addEventListener("DOMContentLoaded", function () {
   wizardDots.forEach((dot) => {
     dot.addEventListener("click", function () {
       const targetStep = parseInt(dot.getAttribute("data-goto"), 10) || 1;
-      if (canOpenWizardStep(targetStep)) goToWizardStep(targetStep);
+      if (canOpenWizardStep(targetStep)) {goToWizardStep(targetStep);}
     });
   });
 
@@ -1780,7 +1776,7 @@ document.addEventListener("DOMContentLoaded", function () {
       } else {
         attachReceiptText.textContent = "Attach Receipt Photo (optional)";
       }
-      if (wizardCurrentStep === 3) renderWizardReview();
+      if (wizardCurrentStep === 3) {renderWizardReview();}
     });
   }
 

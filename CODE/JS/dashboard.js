@@ -9,7 +9,7 @@
 (function () {
   const container = document.querySelector(".hero-bg-circuit");
   const layer = document.getElementById("circuitPulses");
-  if (!container || !layer) return;
+  if (!container || !layer) {return;}
 
   const GRID = 48;
 
@@ -62,7 +62,7 @@
     window.matchMedia &&
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  if (reduceMotion) return;
+  if (reduceMotion) {return;}
 
   for (let i = 0; i < 14; i++) {
     setTimeout(spawnPulse, i * 150);
@@ -90,7 +90,7 @@ const heroShell = document.getElementById("heroShell");
 const topVideoArea = document.getElementById("topVideoArea");
 
 function animateHeroOnScroll() {
-  if (!heroShell || !topVideoArea) return;
+  if (!heroShell || !topVideoArea) {return;}
 
   const areaRect = topVideoArea.getBoundingClientRect();
   const viewportHeight = window.innerHeight;
@@ -108,7 +108,7 @@ function animateHeroOnScroll() {
 const moduleRevealItems = document.querySelectorAll(".module-reveal");
 
 function animateModulesOnScroll() {
-  if (!moduleRevealItems.length) return;
+  if (!moduleRevealItems.length) {return;}
 
   const triggerPoint = window.innerHeight * 0.85;
 

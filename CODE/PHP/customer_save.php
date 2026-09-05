@@ -56,6 +56,16 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit();
 }
 
+if (!validateCsrfToken('sale_form', $_POST['csrf_token'] ?? '')) {
+    if (isAjaxRequest()) {
+        sendJson(false, 'Invalid or expired form token.');
+    }
+
+    $_SESSION['error'] = 'Invalid or expired form token.';
+    header('Location: ' . nxAppUrl('sales_recording.php'));
+    exit();
+}
+
 $businessId = nxRequireBusinessId($conn);
 
 $customer_name = normalizeText($_POST['customer_name'] ?? '');

@@ -140,7 +140,7 @@
   }
 
   function openSidebarMenu() {
-    if (!sidebar || sidebar.classList.contains("active")) return;
+    if (!sidebar || sidebar.classList.contains("active")) {return;}
 
     lastFocusedElement = document.activeElement;
     setSidebarState(true);
@@ -153,7 +153,7 @@
   }
 
   function closeSidebarMenu(restoreFocus = true) {
-    if (!sidebar) return;
+    if (!sidebar) {return;}
 
     setSidebarState(false);
 
@@ -209,7 +209,7 @@
   }
 
   document.addEventListener("keydown", function (event) {
-    if (!sidebar || !sidebar.classList.contains("active")) return;
+    if (!sidebar || !sidebar.classList.contains("active")) {return;}
 
     if (event.key === "Escape") {
       event.preventDefault();
@@ -217,7 +217,7 @@
       return;
     }
 
-    if (event.key !== "Tab") return;
+    if (event.key !== "Tab") {return;}
 
     const focusableElements = Array.from(
       sidebar.querySelectorAll(
@@ -227,7 +227,7 @@
       return element.offsetParent !== null;
     });
 
-    if (!focusableElements.length) return;
+    if (!focusableElements.length) {return;}
 
     const firstFocusable = focusableElements[0];
     const lastFocusable = focusableElements[focusableElements.length - 1];
@@ -277,7 +277,7 @@
   const popupBox = document.getElementById("popupBox");
 
   function closePopup() {
-    if (!popupOverlay) return;
+    if (!popupOverlay) {return;}
 
     if (popupBox) {
       popupBox.classList.add("popup-hide");
@@ -355,7 +355,7 @@
 
     function focusWorkspaceOption(index) {
       const optionCount = workspaceOptions.length;
-      if (optionCount === 0) return;
+      if (optionCount === 0) {return;}
 
       const safeIndex = ((index % optionCount) + optionCount) % optionCount;
       const option = workspaceOptions[safeIndex];

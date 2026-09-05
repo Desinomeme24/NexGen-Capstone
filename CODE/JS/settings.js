@@ -123,7 +123,7 @@ if (accountForm) {
 }
 
 [workspaceSwitchForm, addBusinessForm, addBranchForm].forEach((form) => {
-  if (!form) return;
+  if (!form) {return;}
 
   form.addEventListener("submit", function () {
     try {

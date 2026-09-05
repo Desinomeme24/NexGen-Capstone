@@ -80,7 +80,7 @@ $workspaceCsrfToken = generateCsrfToken('workspace_action');
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Settings - NextGen</title>
     <?php include("theme_init.php"); ?>
-    <link rel="stylesheet" href="/NexGen/CODE/STYLE/settings.css">
+    <link rel="stylesheet" href="<?php echo e(nxCodeUrl('STYLE/settings.css')); ?>">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <style>
         .workspace-summary,
@@ -143,9 +143,10 @@ $workspaceCsrfToken = generateCsrfToken('workspace_action');
     <aside class="settings-sidebar">
         <div class="sidebar-profile-card">
             <div class="profile-section">
-                <form action="/NexGen/CODE/PHP/update_profile_image.php" method="POST" enctype="multipart/form-data" class="profile-edit-form" id="profileImageForm">
+                <form action="<?php echo e(nxAppUrl('update_profile_image.php')); ?>" method="POST" enctype="multipart/form-data" class="profile-edit-form" id="profileImageForm">
+                    <input type="hidden" name="csrf_token" value="<?php echo e(generateCsrfToken('profile_image_form')); ?>">
                     <div class="profile-image-wrapper">
-                        <img src="/NexGen/CODE/PHP/<?php echo htmlspecialchars($profileImage); ?>" alt="Profile" class="sidebar-profile-img">
+                        <img src="<?php echo e(nxAppUrl($profileImage)); ?>" alt="Profile" class="sidebar-profile-img">
                         <label for="new_profile_image" class="profile-edit-btn"><i class="bi bi-camera-fill"></i></label>
                         <input type="file" name="new_profile_image" id="new_profile_image" accept="image/*" hidden>
                     </div>

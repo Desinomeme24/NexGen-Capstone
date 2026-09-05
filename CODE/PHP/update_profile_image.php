@@ -1,21 +1,28 @@
 <?php
-session_start();
-include 'config.php';
+require_once __DIR__ . '/config.php';
+
+enforceSessionTimeout();
 
 if (!isset($_SESSION['user_id'])) {
-    header("Location: /NexGen/CODE/PHP/index.php");
+    header('Location: ' . nxLoginPathForPortal((string)($_SESSION['login_portal'] ?? 'client')));
     exit();
 }
 
 if ($_SERVER["REQUEST_METHOD"] !== "POST") {
     $_SESSION['error'] = "Invalid request.";
-    header("Location: /NexGen/CODE/PHP/dashboard.php");
+    header('Location: ' . nxAppUrl('dashboard.php'));
+    exit();
+}
+
+if (!validateCsrfToken('profile_image_form', $_POST['csrf_token'] ?? '')) {
+    $_SESSION['error'] = 'Invalid or expired profile image form token.';
+    header('Location: ' . nxAppUrl('dashboard.php'));
     exit();
 }
 
 if (!isset($_FILES['new_profile_image']) || $_FILES['new_profile_image']['error'] !== 0) {
     $_SESSION['error'] = "Please select an image first.";
-    header("Location: /NexGen/CODE/PHP/dashboard.php");
+    header('Location: ' . nxAppUrl('dashboard.php'));
     exit();
 }
 
@@ -36,26 +43,31 @@ $profileFile = $_FILES['new_profile_image'];
 
 if (!$isValidUpload) {
     $_SESSION['error'] = "Profile image upload blocked: " . $scanResult;
-    header("Location: /NexGen/CODE/PHP/dashboard.php");
+    header('Location: ' . nxAppUrl('dashboard.php'));
     exit();
 }
 
 $file_ext = strtolower(pathinfo($profileFile['name'], PATHINFO_EXTENSION));
-$target_dir = __DIR__ . "/uploads/";
+$target_dir = rtrim(nxPublicUploadDirectory(), "\\/") . DIRECTORY_SEPARATOR;
 
 if (!is_dir($target_dir)) {
-    mkdir($target_dir, 0777, true);
+    if (!mkdir($target_dir, 0750, true) && !is_dir($target_dir)) {
+        $_SESSION['error'] = 'The profile image directory is unavailable.';
+        header('Location: ' . nxAppUrl('dashboard.php'));
+        exit();
+    }
 }
 
-$new_file_name = uniqid("profile_", true) . "." . $file_ext;
+$new_file_name = 'profile_' . bin2hex(random_bytes(12)) . '.' . $file_ext;
 $target_file = $target_dir . $new_file_name;
 $db_file_path = "uploads/" . $new_file_name;
 
 if (!move_uploaded_file($profileFile['tmp_name'], $target_file)) {
     $_SESSION['error'] = "Failed to upload image.";
-    header("Location: /NexGen/CODE/PHP/dashboard.php");
+    header('Location: ' . nxAppUrl('dashboard.php'));
     exit();
 }
+@chmod($target_file, 0640);
 
 $user_id = (int)$_SESSION['user_id'];
 
@@ -73,7 +85,7 @@ $stmt = $conn->prepare($sql);
 if (!$stmt) {
     @unlink($target_file);
     $_SESSION['error'] = "Prepare failed: " . $conn->error;
-    header("Location: /NexGen/CODE/PHP/dashboard.php");
+    header('Location: ' . nxAppUrl('dashboard.php'));
     exit();
 }
 
@@ -85,7 +97,8 @@ if ($stmt->execute()) {
 
     $oldPath = $oldUser['profile_image'] ?? '';
     if (!empty($oldPath) && $oldPath !== 'uploads/default.png') {
-        $oldFullPath = __DIR__ . '/' . $oldPath;
+        $oldFullPath = rtrim(nxPublicUploadDirectory(), "\\/")
+            . DIRECTORY_SEPARATOR . basename($oldPath);
         if (is_file($oldFullPath)) {
             @unlink($oldFullPath);
         }
@@ -96,6 +109,6 @@ if ($stmt->execute()) {
 }
 
 $stmt->close();
-header("Location: /NexGen/CODE/PHP/dashboard.php");
+header('Location: ' . nxAppUrl('dashboard.php'));
 exit();
 ?>

@@ -21,7 +21,7 @@ body {
   min-height: 100vh;
   display: grid;
   grid-template-columns: 300px 1fr;
-  background: url("/NexGen/IMAGES/background.jpg") no-repeat center center /
+  background: url("../../IMAGES/introbg.png") no-repeat center center /
     cover;
   background-attachment: fixed;
   position: relative;

@@ -5,7 +5,7 @@ ENV NEXGEN_PRIVATE_UPLOAD_DIR=/var/lib/nexgen/private \
 
 # Install Node.js and npm.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates curl \
+    && apt-get install -y --no-install-recommends ca-certificates curl libonig-dev \
     && curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && apt-get clean \
@@ -17,12 +17,19 @@ COPY . .
 
 # Stop the build if NexGen's required application folders are missing.
 RUN test -f /app/CODE/PHP/index.php \
+    && test -f /app/CODE/PHP/health.php \
     && test -d /app/CODE/JS \
     && test -d /app/CODE/STYLE \
-    && test -d /app/IMAGES
+    && test -d /app/IMAGES/captcha \
+    && test -f /app/IMAGES/introbg.png \
+    && test -f /app/IMAGES/default-product.svg
 
-# Install PHP MySQL extensions.
-RUN docker-php-ext-install mysqli pdo pdo_mysql
+# Stop the image build if any PHP source file has a syntax error.
+RUN find /app/CODE/PHP -type f -name '*.php' -exec php -l {} \;
+
+# Install the PHP extensions used by the application.
+RUN docker-php-ext-install -j"$(nproc)" mysqli pdo pdo_mysql mbstring \
+    && php -m | grep -qx mbstring
 
 # Install production Node dependencies.
 RUN npm install --omit=dev

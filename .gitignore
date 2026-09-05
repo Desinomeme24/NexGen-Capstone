@@ -14,4 +14,8 @@ build/
 !/CODE/PHP/uploads/
 !/CODE/PHP/uploads/.gitkeep
 !/CODE/PHP/uploads/products/
+/CODE/PHP/uploads/products/*
 !/CODE/PHP/uploads/products/.gitkeep
+
+/CODE/PHP/nexgen_private/
+*.sql

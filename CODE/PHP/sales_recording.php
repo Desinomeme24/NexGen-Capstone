@@ -206,8 +206,8 @@ if ($productStmt) {
     while ($row = $products->fetch_assoc()) {
         $imagePath = trim((string)($row['product_image'] ?? ''));
         $row['image_url'] = $imagePath === ''
-            ? '/NexGen/IMAGES/default-product.png'
-            : '/NexGen/CODE/PHP/' . ltrim($imagePath, '/');
+            ? nxProjectUrl('IMAGES/default-product.svg')
+            : nxAppUrl($imagePath);
         $productList[] = $row;
     }
     $productStmt->close();

@@ -1,6 +1,8 @@
 <?php
 /* Lightweight CAPTCHA delivery. This endpoint deliberately does not include
    config.php because doing so would open a MySQL connection for every image. */
+require_once __DIR__ . '/filesystem_paths.php';
+
 $forceHttps = filter_var((string)(getenv('NEXGEN_FORCE_HTTPS') ?: '0'), FILTER_VALIDATE_BOOLEAN);
 $isHttps = $forceHttps
     || (!empty($_SERVER['HTTPS']) && strtolower((string)$_SERVER['HTTPS']) !== 'off')
@@ -40,9 +42,9 @@ if ($expiresAt < time() || $storedPath === '') {
     exit;
 }
 
-$baseDirectory = realpath(__DIR__ . '/../../IMAGES/captcha');
+$baseDirectory = nxCaptchaImageDirectory();
 $imagePath = realpath($storedPath);
-if ($baseDirectory === false || $imagePath === false || !is_file($imagePath)) {
+if ($baseDirectory === null || $imagePath === false || !is_file($imagePath)) {
     http_response_code(404);
     exit;
 }

@@ -490,15 +490,14 @@ Authentication and authorization logic must not be weakened.
 
 AI Chatbot
 
-The application includes an AI-powered chatbot.
+The application includes a rule-based chatbot that uses local PHP logic,
+database queries, and permission-aware tools. It does not require an external
+language model service.
 
 Known related files include:
 
 chatbot.php
-
-ollama_helpers.php
-
-The current implementation may use Ollama.
+CHATBOT/
 
 Inspect the existing integration before modifying chatbot behavior.
 

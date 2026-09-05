@@ -1,6 +1,7 @@
 <?php
 require_once __DIR__ . '/config.php';
-require_once __DIR__ . '/mailer_config.php';
+require_once __DIR__ . '/resend_config.php';
+require_once __DIR__ . '/otp_security.php';
 
 $fpPortal = nxNormalizeLoginPortal(
     $_POST['portal']
@@ -39,7 +40,7 @@ function forgotPasswordRedirect(
     }
 
     $_SESSION[$type] = $message;
-    header('Location: /NexGen/CODE/PHP/' . $page);
+    header('Location: ' . nxAppUrl($page));
     exit();
 }
 
@@ -147,6 +148,17 @@ $otpCode = str_pad(
     STR_PAD_LEFT
 );
 
+try {
+    $otpHash = nxHashOtp($otpCode);
+} catch (Throwable $e) {
+    error_log('Forgot password OTP hashing failed: ' . $e->getMessage());
+    forgotPasswordRedirect(
+        'Unable to secure the reset code right now. Please try again.',
+        'error',
+        'reset_password.php'
+    );
+}
+
 $otpExpiresAt = date('Y-m-d H:i:s', time() + NX_FP_OTP_TTL_SECONDS);
 
 $recipientName = trim((string) ($user['full_name'] ?? ''));
@@ -164,24 +176,23 @@ $emailBody =
 
 /*
 |--------------------------------------------------------------------------
-| SEND THROUGH PHPMAILER
+| SEND THROUGH RESEND HTTPS API
 |--------------------------------------------------------------------------
 */
 
 try {
-    $mail = createMailer();
-    $mail->addAddress($user['email'], $recipientName);
-    $mail->Subject = 'NexGen Password Reset OTP';
-    $mail->Body    = $emailBody;
-
-    $mail->send();
+    nxSendResendEmail(
+        (string)$user['email'],
+        $recipientName,
+        'NexGen Password Reset OTP',
+        $emailBody
+    );
 } catch (Throwable $e) {
     error_log(
-        'Forgot password PHPMailer error for user ID ' .
+        'Forgot password Resend error for user ID ' .
         (int) $user['id'] .
         ': ' .
-        $e->getMessage() .
-        (isset($mail) ? ' | SMTP: ' . $mail->ErrorInfo : '')
+        $e->getMessage()
     );
 
     forgotPasswordRedirect(
@@ -220,7 +231,7 @@ if (!$updateStmt) {
 
 $updateStmt->bind_param(
     'ssi',
-    $otpCode,
+    $otpHash,
     $otpExpiresAt,
     $userId
 );
@@ -256,5 +267,5 @@ if ($isAjax) {
     exit();
 }
 
-header('Location: /NexGen/CODE/PHP/reset_password.php');
+header('Location: ' . nxAppUrl('reset_password.php'));
 exit();

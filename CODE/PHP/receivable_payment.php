@@ -9,13 +9,13 @@ set_audit_context($conn);
 
 
 if (!isset($_SESSION['user_id'])) {
-    header("Location: /NexGen/CODE/PHP/index.php");
+    header('Location: ' . nxLoginPathForRole((string)($_SESSION['role'] ?? '')));
     exit();
 }
 
 if (!nxArEnabled()) {
     $_SESSION['error'] = 'You do not have access to Accounts Receivable.';
-    header("Location: /NexGen/CODE/PHP/dashboard.php");
+    header('Location: ' . nxAppUrl('dashboard.php'));
     exit();
 }
 
@@ -23,14 +23,14 @@ $id = (int)($_GET['id'] ?? $_POST['id'] ?? 0);
 
 if ($id <= 0) {
     $_SESSION['error'] = 'Invalid receivable ID.';
-    header("Location: /NexGen/CODE/PHP/accounts_receivable.php");
+    header('Location: ' . nxAppUrl('accounts_receivable.php'));
     exit();
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!validateCsrfToken('receivable_payment_form', $_POST['csrf_token'] ?? null)) {
         $_SESSION['error'] = 'Your session expired. Please try again.';
-        header("Location: /NexGen/CODE/PHP/receivable_payment.php?id=" . $id);
+        header('Location: ' . nxAppUrl('receivable_payment.php?id=' . $id));
         exit();
     }
 
@@ -39,7 +39,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($additional_payment <= 0) {
         $_SESSION['error'] = 'Additional payment must be greater than 0.';
-        header("Location: /NexGen/CODE/PHP/receivable_payment.php?id=" . $id);
+        header('Location: ' . nxAppUrl('receivable_payment.php?id=' . $id));
         exit();
     }
 
@@ -232,7 +232,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $conn->commit();
 
         $_SESSION['success'] = 'Receivable payment updated successfully.';
-        header("Location: /NexGen/CODE/PHP/accounts_receivable.php");
+        header('Location: ' . nxAppUrl('accounts_receivable.php'));
         exit();
 
     } catch (Exception $e) {
@@ -245,7 +245,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $_SESSION['error'] = $e->getMessage();
-        header("Location: /NexGen/CODE/PHP/receivable_payment.php?id=" . $id);
+        header('Location: ' . nxAppUrl('receivable_payment.php?id=' . $id));
         exit();
     }
 
@@ -268,7 +268,7 @@ $stmt->close();
 
 if (!$data) {
     $_SESSION['error'] = 'Receivable record not found.';
-    header("Location: /NexGen/CODE/PHP/accounts_receivable.php");
+    header('Location: ' . nxAppUrl('accounts_receivable.php'));
     exit();
 }
 ?>
@@ -697,7 +697,7 @@ if (!$data) {
 
         <div class="actions">
             <button type="submit"><i class="bi bi-check2-circle"></i> Save Payment</button>
-            <a href="/NexGen/CODE/PHP/accounts_receivable.php"><i class="bi bi-x-circle"></i> Cancel</a>
+            <a href="<?php echo htmlspecialchars(nxAppUrl('accounts_receivable.php'), ENT_QUOTES, 'UTF-8'); ?>"><i class="bi bi-x-circle"></i> Cancel</a>
         </div>
     </form>
 </body>

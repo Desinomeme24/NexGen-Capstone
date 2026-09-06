@@ -645,9 +645,6 @@ document.addEventListener("DOMContentLoaded", function () {
       const captureArea = document.getElementById("analyticsCaptureArea");
       if (!captureArea || !window.jspdf || !window.html2canvas) {return;}
 
-      const particleLayers = document.querySelectorAll(".particle-wave-layer");
-      particleLayers.forEach((layer) => layer.classList.add("is-exporting"));
-
       const { jsPDF } = window.jspdf;
 
       exportPdfBtn.disabled = true;
@@ -691,7 +688,6 @@ document.addEventListener("DOMContentLoaded", function () {
         }
       }
 
-      particleLayers.forEach((layer) => layer.classList.remove("is-exporting"));
       exportPdfBtn.disabled = false;
       exportPdfBtn.innerHTML =
         '<i class="bi bi-file-earmark-pdf-fill"></i> Export PDF';
@@ -744,197 +740,9 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
-  function createParticleWaveLayer(card, options = {}) {
-    if (!card || card.querySelector(".particle-wave-layer")) {return null;}
-
-    const layer = document.createElement("canvas");
-    layer.className = "particle-wave-layer";
-    card.appendChild(layer);
-
-    const ctx = layer.getContext("2d");
-    if (!ctx) {return null;}
-
-    const settings = {
-      spacing: options.spacing || 26,
-      dotSize: options.dotSize || 1.5,
-      alpha: options.alpha || 0.95,
-      speed: options.speed || 0.0016,
-      waveHeight: options.waveHeight || 12,
-      waveLength: options.waveLength || 0.018,
-      secondaryWaveHeight: options.secondaryWaveHeight || 8,
-      secondaryWaveLength: options.secondaryWaveLength || 0.022,
-      parallaxStrength: options.parallaxStrength || 10,
-      gradientA: options.gradientA || "rgba(89, 212, 255, 0.95)",
-      gradientB: options.gradientB || "rgba(74, 141, 255, 0.88)",
-      glow: options.glow || "rgba(89, 212, 255, 0.40)",
-    };
-
-    const state = {
-      width: 0,
-      height: 0,
-      mouseX: 0,
-      mouseY: 0,
-      targetMouseX: 0,
-      targetMouseY: 0,
-      rafId: null,
-    };
-
-    function resizeCanvas() {
-      const rect = card.getBoundingClientRect();
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-
-      state.width = Math.max(1, Math.floor(rect.width));
-      state.height = Math.max(1, Math.floor(rect.height));
-
-      layer.width = Math.floor(state.width * dpr);
-      layer.height = Math.floor(state.height * dpr);
-      layer.style.width = `${state.width}px`;
-      layer.style.height = `${state.height}px`;
-
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    }
-
-    function draw(time) {
-      const t = time * settings.speed;
-
-      state.mouseX += (state.targetMouseX - state.mouseX) * 0.07;
-      state.mouseY += (state.targetMouseY - state.mouseY) * 0.07;
-
-      ctx.clearRect(0, 0, state.width, state.height);
-
-      const grad = ctx.createLinearGradient(0, 0, state.width, state.height);
-      grad.addColorStop(0, settings.gradientA);
-      grad.addColorStop(1, settings.gradientB);
-
-      ctx.fillStyle = grad;
-      ctx.globalAlpha = settings.alpha;
-      ctx.shadowBlur = 10;
-      ctx.shadowColor = settings.glow;
-
-      const cols = Math.ceil(state.width / settings.spacing) + 2;
-      const rows = Math.ceil(state.height / settings.spacing) + 2;
-
-      for (let row = 0; row < rows; row++) {
-        for (let col = 0; col < cols; col++) {
-          const baseX = col * settings.spacing - settings.spacing * 0.5;
-          const baseY = row * settings.spacing - settings.spacing * 0.5;
-
-          const wave1 =
-            Math.sin(baseX * settings.waveLength + t + row * 0.36) *
-            settings.waveHeight;
-          const wave2 =
-            Math.cos(
-              baseY * settings.secondaryWaveLength + t * 1.35 + col * 0.28,
-            ) * settings.secondaryWaveHeight;
-
-          const px =
-            baseX + state.mouseX * settings.parallaxStrength + wave2 * 0.24;
-          const py =
-            baseY +
-            wave1 +
-            state.mouseY * settings.parallaxStrength +
-            wave2 * 0.18;
-
-          const pulse = 0.75 + 0.35 * Math.sin(t * 2.2 + col * 0.4 + row * 0.3);
-          const radius = settings.dotSize * pulse;
-
-          ctx.beginPath();
-          ctx.arc(px, py, radius, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      }
-
-      ctx.shadowBlur = 0;
-      ctx.globalAlpha = 1;
-      state.rafId = requestAnimationFrame(draw);
-    }
-
-    function onMouseMove(e) {
-      const rect = card.getBoundingClientRect();
-      const x = (e.clientX - rect.left) / rect.width - 0.5;
-      const y = (e.clientY - rect.top) / rect.height - 0.5;
-      state.targetMouseX = x;
-      state.targetMouseY = y;
-    }
-
-    function onMouseLeave() {
-      state.targetMouseX = 0;
-      state.targetMouseY = 0;
-    }
-
-    resizeCanvas();
-    card.addEventListener("mousemove", onMouseMove);
-    card.addEventListener("mouseleave", onMouseLeave);
-    window.addEventListener("resize", resizeCanvas);
-
-    state.rafId = requestAnimationFrame(draw);
-
-    return {
-      destroy() {
-        cancelAnimationFrame(state.rafId);
-        window.removeEventListener("resize", resizeCanvas);
-        card.removeEventListener("mousemove", onMouseMove);
-        card.removeEventListener("mouseleave", onMouseLeave);
-        layer.remove();
-      },
-    };
-  }
-
-  function addParticleWaves() {
-    const summaryCards = document.querySelectorAll(".summary-card");
-    const analyticsCards = document.querySelectorAll(".analytics-card");
-    const appendixCards = document.querySelectorAll(".appendix-item");
-
-    summaryCards.forEach((card) => {
-      createParticleWaveLayer(card, {
-        spacing: 24,
-        dotSize: 1.2,
-        alpha: 0.42,
-        speed: 0.0019,
-        waveHeight: 10,
-        secondaryWaveHeight: 7,
-        parallaxStrength: 8,
-        gradientA: "rgba(89, 212, 255, 0.95)",
-        gradientB: "rgba(74, 141, 255, 0.82)",
-        glow: "rgba(89, 212, 255, 0.28)",
-      });
-    });
-
-    analyticsCards.forEach((card) => {
-      createParticleWaveLayer(card, {
-        spacing: 28,
-        dotSize: 1.4,
-        alpha: 0.34,
-        speed: 0.0015,
-        waveHeight: 13,
-        secondaryWaveHeight: 9,
-        parallaxStrength: 10,
-        gradientA: "rgba(89, 212, 255, 0.88)",
-        gradientB: "rgba(74, 141, 255, 0.72)",
-        glow: "rgba(89, 212, 255, 0.22)",
-      });
-    });
-
-    appendixCards.forEach((card) => {
-      createParticleWaveLayer(card, {
-        spacing: 30,
-        dotSize: 1.15,
-        alpha: 0.22,
-        speed: 0.0013,
-        waveHeight: 8,
-        secondaryWaveHeight: 6,
-        parallaxStrength: 6,
-        gradientA: "rgba(89, 212, 255, 0.70)",
-        gradientB: "rgba(74, 141, 255, 0.60)",
-        glow: "rgba(89, 212, 255, 0.14)",
-      });
-    });
-  }
-
   addMetricRings();
   addDecorativeOrbs();
   add3DHover();
-  addParticleWaves();
 
   setTimeout(() => {
     animateSummaryValues();

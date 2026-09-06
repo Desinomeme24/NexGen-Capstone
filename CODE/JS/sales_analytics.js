@@ -667,6 +667,9 @@ document.addEventListener("DOMContentLoaded", function () {
         return;
       }
 
+      const particleLayers = document.querySelectorAll(".particle-wave-layer");
+      particleLayers.forEach((layer) => layer.classList.add("is-exporting"));
+
       const { jsPDF } = window.jspdf;
 
       exportPdfBtn.disabled = true;
@@ -710,6 +713,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }
       }
 
+      particleLayers.forEach((layer) => layer.classList.remove("is-exporting"));
       exportPdfBtn.disabled = false;
       exportPdfBtn.innerHTML =
         '<i class="bi bi-file-earmark-pdf-fill"></i> Export PDF';
@@ -762,8 +766,6 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
-<<<<<<< HEAD
-=======
   function createParticleWaveLayer(card, options = {}) {
     if (!card || card.querySelector(".particle-wave-layer")) {
       return null;
@@ -955,7 +957,6 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   }
 
->>>>>>> 3f86469edb65dd18eb5b4f6080ddff9883424ea3
   addMetricRings();
   addDecorativeOrbs();
   add3DHover();

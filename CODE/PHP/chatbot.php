@@ -80,16 +80,12 @@ $permissions = [
 ];
 
 $businessId = nxRequireBusinessId($conn);
-// Resolve URLs from the actual PHP directory for XAMPP and root-hosted Docker.
-$chatbotPhpBase = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/NexGen/CODE/PHP/chatbot.php')), '/') . '/';
-$chatbotProjectBase = preg_replace('~/CODE/PHP/$~i', '/', $chatbotPhpBase);
-$chatbotProjectBase = $chatbotProjectBase ?: '/';
 $chatbotContext = [
     'business_id' => (int)$businessId,
     'user_id' => (int)$_SESSION['user_id'],
     'role' => $chatbotRole,
     'permissions' => $permissions,
-    'php_base' => $chatbotPhpBase,
+    'php_base' => nxAppUrl(),
 ];
 
 if (isset($_GET['action']) && $_GET['action'] === 'ask') {
@@ -188,19 +184,19 @@ define('NXCB_WIDGET_RENDERED', true);
 ?>
 
 <div class="nx-chatbot-widget" id="nxChatbotWidget"
-     data-endpoint="<?php echo htmlspecialchars($chatbotPhpBase . 'chatbot.php?action=ask', ENT_QUOTES, 'UTF-8'); ?>"
+     data-endpoint="<?php echo htmlspecialchars(nxAppUrl('chatbot.php?action=ask'), ENT_QUOTES, 'UTF-8'); ?>"
      data-context="<?php echo htmlspecialchars($chatbotPageContext, ENT_QUOTES, 'UTF-8'); ?>">
     <button type="button" class="nx-chatbot-toggle" id="nxChatbotToggle">
         <span class="nx-chatbot-toggle-text">Ask NexGen</span>
         <span class="nx-chatbot-toggle-icon-wrap">
-            <img src="<?php echo htmlspecialchars($chatbotProjectBase . 'IMAGES/chatbot.png', ENT_QUOTES, 'UTF-8'); ?>" alt="Chatbot" class="nx-chatbot-toggle-logo">
+            <img src="<?php echo htmlspecialchars(nxProjectUrl('IMAGES/chatbot.png'), ENT_QUOTES, 'UTF-8'); ?>" alt="Chatbot" class="nx-chatbot-toggle-logo">
         </span>
     </button>
 
     <div class="nx-chatbot-box" id="nxChatbotBox">
         <div class="nx-chatbot-header">
             <div class="nx-chatbot-title">
-                <img src="<?php echo htmlspecialchars($chatbotProjectBase . 'IMAGES/chatbot.png', ENT_QUOTES, 'UTF-8'); ?>" alt="Bot">
+                <img src="<?php echo htmlspecialchars(nxProjectUrl('IMAGES/chatbot.png'), ENT_QUOTES, 'UTF-8'); ?>" alt="Bot">
                 <div>
                     <h4>NexGen Assistant</h4>
                     <small><?php echo $chatbotIsOwner ? 'Business Assistant' : 'System Helper'; ?></small>
@@ -231,5 +227,5 @@ define('NXCB_WIDGET_RENDERED', true);
     </div>
 </div>
 
-<link rel="stylesheet" href="<?php echo htmlspecialchars($chatbotProjectBase . 'CODE/STYLE/chatbot.css?v=rules1', ENT_QUOTES, 'UTF-8'); ?>">
-<script src="<?php echo htmlspecialchars($chatbotProjectBase . 'CODE/JS/chatbot.js?v=rules2', ENT_QUOTES, 'UTF-8'); ?>"></script>
+<link rel="stylesheet" href="<?php echo htmlspecialchars(nxCodeUrl('STYLE/chatbot.css?v=rules1'), ENT_QUOTES, 'UTF-8'); ?>">
+<script src="<?php echo htmlspecialchars(nxCodeUrl('JS/chatbot.js?v=rules2'), ENT_QUOTES, 'UTF-8'); ?>"></script>

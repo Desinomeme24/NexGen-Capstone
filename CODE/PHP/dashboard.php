@@ -286,7 +286,7 @@ $pageSubtitle = $isOwner
                 <?php endif; ?>
 
                 <?php if ($canAccountsReceivable): ?>
-                <a href="/NexGen/CODE/PHP/accounts_receivable.php" class="modern-module-card module-reveal">
+                <a href="<?php echo htmlspecialchars(nxAppUrl('accounts_receivable.php'), ENT_QUOTES, 'UTF-8'); ?>" class="modern-module-card module-reveal">
                     <div class="module-card-glow"></div>
                     <div class="module-card-icon">
                         <i class="bi bi-wallet2"></i>

@@ -6,13 +6,13 @@ require_once __DIR__ . '/ar_helper.php';
 $businessId = nxRequireBusinessId($conn);
 
 if (!isset($_SESSION['user_id'])) {
-    header("Location: /NexGen/CODE/PHP/index.php");
+    header('Location: ' . nxLoginPathForRole((string)($_SESSION['role'] ?? '')));
     exit();
 }
 
 if (!nxArEnabled($conn, (int)$_SESSION['user_id'])) {
     $_SESSION['error'] = 'You do not have access to Accounts Receivable.';
-    header("Location: /NexGen/CODE/PHP/dashboard.php");
+    header('Location: ' . nxAppUrl('dashboard.php'));
     exit();
 }
 
@@ -406,7 +406,7 @@ function renderReceivableDynamicArea(array $summary, array $rows, array $recentP
                                             <i class="bi bi-check2-circle"></i> Paid
                                         </span>
                                     <?php else: ?>
-                                        <a href="/NexGen/CODE/PHP/receivable_payment.php?id=<?php echo $rowId; ?>" class="icon-btn pay">
+                                        <a href="<?php echo htmlspecialchars(nxAppUrl('receivable_payment.php?id=' . $rowId), ENT_QUOTES, 'UTF-8'); ?>" class="icon-btn pay">
                                             <i class="bi bi-cash-coin"></i> Update Payment
                                         </a>
                                     <?php endif; ?>
@@ -559,9 +559,9 @@ $overdueCount = (int)($summary['overdue_count'] ?? 0);
     <?php include __DIR__ . '/theme_init.php'; ?>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Accounts Receivable - NexGen</title>
-    <link rel="stylesheet" href="/NexGen/CODE/STYLE/header.css?v=2">
-    <link rel="stylesheet" href="/NexGen/CODE/STYLE/accounts_receivable.css?v=10">
-        <link rel="stylesheet" href="/NexGen/CODE/STYLE/module_footer.css">
+    <link rel="stylesheet" href="<?php echo htmlspecialchars(nxCodeUrl('STYLE/header.css?v=2'), ENT_QUOTES, 'UTF-8'); ?>">
+    <link rel="stylesheet" href="<?php echo htmlspecialchars(nxCodeUrl('STYLE/accounts_receivable.css?v=10'), ENT_QUOTES, 'UTF-8'); ?>">
+        <link rel="stylesheet" href="<?php echo htmlspecialchars(nxCodeUrl('STYLE/module_footer.css'), ENT_QUOTES, 'UTF-8'); ?>">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <style>
         .overdue-alert-wrap {
@@ -1601,7 +1601,7 @@ $overdueCount = (int)($summary['overdue_count'] ?? 0);
                 </label>
 
                 <button type="submit" class="toolbar-btn primary-btn"><i class="bi bi-check2" aria-hidden="true"></i><span>Apply</span></button>
-                <a href="/NexGen/CODE/PHP/accounts_receivable.php" class="toolbar-btn secondary-btn" id="receivableResetBtn"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i><span>Reset</span></a>
+                <a href="<?php echo htmlspecialchars(nxAppUrl('accounts_receivable.php'), ENT_QUOTES, 'UTF-8'); ?>" class="toolbar-btn secondary-btn" id="receivableResetBtn"><i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i><span>Reset</span></a>
             </form>
         </section>
 
@@ -1685,9 +1685,12 @@ $overdueCount = (int)($summary['overdue_count'] ?? 0);
     </div>
 </div>
 
-<script src="/NexGen/CODE/JS/header.js?v=2"></script>
+<script src="<?php echo htmlspecialchars(nxCodeUrl('JS/header.js?v=2'), ENT_QUOTES, 'UTF-8'); ?>"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    const arPageUrl = <?php echo json_encode(nxAppUrl('accounts_receivable.php'), JSON_UNESCAPED_SLASHES); ?>;
+    const arPaymentUrl = <?php echo json_encode(nxAppUrl('receivable_payment.php'), JSON_UNESCAPED_SLASHES); ?>;
+    const arViewUrl = <?php echo json_encode(nxAppUrl('receivable_view.php'), JSON_UNESCAPED_SLASHES); ?>;
     const popupOverlay = document.getElementById('popupOverlay');
     const popupBox = document.getElementById('popupBox');
     const overdueAlertWrap = document.getElementById('overdueAlertWrap');
@@ -1774,7 +1777,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             activeRequest = new AbortController();
 
-            const response = await fetch('/NexGen/CODE/PHP/accounts_receivable.php?' + params.toString(), {
+            const response = await fetch(arPageUrl + '?' + params.toString(), {
                 method: 'GET',
                 signal: activeRequest.signal,
                 headers: {
@@ -1795,8 +1798,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 if (statusValue !== '') cleanParams.set('status', statusValue);
 
                 const newUrl = cleanParams.toString()
-                    ? '/NexGen/CODE/PHP/accounts_receivable.php?' + cleanParams.toString()
-                    : '/NexGen/CODE/PHP/accounts_receivable.php';
+                    ? arPageUrl + '?' + cleanParams.toString()
+                    : arPageUrl;
 
                 window.history.replaceState({}, '', newUrl);
             }
@@ -1886,7 +1889,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 arModalPaymentAction.classList.add('is-disabled');
                 arModalPaymentAction.innerHTML = '<i class="bi bi-check2-circle" aria-hidden="true"></i><span>Payment Complete</span>';
             } else {
-                arModalPaymentAction.href = '/NexGen/CODE/PHP/receivable_payment.php?id=' + encodeURIComponent(payload.id);
+                arModalPaymentAction.href = arPaymentUrl + '?id=' + encodeURIComponent(payload.id);
                 arModalPaymentAction.removeAttribute('aria-disabled');
                 arModalPaymentAction.classList.remove('is-disabled');
                 arModalPaymentAction.innerHTML = '<i class="bi bi-cash-coin" aria-hidden="true"></i><span>Update Payment</span>';
@@ -1898,7 +1901,7 @@ document.addEventListener('DOMContentLoaded', function () {
         arModalPaymentBody.innerHTML = '<tr><td colspan="4" class="ar-modal-loading">Loading payment history...</td></tr>';
         arModalOtherList.innerHTML = '<p class="ar-modal-loading">Loading...</p>';
 
-        fetch('/NexGen/CODE/PHP/receivable_view.php?id=' + encodeURIComponent(payload.id), {
+        fetch(arViewUrl + '?id=' + encodeURIComponent(payload.id), {
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         })
             .then(function (res) { return res.json(); })

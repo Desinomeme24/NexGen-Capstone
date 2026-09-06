@@ -3,6 +3,8 @@
    NEXTGEN CONFIG / SECURITY / HELPERS
    ========================================================================= */
 
+require_once __DIR__ . '/filesystem_paths.php';
+
 /* SESSION SECURITY: set cookie controls before starting the session. */
 $nxForceHttps = filter_var((string)(getenv('NEXGEN_FORCE_HTTPS') ?: '0'), FILTER_VALIDATE_BOOLEAN);
 $nxRequestIsHttps = $nxForceHttps
@@ -582,8 +584,8 @@ if (!function_exists('generateImageCaptcha')) {
             session_start();
         }
 
-        $baseDir = __DIR__ . '/../../IMAGES/captcha';
-        if (!is_dir($baseDir)) {
+        $baseDir = nxCaptchaImageDirectory();
+        if ($baseDir === null) {
             return [
                 'success' => false,
                 'message' => 'Captcha image folder not found.',
@@ -765,9 +767,9 @@ if (!function_exists('nxResolveCaptchaImagePath')) {
             return null;
         }
 
-        $baseDirectory = realpath(__DIR__ . '/../../IMAGES/captcha');
+        $baseDirectory = nxCaptchaImageDirectory();
         $imagePath = realpath((string)$captcha['image_paths'][$imageToken]);
-        if ($baseDirectory === false || $imagePath === false || !is_file($imagePath)) {
+        if ($baseDirectory === null || $imagePath === false || !is_file($imagePath)) {
             return null;
         }
 
@@ -1106,22 +1108,22 @@ if (!function_exists('nxValidateSecureUpload')) {
     }
 }
 
+if (!function_exists('nxPublicUploadDirectory')) {
+    function nxPublicUploadDirectory(): string
+    {
+        $configured = trim((string)(getenv('NEXGEN_PUBLIC_UPLOAD_DIR') ?: ''));
+        return $configured !== ''
+            ? rtrim($configured, "\\/")
+            : __DIR__ . DIRECTORY_SEPARATOR . 'uploads';
+    }
+}
+
 if (!function_exists('nxPrivateValidIdDirectory')) {
     function nxPrivateValidIdDirectory(): string
     {
         $configured = trim((string)(getenv('NEXGEN_PRIVATE_UPLOAD_DIR') ?: ''));
         if ($configured !== '') {
             return rtrim($configured, "\\/") . DIRECTORY_SEPARATOR . 'valid_ids';
-        }
-
-        if (!function_exists('nxPublicUploadDirectory')) {
-            function nxPublicUploadDirectory(): string
-            {
-                $configured = trim((string)(getenv('NEXGEN_PUBLIC_UPLOAD_DIR') ?: ''));
-                return $configured !== ''
-                    ? rtrim($configured, "\\/")
-                    : __DIR__ . DIRECTORY_SEPARATOR . 'uploads';
-            }
         }
 
         return dirname(__DIR__, 4) . DIRECTORY_SEPARATOR . 'nexgen_private'

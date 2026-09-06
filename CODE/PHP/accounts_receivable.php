@@ -73,7 +73,6 @@ $sql = "
             CASE
                 WHEN ar.balance_due <= 0 THEN 'Paid'
                 WHEN ar.due_date IS NOT NULL
-                     AND ar.due_date <> ''
                      AND ar.due_date < CURDATE()
                      AND ar.balance_due > 0 THEN 'Overdue'
                 WHEN ar.amount_paid > 0
@@ -108,16 +107,16 @@ if ($statusFilter !== '' && in_array($statusFilter, $allowedStatuses, true)) {
 if ($dueDateFilter !== '' && in_array($dueDateFilter, $allowedDueDateFilters, true)) {
     switch ($dueDateFilter) {
         case 'overdue':
-            $sql .= " AND x.due_date IS NOT NULL AND x.due_date <> '' AND x.due_date < CURDATE() AND x.balance_due > 0 ";
+            $sql .= " AND x.due_date IS NOT NULL AND x.due_date < CURDATE() AND x.balance_due > 0 ";
             break;
         case 'this_week':
-            $sql .= " AND x.due_date IS NOT NULL AND x.due_date <> '' AND x.due_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY) ";
+            $sql .= " AND x.due_date IS NOT NULL AND x.due_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY) ";
             break;
         case 'this_month':
-            $sql .= " AND x.due_date IS NOT NULL AND x.due_date <> '' AND x.due_date BETWEEN CURDATE() AND LAST_DAY(CURDATE()) ";
+            $sql .= " AND x.due_date IS NOT NULL AND x.due_date BETWEEN CURDATE() AND LAST_DAY(CURDATE()) ";
             break;
         case 'next_30':
-            $sql .= " AND x.due_date IS NOT NULL AND x.due_date <> '' AND x.due_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 DAY) ";
+            $sql .= " AND x.due_date IS NOT NULL AND x.due_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 DAY) ";
             break;
     }
 }
@@ -168,7 +167,7 @@ $summaryQuery = $conn->query("
         COALESCE(SUM(balance_due), 0) AS total_balance_due,
         SUM(
             CASE
-                WHEN due_date IS NOT NULL AND due_date <> '' AND due_date < CURDATE() AND balance_due > 0 THEN 1
+                WHEN due_date IS NOT NULL AND due_date < CURDATE() AND balance_due > 0 THEN 1
                 ELSE 0
             END
         ) AS overdue_count,
@@ -176,7 +175,7 @@ $summaryQuery = $conn->query("
             CASE
                 WHEN balance_due > 0
                  AND (amount_paid IS NULL OR amount_paid <= 0)
-                 AND NOT (due_date IS NOT NULL AND due_date <> '' AND due_date < CURDATE())
+                 AND NOT (due_date IS NOT NULL AND due_date < CURDATE())
                 THEN 1
                 ELSE 0
             END
@@ -184,7 +183,7 @@ $summaryQuery = $conn->query("
         SUM(
             CASE
                 WHEN amount_paid > 0 AND balance_due > 0
-                 AND NOT (due_date IS NOT NULL AND due_date <> '' AND due_date < CURDATE())
+                 AND NOT (due_date IS NOT NULL AND due_date < CURDATE())
                 THEN 1
                 ELSE 0
             END
@@ -233,26 +232,26 @@ $agingQuery = $conn->query("
     SELECT
         SUM(CASE
             WHEN balance_due > 0
-             AND (due_date IS NULL OR due_date = '' OR due_date >= CURDATE())
+             AND (due_date IS NULL OR due_date >= CURDATE())
             THEN balance_due ELSE 0
         END) AS current_amt,
         SUM(CASE
-            WHEN balance_due > 0 AND due_date IS NOT NULL AND due_date <> '' AND due_date < CURDATE()
+            WHEN balance_due > 0 AND due_date IS NOT NULL AND due_date < CURDATE()
              AND DATEDIFF(CURDATE(), due_date) BETWEEN 1 AND 30
             THEN balance_due ELSE 0
         END) AS d1_30,
         SUM(CASE
-            WHEN balance_due > 0 AND due_date IS NOT NULL AND due_date <> '' AND due_date < CURDATE()
+            WHEN balance_due > 0 AND due_date IS NOT NULL AND due_date < CURDATE()
              AND DATEDIFF(CURDATE(), due_date) BETWEEN 31 AND 60
             THEN balance_due ELSE 0
         END) AS d31_60,
         SUM(CASE
-            WHEN balance_due > 0 AND due_date IS NOT NULL AND due_date <> '' AND due_date < CURDATE()
+            WHEN balance_due > 0 AND due_date IS NOT NULL AND due_date < CURDATE()
              AND DATEDIFF(CURDATE(), due_date) BETWEEN 61 AND 90
             THEN balance_due ELSE 0
         END) AS d61_90,
         SUM(CASE
-            WHEN balance_due > 0 AND due_date IS NOT NULL AND due_date <> '' AND due_date < CURDATE()
+            WHEN balance_due > 0 AND due_date IS NOT NULL AND due_date < CURDATE()
              AND DATEDIFF(CURDATE(), due_date) > 90
             THEN balance_due ELSE 0
         END) AS d90_plus

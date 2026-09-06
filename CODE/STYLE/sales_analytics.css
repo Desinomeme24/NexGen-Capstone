@@ -329,8 +329,15 @@ body::after {
   z-index: 1;
 }
 
-<<<<<<< HEAD
-=======
+/* WAVE LAYERS */
+.particle-wave-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
 .wave-orb {
   position: absolute;
   border-radius: 50%;
@@ -354,7 +361,6 @@ body::after {
   animation: waveShift 12s linear infinite;
 }
 
->>>>>>> 3f86469edb65dd18eb5b4f6080ddff9883424ea3
 /* HEADER */
 .analytics-topbar {
   margin-bottom: 20px;
@@ -2183,6 +2189,25 @@ body::after {
   }
   100% {
     transform: rotate(360deg);
+  }
+}
+
+@keyframes waveFloat {
+  0%,
+  100% {
+    transform: translateY(0) translateX(0) scale(1);
+  }
+  50% {
+    transform: translateY(-16px) translateX(10px) scale(1.06);
+  }
+}
+
+@keyframes waveShift {
+  0% {
+    transform: translateX(-20%);
+  }
+  100% {
+    transform: translateX(20%);
   }
 }
 

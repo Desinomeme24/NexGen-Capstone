@@ -61,7 +61,7 @@ if ($paymentStmt) {
 
 $otherTransactions = [];
 $customerId = (int)$receivable['customer_id'];
-$otherStmt = $conn->prepare("\n    SELECT ar.id, ar.total_amount, ar.amount_paid, ar.balance_due, ar.due_date, ar.created_at, s.sales_no,\n           CASE\n               WHEN ar.balance_due <= 0 THEN 'Paid'\n               WHEN ar.due_date IS NOT NULL AND ar.due_date <> '' AND ar.due_date < CURDATE() THEN 'Overdue'\n               WHEN ar.amount_paid > 0 THEN 'Partially Paid'\n               ELSE 'Unpaid'\n           END AS live_status\n    FROM accounts_receivable ar\n    INNER JOIN sales s ON s.id = ar.sale_id AND s.business_id = ?\n    WHERE ar.customer_id = ? AND ar.business_id = ? AND ar.id <> ?\n    ORDER BY ar.created_at DESC\n    LIMIT 10\n");
+$otherStmt = $conn->prepare("\n    SELECT ar.id, ar.total_amount, ar.amount_paid, ar.balance_due, ar.due_date, ar.created_at, s.sales_no,\n           CASE\n               WHEN ar.balance_due <= 0 THEN 'Paid'\n               WHEN ar.due_date IS NOT NULL AND ar.due_date < CURDATE() THEN 'Overdue'\n               WHEN ar.amount_paid > 0 THEN 'Partially Paid'\n               ELSE 'Unpaid'\n           END AS live_status\n    FROM accounts_receivable ar\n    INNER JOIN sales s ON s.id = ar.sale_id AND s.business_id = ?\n    WHERE ar.customer_id = ? AND ar.business_id = ? AND ar.id <> ?\n    ORDER BY ar.created_at DESC\n    LIMIT 10\n");
 $otherStmt->bind_param('iiii', $businessId, $customerId, $businessId, $receivableId);
 $otherStmt->execute();
 $otherResult = $otherStmt->get_result();

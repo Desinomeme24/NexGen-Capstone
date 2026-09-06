@@ -242,7 +242,7 @@ try {
 
     if ($payment_status === 'Paid') {
         $amount_paid_input = $total_amount;
-        $due_date = '';
+        $due_date = null;
         $order_status = 'Fulfilled';
     } elseif ($payment_status === 'Unpaid') {
         $amount_paid_input = 0;

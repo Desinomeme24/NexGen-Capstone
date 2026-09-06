@@ -38,7 +38,7 @@ body {
 
 .about-page {
   min-height: 100vh;
-  background: url("/NexGen/IMAGES/boutuslower.png") no-repeat center center /
+  background: url("../../IMAGES/boutuslower.png") no-repeat center center /
     cover;
   background-attachment: fixed;
   position: relative;

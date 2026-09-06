@@ -299,9 +299,9 @@ function expiryUrgency(?string $expiryDate): ?array {
 function inventoryImagePath(?string $path): string {
     $clean = trim((string)$path);
     if ($clean === '') {
-        return '/NexGen/IMAGES/default-product.png';
+        return nxProjectUrl('IMAGES/default-product.svg');
     }
-    return '/NexGen/CODE/PHP/' . ltrim($clean, '/');
+    return nxAppUrl($clean);
 }
 
 function isActiveTab(string $current, string $tab): string {
@@ -1246,7 +1246,7 @@ if ($currentStatusForTab === '') {
                 <div class="wizard-step is-active" data-step="1">
                     <div class="wizard-step-basic">
                         <div class="form-image-preview">
-                            <img src="/NexGen/IMAGES/default-product.png" alt="Preview" id="previewImage">
+                            <img src="<?php echo e(nxProjectUrl('IMAGES/default-product.svg')); ?>" alt="Preview" id="previewImage">
                             <label for="product_image" class="image-upload-label">Upload Product Image</label>
                             <input type="file" name="product_image" id="product_image" accept="image/*">
                         </div>
@@ -1422,7 +1422,7 @@ if ($currentStatusForTab === '') {
                 <div class="wizard-step is-active" data-step="1">
                     <div class="wizard-step-basic">
                         <div class="form-image-preview">
-                            <img src="/NexGen/IMAGES/default-product.png" alt="Preview" id="editPreviewImage">
+                            <img src="<?php echo e(nxProjectUrl('IMAGES/default-product.svg')); ?>" alt="Preview" id="editPreviewImage">
                             <label for="edit_product_image" class="image-upload-label">Change Product Image</label>
                             <input type="file" name="product_image" id="edit_product_image" accept="image/*">
                         </div>

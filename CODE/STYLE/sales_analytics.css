@@ -329,6 +329,32 @@ body::after {
   z-index: 1;
 }
 
+<<<<<<< HEAD
+=======
+.wave-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(22px);
+  opacity: 0.3;
+  animation: waveFloat var(--float-duration, 10s) ease-in-out infinite;
+}
+
+.wave-line {
+  position: absolute;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.22),
+    rgba(125, 211, 252, 0.24),
+    transparent
+  );
+  opacity: 0.22;
+  animation: waveShift 12s linear infinite;
+}
+
+>>>>>>> 3f86469edb65dd18eb5b4f6080ddff9883424ea3
 /* HEADER */
 .analytics-topbar {
   margin-bottom: 20px;

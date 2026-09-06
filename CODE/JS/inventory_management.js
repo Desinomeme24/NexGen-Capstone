@@ -648,7 +648,7 @@ function openBatchesModal(productId, productName) {
   openModal(batchesModal);
 
   fetch(
-    `/NexGen/CODE/PHP/inventory_batches.php?product_id=${encodeURIComponent(productId)}`,
+    `inventory_batches.php?product_id=${encodeURIComponent(productId)}`,
     { headers: { "X-Requested-With": "XMLHttpRequest" } },
   )
     .then((res) => {
@@ -890,8 +890,8 @@ document.addEventListener("click", (event) => {
 
     if (editPreviewImage) {
       editPreviewImage.src = editButton.dataset.image
-        ? "/NexGen/CODE/PHP/" + editButton.dataset.image
-        : "/NexGen/IMAGES/default-product.png";
+        ? editButton.dataset.image
+        : "../../IMAGES/default-product.svg";
     }
 
     closeAllMenus();

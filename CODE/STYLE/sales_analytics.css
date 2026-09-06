@@ -329,15 +329,6 @@ body::after {
   z-index: 1;
 }
 
-/* WAVE LAYERS */
-.particle-wave-layer {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  pointer-events: none;
-  z-index: 0;
-}
-
 .wave-orb {
   position: absolute;
   border-radius: 50%;

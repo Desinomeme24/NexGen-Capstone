@@ -9,6 +9,7 @@ require_once __DIR__ . '/filesystem_paths.php';
 $nxForceHttps = filter_var((string)(getenv('NEXGEN_FORCE_HTTPS') ?: '0'), FILTER_VALIDATE_BOOLEAN);
 $nxRequestIsHttps = $nxForceHttps
     || (!empty($_SERVER['HTTPS']) && strtolower((string)$_SERVER['HTTPS']) !== 'off')
+    || strtolower((string)($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https'
     || (int)($_SERVER['SERVER_PORT'] ?? 0) === 443;
 
 if (session_status() === PHP_SESSION_NONE) {

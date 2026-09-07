@@ -11,7 +11,7 @@ if (!isset($_SESSION['user_id'])) {
 }
 
 if (($_SESSION['role'] ?? '') !== 'system_admin') {
-    header('Location: /NexGen/CODE/PHP/dashboard.php');
+    header('Location: ' . nxAppUrl('dashboard.php'));
     exit();
 }
 

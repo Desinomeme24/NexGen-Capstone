@@ -45,7 +45,7 @@ if (!function_exists('dashboardInvalidateSession')) {
 }
 
 if (empty($_SESSION['user_id'])) {
-    header('Location: /NexGen/CODE/PHP/index.php');
+    header('Location: ' . NEXGEN_CLIENT_LOGIN_PATH);
     exit();
 }
 
@@ -89,7 +89,7 @@ $_SESSION['username'] = (string)$account['username'];
 $_SESSION['full_name'] = (string)$account['full_name'];
 $_SESSION['profile_image'] = !empty($account['profile_image'])
     ? (string)$account['profile_image']
-    : '/NexGen/uploads/default.png';
+    : 'uploads/default.png';
 $_SESSION['role'] = $role;
 $_SESSION['account_status'] = (string)$account['account_status'];
 $_SESSION['can_inventory'] = (int)$account['can_inventory'];
@@ -98,7 +98,7 @@ $_SESSION['can_sales_analytics'] = (int)$account['can_sales_analytics'];
 $_SESSION['can_accounts_receivable'] = (int)$account['can_accounts_receivable'];
 
 if ($role === 'system_admin') {
-    header('Location: /NexGen/CODE/PHP/admin_dashboard.php');
+    header('Location: ' . nxAppUrl('admin_dashboard.php'));
     exit();
 }
 

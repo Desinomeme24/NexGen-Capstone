@@ -3977,7 +3977,7 @@ html[data-theme="light"] .signup-modern-box .signup-form-panel input[type="file"
                 </div>
                 <span class="or-divider" style="font-size:12px; color:#777; margin-bottom:15px; display:block;">or use your account</span>
 
-                <form action="/NexGen/CODE/PHP/login_process.php" method="POST" id="loginForm">
+                <form action="<?php echo e(nxAppUrl('login_process.php')); ?>" method="POST" id="loginForm">
                     <input type="hidden" name="login_portal" value="client">
                     <input type="hidden" name="csrf_token" value="<?php echo e($loginCsrfToken); ?>">
                     <div class="glass-field">

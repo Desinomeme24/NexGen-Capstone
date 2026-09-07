@@ -698,7 +698,7 @@ if (isset($_SESSION['success'])) {
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
     <link rel="stylesheet" href="/NexGen/CODE/STYLE/header.css">
-    <link rel="stylesheet" href="/NexGen/CODE/STYLE/sales_analytics.css?v=responsive20260826">
+    <link rel="stylesheet" href="/NexGen/CODE/STYLE/sales_analytics.css?v=responsive20260907">
     <link rel="stylesheet" href="/NexGen/CODE/STYLE/module_footer.css">
 </head>
 <body>

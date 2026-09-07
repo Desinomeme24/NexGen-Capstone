@@ -1220,14 +1220,24 @@ body::after {
 
 .canvas-holder {
   height: 330px;
+  width: 100%;
+  min-width: 0;
   position: relative;
   z-index: 3;
 }
 
 .chart-wrap {
   height: 280px;
+  width: 100%;
+  min-width: 0;
   position: relative;
   z-index: 3;
+}
+
+.canvas-holder canvas,
+.chart-wrap canvas {
+  width: 100% !important;
+  height: 100% !important;
 }
 
 .design-orb {
@@ -2602,7 +2612,7 @@ html[data-theme="light"] body select {
 /* Phones and portrait tablets */
 @media (max-width: 767px) {
   .sales-analytics-page {
-    padding-top: 72px;
+    padding-top: 88px;
   }
 
   .main-content {
@@ -2794,12 +2804,12 @@ html[data-theme="light"] body select {
   }
 
   .canvas-holder {
-    height: clamp(230px, 60vw, 290px);
+    height: clamp(250px, 68vw, 320px);
   }
 
   .chart-wrap,
   .donut-wrap {
-    height: clamp(210px, 58vw, 250px);
+    height: clamp(230px, 62vw, 270px);
   }
 
   .category-products-section .row.align-items-center {
@@ -2909,6 +2919,20 @@ html[data-theme="light"] body select {
   .analytics-card,
   .appendices-card {
     border-radius: 18px;
+  }
+
+  .analytics-card-title {
+    max-width: 100%;
+    margin-bottom: 16px;
+  }
+
+  .canvas-holder {
+    height: 270px;
+  }
+
+  .chart-wrap,
+  .donut-wrap {
+    height: 240px;
   }
 
   /* Convert analytics tables into compact mobile cards—no page overflow. */
@@ -3072,12 +3096,12 @@ html[data-theme="light"] body select {
   }
 
   .canvas-holder {
-    height: 220px;
+    height: 250px;
   }
 
   .chart-wrap,
   .donut-wrap {
-    height: 205px;
+    height: 225px;
   }
 
   .notification-card {

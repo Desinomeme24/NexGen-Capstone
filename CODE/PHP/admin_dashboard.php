@@ -258,6 +258,7 @@ $reviewQueue = array_slice($reviewQueue, 0, 10);
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <?php include __DIR__ . '/nexgen_favicon/favicon.php'; ?>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Admin Dashboard - NexGen</title>
     <script>

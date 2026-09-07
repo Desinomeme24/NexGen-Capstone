@@ -111,6 +111,7 @@ if (session_status() === PHP_SESSION_ACTIVE) {
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<?php include __DIR__ . '/nexgen_favicon/favicon.php'; ?>
 <?php
 include __DIR__ . '/theme_init.php';
 if (session_status() === PHP_SESSION_ACTIVE) {

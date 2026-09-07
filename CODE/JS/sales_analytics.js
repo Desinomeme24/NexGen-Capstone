@@ -400,9 +400,11 @@ document.addEventListener("DOMContentLoaded", function () {
     Chart.defaults.plugins.legend.labels.boxWidth = 10;
   }
 
+  const nxAnalyticsCharts = [];
+
   const dailySalesCanvas = document.getElementById("dailySalesChart");
   if (dailySalesCanvas && typeof Chart !== "undefined") {
-    new Chart(dailySalesCanvas, {
+    nxAnalyticsCharts.push(new Chart(dailySalesCanvas, {
       type: "line",
       data: {
         labels: analyticsData.dailyLabels,
@@ -494,12 +496,12 @@ document.addEventListener("DOMContentLoaded", function () {
         },
       },
       plugins: [lineShadowPlugin, chartAreaGlowPlugin],
-    });
+    }));
   }
 
   const monthlyRevenueCanvas = document.getElementById("monthlyRevenueChart");
   if (monthlyRevenueCanvas && typeof Chart !== "undefined") {
-    new Chart(monthlyRevenueCanvas, {
+    nxAnalyticsCharts.push(new Chart(monthlyRevenueCanvas, {
       type: "bar",
       data: {
         labels: analyticsData.monthlyLabels,
@@ -576,7 +578,7 @@ document.addEventListener("DOMContentLoaded", function () {
         },
       },
       plugins: [chartAreaGlowPlugin],
-    });
+    }));
   }
 
   const categoryCanvas = document.getElementById("categoryChart");
@@ -585,7 +587,7 @@ document.addEventListener("DOMContentLoaded", function () {
       Chart.register(ChartDataLabels);
     }
 
-    new Chart(categoryCanvas, {
+    nxAnalyticsCharts.push(new Chart(categoryCanvas, {
       type: "doughnut",
       data: {
         labels: analyticsData.categoryLabels,
@@ -656,7 +658,26 @@ document.addEventListener("DOMContentLoaded", function () {
           },
         },
       },
-    });
+    }));
+  }
+
+  // Safety net for in-app/webview browsers (e.g. Facebook Messenger's
+  // built-in browser) that sometimes finish their initial layout pass
+  // after Chart.js has already measured a 0-size container. Forcing a
+  // resize shortly after mount, and again on orientation change, makes
+  // sure the canvases pick up the correct dimensions.
+  if (nxAnalyticsCharts.length) {
+    const nxResizeAnalyticsCharts = () => {
+      nxAnalyticsCharts.forEach((chart) => {
+        if (chart && typeof chart.resize === "function") {
+          chart.resize();
+        }
+      });
+    };
+
+    window.addEventListener("load", () => setTimeout(nxResizeAnalyticsCharts, 150));
+    setTimeout(nxResizeAnalyticsCharts, 300);
+    window.addEventListener("orientationchange", () => setTimeout(nxResizeAnalyticsCharts, 200));
   }
 
   const exportPdfBtn = document.getElementById("exportPdfBtn");

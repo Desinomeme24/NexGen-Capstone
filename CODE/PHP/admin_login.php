@@ -7,8 +7,8 @@ if (!empty($_SESSION['user_id'])) {
 
     $authenticatedRole = (string)($_SESSION['role'] ?? '');
     $authenticatedTarget = $authenticatedRole === 'system_admin'
-        ? '/NexGen/CODE/PHP/admin_dashboard.php'
-        : '/NexGen/CODE/PHP/dashboard.php';
+        ? nxAppUrl('admin_dashboard.php')
+        : nxAppUrl('dashboard.php');
 
     header('Location: ' . $authenticatedTarget);
     exit();
@@ -519,7 +519,7 @@ if (session_status() === PHP_SESSION_ACTIVE) {
                     </div>
                 <?php endif; ?>
 
-                <form action="/NexGen/CODE/PHP/login_process.php" method="POST" id="adminLoginForm" novalidate>
+                <form action="<?php echo e(nxAppUrl('login_process.php')); ?>" method="POST" id="adminLoginForm" novalidate>
                     <input type="hidden" name="login_portal" value="admin">
                     <input type="hidden" name="csrf_token" value="<?php echo e($adminCsrfToken); ?>">
 

@@ -152,7 +152,7 @@ window.NEXGEN_PATHS = <?php echo json_encode([
         <?php if (!empty($activeWorkspace)): ?>
             <div class="workspace-topbar-control">
                 <?php if ($workspaceCount > 1): ?>
-                    <form action="/NexGen/CODE/PHP/workspace_action.php" method="POST" class="workspace-switch-form" data-workspace-switch-form>
+                    <form action="<?php echo e(nxAppUrl('workspace_action.php')); ?>" method="POST" class="workspace-switch-form" data-workspace-switch-form>
                         <input type="hidden" name="csrf_token" value="<?php echo e($workspaceCsrfToken); ?>">
                         <input type="hidden" name="action" value="switch_workspace">
                         <input type="hidden" name="return_to" value="<?php echo e($currentPage); ?>">
@@ -429,7 +429,7 @@ window.NEXGEN_PATHS = <?php echo json_encode([
         const pingThrottleMs = 60000;
 
         function triggerTimeoutLogout() {
-            window.location.href = "/NexGen/CODE/PHP/logout.php?timeout=1";
+            window.location.href = <?php echo json_encode(nxAppUrl('logout.php?timeout=1')); ?>;
         }
 
         function resetInactivityTimer() {
@@ -443,7 +443,7 @@ window.NEXGEN_PATHS = <?php echo json_encode([
             const now = Date.now();
             if (now - lastPingAt >= pingThrottleMs) {
                 lastPingAt = now;
-                fetch('/NexGen/CODE/PHP/session_ping.php', { method: 'POST', credentials: 'same-origin' }).catch(function () {});
+                fetch(<?php echo json_encode(nxAppUrl('session_ping.php')); ?>, { method: 'POST', credentials: 'same-origin' }).catch(function () {});
             }
         }
 

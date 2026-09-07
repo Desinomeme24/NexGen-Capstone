@@ -557,12 +557,12 @@ if (session_status() === PHP_SESSION_ACTIVE) {
 
                     <div class="login-actions">
                         <button class="text-link" type="button" id="adminForgotTrigger">Forgot password?</button>
-                        <a class="text-link" href="/NexGen/CODE/PHP/admin_unlock_otp.php">Unlock administrator account</a>
+                        <a class="text-link" href="<?php echo e(nxAppUrl('admin_unlock_otp.php')); ?>">Unlock administrator account</a>
                     </div>
 
                     <button class="submit-btn" type="submit" id="adminSubmit">Continue to Admin Dashboard</button>
                 </form>
-                                <p class="portal-note">Not an administrator? <a href="/NexGen/CODE/PHP/index.php">Return to the client portal</a>.</p>
+                                <p class="portal-note">Not an administrator? <a href="<?php echo e(NEXGEN_CLIENT_LOGIN_PATH); ?>">Return to the client portal</a>.</p>
             </div>
         </div>
     </section>
@@ -694,7 +694,7 @@ if (session_status() === PHP_SESSION_ACTIVE) {
         <strong class="timer" id="lockoutTimer">00:00</strong>
         <div class="dialog-actions">
             <button class="dialog-btn" type="button" id="lockoutBack">Use another account</button>
-            <a class="dialog-btn primary" href="/NexGen/CODE/PHP/admin_unlock_otp.php" style="display:inline-grid;place-items:center;text-decoration:none;">Unlock with OTP</a>
+            <a class="dialog-btn primary" href="<?php echo e(nxAppUrl('admin_unlock_otp.php')); ?>" style="display:inline-grid;place-items:center;text-decoration:none;">Unlock with OTP</a>
         </div>
     </div>
 </div>

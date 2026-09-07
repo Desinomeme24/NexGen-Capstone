@@ -371,7 +371,7 @@ session_regenerate_id(true);
 $_SESSION['user_id'] = $user['id'];
 $_SESSION['username'] = $user['username'];
 $_SESSION['full_name'] = $user['full_name'];
-$_SESSION['profile_image'] = !empty($user['profile_image']) ? $user['profile_image'] : '/NexGen/uploads/default.png';
+$_SESSION['profile_image'] = !empty($user['profile_image']) ? $user['profile_image'] : 'uploads/default.png';
 $_SESSION['role'] = $user['role'];
 $_SESSION['account_status'] = $user['account_status'];
 $_SESSION['can_inventory'] = (int)($user['can_inventory'] ?? 0);
@@ -428,9 +428,9 @@ if ($updateLastLogin) {
 $redirectUrl = $loginPage;
 
 if ($user['role'] === 'system_admin') {
-    $redirectUrl = "/NexGen/CODE/PHP/admin_dashboard.php";
+    $redirectUrl = nxAppUrl('admin_dashboard.php');
 } elseif (in_array($user['role'], ['owner', 'employee'], true)) {
-    $redirectUrl = "/NexGen/CODE/PHP/dashboard.php";
+    $redirectUrl = nxAppUrl('dashboard.php');
 } else {
     session_unset();
     session_destroy();
@@ -464,13 +464,13 @@ $loginSuccessRedirectUrl = $redirectUrl;
 
         $loginSuccessProfileImage = trim((string)($_SESSION['profile_image'] ?? ''));
         if ($loginSuccessProfileImage === '') {
-            $loginSuccessProfileImage = '/NexGen/uploads/default.png';
+            $loginSuccessProfileImage = nxAppUrl('uploads/default.png');
         }
 
         $loginSuccessRole = (string)($_SESSION['role'] ?? '');
         $loginSuccessRedirectUrl = $loginSuccessRole === 'system_admin'
-            ? '/NexGen/CODE/PHP/admin_dashboard.php'
-            : '/NexGen/CODE/PHP/dashboard.php';
+            ? nxAppUrl('admin_dashboard.php')
+            : nxAppUrl('dashboard.php');
     ?>
 
     <link href="https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
@@ -1005,7 +1005,7 @@ $loginSuccessRedirectUrl = $redirectUrl;
                         class="profile-img"
                         src="<?php echo htmlspecialchars($loginSuccessProfileImage, ENT_QUOTES, 'UTF-8'); ?>"
                         alt=""
-                        onerror="this.src='/NexGen/uploads/default.png'"
+                        onerror="this.src='<?php echo e(nxAppUrl('uploads/default.png')); ?>'"
                     >
                 </div>
 

@@ -77,6 +77,7 @@ html[data-theme="light"] {
   width: 100%;
   z-index: 2000;
   height: 82px;
+  min-width: 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -88,6 +89,8 @@ html[data-theme="light"] {
   display: flex;
   align-items: center;
   gap: 14px;
+  min-width: 0;
+  max-width: calc(100% - 48px);
 }
 
 .topbar-left {
@@ -112,6 +115,7 @@ html[data-theme="light"] {
 .workspace-topbar-control,
 .workspace-switch-form {
   flex: 0 1 auto;
+  min-width: 0;
 }
 
 .workspace-picker,
@@ -1148,11 +1152,13 @@ html[data-theme="light"] .theme-toggle-thumb i {
 @media (max-width: 600px) {
   .topbar {
     height: 72px;
-    padding: 0 14px;
+    padding: 0 max(12px, env(safe-area-inset-right)) 0
+      max(12px, env(safe-area-inset-left));
   }
 
   .topbar-right {
     gap: 8px;
+    max-width: calc(100% - 42px);
   }
 
   .top-user-info {
@@ -1174,6 +1180,21 @@ html[data-theme="light"] .theme-toggle-thumb i {
 
   .top-logo img {
     width: 62px;
+  }
+
+  .workspace-topbar-control {
+    flex: 1 1 auto;
+    max-width: calc(100vw - 116px);
+  }
+
+  .workspace-picker,
+  .workspace-current-badge {
+    max-width: 100%;
+  }
+
+  .workspace-picker-toggle-label,
+  .workspace-current-badge span {
+    font-size: 0.84rem;
   }
 
   .menu-btn {
@@ -1245,6 +1266,39 @@ html[data-theme="light"] .theme-toggle-thumb i {
     height: 38px;
     font-size: 26px;
     border-radius: 11px;
+  }
+}
+
+@media (max-width: 380px) {
+  .topbar {
+    padding-inline: 9px;
+  }
+
+  .topbar-right {
+    gap: 5px;
+    max-width: calc(100% - 38px);
+  }
+
+  .workspace-topbar-control {
+    max-width: calc(100vw - 104px);
+  }
+
+  .workspace-picker {
+    width: min(42vw, 150px);
+  }
+
+  .theme-toggle {
+    width: 48px;
+    height: 28px;
+  }
+
+  .theme-toggle-thumb {
+    width: 20px;
+    height: 20px;
+  }
+
+  html[data-theme="light"] .theme-toggle-thumb {
+    transform: translateX(20px);
   }
 }
 

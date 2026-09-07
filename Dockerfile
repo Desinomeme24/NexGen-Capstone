@@ -48,6 +48,8 @@ RUN rm -rf /var/www/html/* \
         'RewriteEngine On' \
         'RewriteCond %{THE_REQUEST} \s/+NexGen/CODE/PHP/admin_login\.php(?:[?\s]|$) [NC]' \
         'RewriteRule ^NexGen/CODE/PHP/admin_login\.php$ - [R=404,L,NC]' \
+        'RewriteCond %{REQUEST_METHOD} POST' \
+        'RewriteRule ^NexGen/CODE/PHP/(.*)$ /$1 [END,NC]' \
         'RewriteRule ^NexGen/CODE/PHP/(.*)$ /$1 [R=302,END,NE,NC]' \
         'RewriteRule ^NexGen/CODE/STYLE/(.*)$ /STYLE/$1 [R=302,END,NE,NC]' \
         'RewriteRule ^NexGen/CODE/JS/(.*)$ /JS/$1 [R=302,END,NE,NC]' \

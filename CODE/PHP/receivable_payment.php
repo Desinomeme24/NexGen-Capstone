@@ -276,6 +276,7 @@ if (!$data) {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <?php include __DIR__ . '/nexgen_favicon/favicon.php'; ?>
     <?php include __DIR__ . '/theme_init.php'; ?>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Update Receivable Payment</title>

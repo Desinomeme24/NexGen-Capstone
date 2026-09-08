@@ -1236,6 +1236,10 @@ body::after {
 
 .canvas-holder canvas,
 .chart-wrap canvas {
+  position: relative;
+  z-index: 4;
+  width: 100% !important;
+  height: 100% !important;
   max-width: 100%;
   display: block;
 }
@@ -2805,11 +2809,13 @@ html[data-theme="light"] body select {
 
   .canvas-holder {
     height: clamp(250px, 68vw, 320px);
+    min-height: 250px;
   }
 
   .chart-wrap,
   .donut-wrap {
     height: clamp(230px, 62vw, 270px);
+    min-height: 230px;
   }
 
   .category-products-section .row.align-items-center {

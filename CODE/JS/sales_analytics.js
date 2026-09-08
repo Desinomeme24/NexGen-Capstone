@@ -398,267 +398,276 @@ document.addEventListener("DOMContentLoaded", function () {
     Chart.defaults.font.family = "'Segoe UI', Arial, sans-serif";
     Chart.defaults.plugins.legend.labels.usePointStyle = true;
     Chart.defaults.plugins.legend.labels.boxWidth = 10;
+
+    // Register the optional plugin once before creating any charts.
+    if (typeof ChartDataLabels !== "undefined") {
+      Chart.register(ChartDataLabels);
+    }
   }
 
   const nxAnalyticsCharts = [];
 
   const dailySalesCanvas = document.getElementById("dailySalesChart");
   if (dailySalesCanvas && typeof Chart !== "undefined") {
-    nxAnalyticsCharts.push(new Chart(dailySalesCanvas, {
-      type: "line",
-      data: {
-        labels: analyticsData.dailyLabels,
-        datasets: [
-          {
-            label: "Daily Net Profit",
-            data: analyticsData.dailySalesData,
-            borderColor: (context) => {
-              const { chart } = context;
-              const { ctx, chartArea } = chart;
-              if (!chartArea) {
-                return "#59d4ff";
-              }
-              return createLineGradient(ctx, chartArea);
-            },
-            backgroundColor: (context) => {
-              const { chart } = context;
-              const { ctx, chartArea } = chart;
-              if (!chartArea) {
-                return "rgba(89, 212, 255, 0.20)";
-              }
-              return createFillGradient(ctx, chartArea);
-            },
-            tension: 0.42,
-            fill: true,
-            borderWidth: 3.5,
-            pointRadius: 4,
-            pointHoverRadius: 7,
-            pointBackgroundColor: "#ffffff",
-            pointBorderColor: "#59d4ff",
-            pointBorderWidth: 2,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        animation: {
-          duration: 1700,
-          easing: "easeOutQuart",
-        },
-        interaction: {
-          intersect: false,
-          mode: "index",
-        },
-        plugins: {
-          legend: {
-            display: false,
-          },
-          tooltip: {
-            backgroundColor: "rgba(8, 14, 28, 0.96)",
-            borderColor: "rgba(89,212,255,0.22)",
-            borderWidth: 1,
-            titleColor: "#ffffff",
-            bodyColor: "#dbeaff",
-            displayColors: false,
-            callbacks: {
-              label: function (context) {
-                return " " + formatPesoCompact(context.parsed.y);
+    nxAnalyticsCharts.push(
+      new Chart(dailySalesCanvas, {
+        type: "line",
+        data: {
+          labels: analyticsData.dailyLabels,
+          datasets: [
+            {
+              label: "Daily Net Profit",
+              data: analyticsData.dailySalesData,
+              borderColor: (context) => {
+                const { chart } = context;
+                const { ctx, chartArea } = chart;
+                if (!chartArea) {
+                  return "#59d4ff";
+                }
+                return createLineGradient(ctx, chartArea);
               },
-            },
-          },
-        },
-        scales: {
-          y: {
-            beginAtZero: true,
-            min: 0,
-            max: 3000,
-            ticks: {
-              stepSize: 500,
-              callback: function (value) {
-                return "₱" + Number(value).toLocaleString();
+              backgroundColor: (context) => {
+                const { chart } = context;
+                const { ctx, chartArea } = chart;
+                if (!chartArea) {
+                  return "rgba(89, 212, 255, 0.20)";
+                }
+                return createFillGradient(ctx, chartArea);
               },
-              color: commonTicks,
+              tension: 0.42,
+              fill: true,
+              borderWidth: 3.5,
+              pointRadius: 4,
+              pointHoverRadius: 7,
+              pointBackgroundColor: "#ffffff",
+              pointBorderColor: "#59d4ff",
+              pointBorderWidth: 2,
             },
-            grid: {
-              color: commonGrid,
-              drawBorder: false,
-            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: {
+            duration: 1700,
+            easing: "easeOutQuart",
           },
-          x: {
-            grid: {
+          interaction: {
+            intersect: false,
+            mode: "index",
+          },
+          plugins: {
+            legend: {
               display: false,
             },
-            ticks: {
-              color: commonTicks,
+            tooltip: {
+              backgroundColor: "rgba(8, 14, 28, 0.96)",
+              borderColor: "rgba(89,212,255,0.22)",
+              borderWidth: 1,
+              titleColor: "#ffffff",
+              bodyColor: "#dbeaff",
+              displayColors: false,
+              callbacks: {
+                label: function (context) {
+                  return " " + formatPesoCompact(context.parsed.y);
+                },
+              },
+            },
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              min: 0,
+              max: 3000,
+              ticks: {
+                stepSize: 500,
+                callback: function (value) {
+                  return "₱" + Number(value).toLocaleString();
+                },
+                color: commonTicks,
+              },
+              grid: {
+                color: commonGrid,
+                drawBorder: false,
+              },
+            },
+            x: {
+              grid: {
+                display: false,
+              },
+              ticks: {
+                color: commonTicks,
+              },
             },
           },
         },
-      },
-      plugins: [lineShadowPlugin, chartAreaGlowPlugin],
-    }));
+        plugins: [lineShadowPlugin, chartAreaGlowPlugin],
+      }),
+    );
   }
 
   const monthlyRevenueCanvas = document.getElementById("monthlyRevenueChart");
   if (monthlyRevenueCanvas && typeof Chart !== "undefined") {
-    nxAnalyticsCharts.push(new Chart(monthlyRevenueCanvas, {
-      type: "bar",
-      data: {
-        labels: analyticsData.monthlyLabels,
-        datasets: [
-          {
-            label: "Monthly Net Profit",
-            data: analyticsData.monthlyRevenueData,
-            backgroundColor: (context) => {
-              const { chart } = context;
-              const { ctx, chartArea } = chart;
-              if (!chartArea) {
-                return "rgba(103,162,255,0.85)";
-              }
-              return createBarGradient(ctx, chartArea);
-            },
-            borderRadius: 12,
-            borderSkipped: false,
-            barThickness: 22,
-            hoverBorderWidth: 1.5,
-            hoverBorderColor: "rgba(255,255,255,0.28)",
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        animation: {
-          duration: 1800,
-          easing: "easeOutBounce",
-        },
-        plugins: {
-          legend: {
-            display: false,
-          },
-          tooltip: {
-            backgroundColor: "rgba(8, 14, 28, 0.96)",
-            borderColor: "rgba(74,141,255,0.22)",
-            borderWidth: 1,
-            titleColor: "#ffffff",
-            bodyColor: "#dbeaff",
-            displayColors: false,
-            callbacks: {
-              label: function (context) {
-                return " " + formatPesoCompact(context.parsed.y);
+    nxAnalyticsCharts.push(
+      new Chart(monthlyRevenueCanvas, {
+        type: "bar",
+        data: {
+          labels: analyticsData.monthlyLabels,
+          datasets: [
+            {
+              label: "Monthly Net Profit",
+              data: analyticsData.monthlyRevenueData,
+              backgroundColor: (context) => {
+                const { chart } = context;
+                const { ctx, chartArea } = chart;
+                if (!chartArea) {
+                  return "rgba(103,162,255,0.85)";
+                }
+                return createBarGradient(ctx, chartArea);
               },
+              borderRadius: 12,
+              borderSkipped: false,
+              maxBarThickness: 22,
+              categoryPercentage: 0.8,
+              barPercentage: 0.9,
+              hoverBorderWidth: 1.5,
+              hoverBorderColor: "rgba(255,255,255,0.28)",
             },
-          },
+          ],
         },
-        scales: {
-          y: {
-            beginAtZero: true,
-            min: 0,
-            max: 30000,
-            ticks: {
-              stepSize: 5000,
-              callback: function (value) {
-                return "₱" + Number(value).toLocaleString();
-              },
-              color: commonTicks,
-            },
-            grid: {
-              color: commonGrid,
-              drawBorder: false,
-            },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: {
+            duration: 1800,
+            easing: "easeOutBounce",
           },
-          x: {
-            grid: {
+          plugins: {
+            legend: {
               display: false,
             },
-            ticks: {
-              color: commonTicks,
+            tooltip: {
+              backgroundColor: "rgba(8, 14, 28, 0.96)",
+              borderColor: "rgba(74,141,255,0.22)",
+              borderWidth: 1,
+              titleColor: "#ffffff",
+              bodyColor: "#dbeaff",
+              displayColors: false,
+              callbacks: {
+                label: function (context) {
+                  return " " + formatPesoCompact(context.parsed.y);
+                },
+              },
+            },
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              min: 0,
+              max: 30000,
+              ticks: {
+                stepSize: 5000,
+                callback: function (value) {
+                  return "₱" + Number(value).toLocaleString();
+                },
+                color: commonTicks,
+              },
+              grid: {
+                color: commonGrid,
+                drawBorder: false,
+              },
+            },
+            x: {
+              grid: {
+                display: false,
+              },
+              ticks: {
+                color: commonTicks,
+              },
             },
           },
         },
-      },
-      plugins: [chartAreaGlowPlugin],
-    }));
+        plugins: [chartAreaGlowPlugin],
+      }),
+    );
   }
 
   const categoryCanvas = document.getElementById("categoryChart");
   if (categoryCanvas && typeof Chart !== "undefined") {
-    if (typeof ChartDataLabels !== "undefined") {
-      Chart.register(ChartDataLabels);
-    }
-
-    nxAnalyticsCharts.push(new Chart(categoryCanvas, {
-      type: "doughnut",
-      data: {
-        labels: analyticsData.categoryLabels,
-        datasets: [
-          {
-            data: analyticsData.categorySalesData,
-            backgroundColor: [
-              "#59d4ff",
-              "#4a8dff",
-              "#76a8ff",
-              "#4ef2b4",
-              "#ffc869",
-              "#ff8ba2",
-              "#7ce8ff",
-              "#96b6ff",
-            ],
-            borderColor: "rgba(6, 11, 22, 0.92)",
-            borderWidth: 4,
-            hoverOffset: 10,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        cutout: "56%",
-        animation: {
-          duration: 1800,
-          easing: "easeOutExpo",
+    nxAnalyticsCharts.push(
+      new Chart(categoryCanvas, {
+        type: "doughnut",
+        data: {
+          labels: analyticsData.categoryLabels,
+          datasets: [
+            {
+              data: analyticsData.categorySalesData,
+              backgroundColor: [
+                "#59d4ff",
+                "#4a8dff",
+                "#76a8ff",
+                "#4ef2b4",
+                "#ffc869",
+                "#ff8ba2",
+                "#7ce8ff",
+                "#96b6ff",
+              ],
+              borderColor: "rgba(6, 11, 22, 0.92)",
+              borderWidth: 4,
+              hoverOffset: 10,
+            },
+          ],
         },
-        plugins: {
-          legend: {
-            position: "bottom",
-            labels: {
-              color: "#333333",
-              boxWidth: 12,
-              font: {
-                weight: "bold",
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: "56%",
+          animation: {
+            duration: 1800,
+            easing: "easeOutExpo",
+          },
+          plugins: {
+            legend: {
+              position: "bottom",
+              labels: {
+                color: "#333333",
+                boxWidth: 12,
+                font: {
+                  weight: "bold",
+                },
               },
             },
-          },
-          datalabels:
-            typeof ChartDataLabels !== "undefined"
-              ? {
-                  color: "#ffffff",
-                  font: {
-                    weight: "bold",
-                    size: 11,
-                  },
-                  formatter: percentFormatter,
-                }
-              : {},
-          tooltip: {
-            backgroundColor: "rgba(8, 14, 28, 0.96)",
-            borderColor: "rgba(89,212,255,0.22)",
-            borderWidth: 1,
-            titleColor: "#ffffff",
-            bodyColor: "#dbeaff",
-            callbacks: {
-              label: function (context) {
-                const value = Number(context.raw);
-                const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                const percent =
-                  total > 0 ? ((value / total) * 100).toFixed(2) : "0.00";
-                return ` ${context.label}: ${value} unit(s) - ${percent}%`;
+            datalabels:
+              typeof ChartDataLabels !== "undefined"
+                ? {
+                    color: "#ffffff",
+                    font: {
+                      weight: "bold",
+                      size: 11,
+                    },
+                    formatter: percentFormatter,
+                  }
+                : {},
+            tooltip: {
+              backgroundColor: "rgba(8, 14, 28, 0.96)",
+              borderColor: "rgba(89,212,255,0.22)",
+              borderWidth: 1,
+              titleColor: "#ffffff",
+              bodyColor: "#dbeaff",
+              callbacks: {
+                label: function (context) {
+                  const value = Number(context.raw);
+                  const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                  const percent =
+                    total > 0 ? ((value / total) * 100).toFixed(2) : "0.00";
+                  return ` ${context.label}: ${value} unit(s) - ${percent}%`;
+                },
               },
             },
           },
         },
-      },
-    }));
+      }),
+    );
   }
 
   // Safety net for in-app/webview browsers (e.g. Facebook Messenger's
@@ -675,9 +684,16 @@ document.addEventListener("DOMContentLoaded", function () {
       });
     };
 
-    window.addEventListener("load", () => setTimeout(nxResizeAnalyticsCharts, 150));
+    window.addEventListener("load", () =>
+      setTimeout(nxResizeAnalyticsCharts, 150),
+    );
     setTimeout(nxResizeAnalyticsCharts, 300);
-    window.addEventListener("orientationchange", () => setTimeout(nxResizeAnalyticsCharts, 200));
+    requestAnimationFrame(() => {
+      requestAnimationFrame(nxResizeAnalyticsCharts);
+    });
+    window.addEventListener("orientationchange", () =>
+      setTimeout(nxResizeAnalyticsCharts, 200),
+    );
   }
 
   const exportPdfBtn = document.getElementById("exportPdfBtn");

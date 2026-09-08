@@ -543,6 +543,9 @@ document.addEventListener("DOMContentLoaded", function () {
             easing: "easeOutBounce",
           },
           plugins: {
+            datalabels: {
+              display: false,
+            },
             legend: {
               display: false,
             },

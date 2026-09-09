@@ -424,6 +424,9 @@ if ($updateLastLogin) {
     $updateLastLogin->close();
 }
 
+/* AUDIT: record the successful login */
+logAuthActivity($conn, (int)$user['id'], (string)$user['username'], (string)$user['role'], 'login');
+
 /* Decide redirect target only after the portal/role boundary has passed. */
 $redirectUrl = $loginPage;
 

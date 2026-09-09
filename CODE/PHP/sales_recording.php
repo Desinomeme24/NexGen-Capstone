@@ -764,7 +764,7 @@ unset($_SESSION['success'], $_SESSION['error']);
                     <?php while ($row = $result->fetch_assoc()):
                         $items = $row['items_sold'] ?: 'No item details';
                         $itemsShort = strlen($items) > 58 ? substr($items, 0, 58) . '…' : $items;
-                        $dateFmt = date("M d, Y", strtotime($row['sale_date']));
+                        $dateFmt = nxFormatLocalDateTime($row['sale_date'], "M d, Y") ?? '—';
                         $cashierName = $row['salesperson'] ?: 'N/A';
                         $initial = strtoupper(substr($cashierName, 0, 1)) ?: '?';
                         $methodIcon = (stripos($row['payment_method'], 'cash') === 0) ? 'bi-cash-coin' : 'bi-phone';

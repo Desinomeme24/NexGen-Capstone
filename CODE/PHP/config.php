@@ -1181,48 +1181,45 @@ if (!function_exists('nxResolveValidIdPath')) {
 }
 
 /* =========================================================================
-   GENERAL ACTIVITY LOGS
+   GENERAL AUDIT LOGS
    ========================================================================= */
 if (!function_exists('logActivity')) {
     function logActivity(mysqli $conn, ?int $userId, string $username, string $role, string $eventType, string $targetType, int $targetId, string $details): void
     {
-        /* Activity logging must never break the user's requested action. The
-           original config referenced activity_logs even though the supplied
-           database dump did not create it. PHP 8.2 may throw from prepare()
-           when the table is missing, so first verify the optional table and
-           contain any logging-only database failure. */
-        static $activityLogsAvailable = null;
+        /* Writes a row into the audit_logs table that ships with the NexGen
+           database.  The function signature is kept unchanged so existing
+           call-sites (e.g. workspace_action.php) continue to work.
+
+           Column mapping
+           ──────────────────────────────────────────────────
+           $targetType  → table_name   (affected table / entity)
+           $eventType   → action       (INSERT, UPDATE, etc.)
+           $targetId    → record_id    (PK of affected row)
+           $userId      → changed_by   (session user)
+           IP (auto)    → ip_address
+           $username, $role, $details → remarks (combined)
+           old_values / new_values    → NULL (no snapshot available)
+        */
 
         try {
-            if ($activityLogsAvailable === null) {
-                $check = $conn->query(
-                    "SELECT 1
-                     FROM information_schema.tables
-                     WHERE table_schema = DATABASE()
-                       AND table_name = 'activity_logs'
-                     LIMIT 1"
-                );
-                $activityLogsAvailable = $check instanceof mysqli_result && $check->num_rows === 1;
-            }
-
-            if (!$activityLogsAvailable) {
-                return;
-            }
-
             $ipAddress = $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
-            $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? 'UNKNOWN';
 
-            $sql = "INSERT INTO activity_logs (
-                        actor_user_id,
-                        actor_username,
-                        actor_role,
-                        event_type,
-                        target_type,
-                        target_id,
-                        details,
+            // Combine username, role, and details into a single remarks string
+            $remarks = trim("[{$role}] {$username}: {$details}");
+            if (mb_strlen($remarks) > 255) {
+                $remarks = mb_substr($remarks, 0, 252) . '...';
+            }
+
+            $sql = "INSERT INTO audit_logs (
+                        table_name,
+                        action,
+                        record_id,
+                        changed_by,
                         ip_address,
-                        user_agent
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                        old_values,
+                        new_values,
+                        remarks
+                    ) VALUES (?, ?, ?, ?, ?, NULL, NULL, ?)";
 
             $stmt = $conn->prepare($sql);
             if (!$stmt) {
@@ -1230,16 +1227,13 @@ if (!function_exists('logActivity')) {
             }
 
             $stmt->bind_param(
-                "issssisss",
-                $userId,
-                $username,
-                $role,
-                $eventType,
+                "ssisis",
                 $targetType,
+                $eventType,
                 $targetId,
-                $details,
+                $userId,
                 $ipAddress,
-                $userAgent
+                $remarks
             );
             $stmt->execute();
             $stmt->close();
@@ -1390,6 +1384,30 @@ if (!function_exists('verifyAdminLogRowIntegrity')) {
         );
 
         return hash_equals((string)($row['log_hash'] ?? ''), $expected);
+    }
+}
+
+// Shared timezone-safe formatter. DATETIME/TIMESTAMP columns across this
+// app (sm.created_at, sales.sale_date, etc.) are written in UTC by MySQL's
+// NOW()/CURRENT_TIMESTAMP, while date_default_timezone_set() above makes
+// PHP assume Asia/Manila. Formatting a raw DB value with date()/strtotime()
+// skips the UTC->Manila conversion entirely and just prints the UTC value
+// as if it were already local - an 8 hour gap. This function does the
+// conversion explicitly, independent of PHP's default timezone, so any
+// page can call it the same way.
+if (!function_exists('nxFormatLocalDateTime')) {
+    function nxFormatLocalDateTime(?string $utcDateTime, string $format = 'M d, Y h:i A', string $timezone = 'Asia/Manila'): ?string
+    {
+        if (empty($utcDateTime)) {
+            return null;
+        }
+        try {
+            $dt = new DateTime($utcDateTime, new DateTimeZone('UTC'));
+            $dt->setTimezone(new DateTimeZone($timezone));
+            return $dt->format($format);
+        } catch (Exception $e) {
+            return null;
+        }
     }
 }
 ?>

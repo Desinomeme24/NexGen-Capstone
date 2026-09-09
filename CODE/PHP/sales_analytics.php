@@ -18,6 +18,9 @@ if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'owner') {
 
 date_default_timezone_set('Asia/Manila');
 
+/* config.php sets the MySQL connection to UTC+8 as well, so the local
+   Manila date boundaries below can be compared directly with sales.sale_date.
+   No UTC conversion is performed in this page. */
 $displayName = $_SESSION['username'] ?? 'Client';
 $fullName = $_SESSION['full_name'] ?? 'Client';
 $profileImage = !empty($_SESSION['profile_image']) ? $_SESSION['profile_image'] : 'uploads/default.png';

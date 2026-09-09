@@ -126,6 +126,15 @@ try {
     if (!$conn->set_charset('utf8mb4')) {
         throw new RuntimeException('Unable to configure the database connection character set.');
     }
+
+    /* NexGen business time is Asia/Manila (UTC+8). Railway's MySQL
+       system timezone is UTC, so set the timezone for this connection.
+       This makes NOW()/CURRENT_TIMESTAMP use Philippine time and makes
+       TIMESTAMP values (such as stock_movements.created_at) return in
+       Philippine time for this session. */
+    if (!$conn->query("SET time_zone = '+08:00'")) {
+        throw new RuntimeException('Unable to configure the database connection timezone.');
+    }
 } catch (Throwable $e) {
     error_log('NexGen database connection setup failed: ' . $e->getMessage());
     http_response_code(503);
@@ -1404,23 +1413,20 @@ if (!function_exists('verifyAdminLogRowIntegrity')) {
     }
 }
 
-// Shared timezone-safe formatter. DATETIME/TIMESTAMP columns across this
-// app (sm.created_at, sales.sale_date, etc.) are written in UTC by MySQL's
-// NOW()/CURRENT_TIMESTAMP, while date_default_timezone_set() above makes
-// PHP assume Asia/Manila. Formatting a raw DB value with date()/strtotime()
-// skips the UTC->Manila conversion entirely and just prints the UTC value
-// as if it were already local - an 8 hour gap. This function does the
-// conversion explicitly, independent of PHP's default timezone, so any
-// page can call it the same way.
+// Shared local-time formatter. NexGen uses Asia/Manila for both PHP and
+// the MySQL connection. DATETIME values such as sales.sale_date are stored
+// as Philippine clock time, while TIMESTAMP values such as
+// stock_movements.created_at are returned by MySQL in the current session
+// timezone. Do not apply another UTC->Manila conversion here, or timestamps
+// would be shifted by an extra 8 hours.
 if (!function_exists('nxFormatLocalDateTime')) {
-    function nxFormatLocalDateTime(?string $utcDateTime, string $format = 'M d, Y h:i A', string $timezone = 'Asia/Manila'): ?string
+    function nxFormatLocalDateTime(?string $localDateTime, string $format = 'M d, Y h:i A', string $timezone = 'Asia/Manila'): ?string
     {
-        if (empty($utcDateTime)) {
+        if (empty($localDateTime)) {
             return null;
         }
         try {
-            $dt = new DateTime($utcDateTime, new DateTimeZone('UTC'));
-            $dt->setTimezone(new DateTimeZone($timezone));
+            $dt = new DateTime($localDateTime, new DateTimeZone($timezone));
             return $dt->format($format);
         } catch (Exception $e) {
             return null;

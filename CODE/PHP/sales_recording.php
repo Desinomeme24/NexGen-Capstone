@@ -12,9 +12,12 @@ if ((int)($_SESSION['can_sales'] ?? 0) !== 1) {
 }
 
 include 'config.php';
+// config.php sets both PHP and the MySQL connection to Asia/Manila.
+// Keep all sales date boundaries in the same Philippine business timezone.
 require_once __DIR__ . '/tenant_helper.php';
 require_once __DIR__ . '/ar_helper.php';
 $businessId = nxRequireBusinessId($conn);
+date_default_timezone_set('Asia/Manila');
 $user_id = (int)$_SESSION['user_id'];
 $arEnabled = nxArEnabled($conn, $user_id);
 $csrfSaleForm = generateCsrfToken('sale_form');

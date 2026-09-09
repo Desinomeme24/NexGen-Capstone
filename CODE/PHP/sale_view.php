@@ -1166,7 +1166,7 @@ unset($_SESSION['success'], $_SESSION['error']);
 
                     <div class="info-box">
                         <small>Sale Date</small>
-                        <strong><?php echo date("M d, Y h:i A", strtotime($sale['sale_date'])); ?></strong>
+                        <strong><?php echo htmlspecialchars(nxFormatLocalDateTime($sale['sale_date']) ?? '—'); ?></strong>
                     </div>
 
                     <div class="info-box">

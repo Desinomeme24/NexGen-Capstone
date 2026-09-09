@@ -1181,45 +1181,61 @@ if (!function_exists('nxResolveValidIdPath')) {
 }
 
 /* =========================================================================
-   GENERAL AUDIT LOGS
+   GENERAL AUDIT LOGS (DEPRECATED — audit_logs was repurposed, see below)
    ========================================================================= */
 if (!function_exists('logActivity')) {
     function logActivity(mysqli $conn, ?int $userId, string $username, string $role, string $eventType, string $targetType, int $targetId, string $details): void
     {
-        /* Writes a row into the audit_logs table that ships with the NexGen
-           database.  The function signature is kept unchanged so existing
-           call-sites (e.g. workspace_action.php) continue to work.
+        /* The audit_logs table was repurposed to record only login/logout
+           events (see logAuthActivity() below) — it no longer has the
+           table_name / action / record_id / old_values / new_values columns
+           this function used to write to.
 
-           Column mapping
-           ──────────────────────────────────────────────────
-           $targetType  → table_name   (affected table / entity)
-           $eventType   → action       (INSERT, UPDATE, etc.)
-           $targetId    → record_id    (PK of affected row)
-           $userId      → changed_by   (session user)
-           IP (auto)    → ip_address
-           $username, $role, $details → remarks (combined)
-           old_values / new_values    → NULL (no snapshot available)
+           This function is intentionally left as a no-op stub, with its
+           original signature intact, purely so that existing call-sites
+           elsewhere in the codebase (e.g. workspace_action.php) keep working
+           without any code changes on their end and without throwing errors
+           against the new schema. It does not write anywhere. If general
+           critical-operation logging is wanted again later, point this at a
+           new dedicated table instead of audit_logs. */
+        return;
+    }
+}
+
+/* =========================================================================
+   LOGIN / LOGOUT AUDIT LOGS
+   ========================================================================= */
+if (!function_exists('logAuthActivity')) {
+    function logAuthActivity(mysqli $conn, ?int $userId, string $username, string $role, string $eventType, ?string $logoutReason = null): void
+    {
+        /* Writes a row into the repurposed audit_logs table, which now
+           tracks ONLY successful login and logout events.
+
+           $eventType     → 'login' or 'logout'
+           $logoutReason  → 'manual' or 'timeout' (only meaningful when
+                             $eventType === 'logout'; NULL for logins)
         */
+
+        if (!in_array($eventType, ['login', 'logout'], true)) {
+            return;
+        }
 
         try {
             $ipAddress = $_SERVER['REMOTE_ADDR'] ?? 'UNKNOWN';
-
-            // Combine username, role, and details into a single remarks string
-            $remarks = trim("[{$role}] {$username}: {$details}");
-            if (mb_strlen($remarks) > 255) {
-                $remarks = mb_substr($remarks, 0, 252) . '...';
+            $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? null;
+            if ($userAgent !== null && mb_strlen($userAgent) > 255) {
+                $userAgent = mb_substr($userAgent, 0, 255);
             }
 
             $sql = "INSERT INTO audit_logs (
-                        table_name,
-                        action,
-                        record_id,
-                        changed_by,
+                        user_id,
+                        username,
+                        role,
+                        event_type,
+                        logout_reason,
                         ip_address,
-                        old_values,
-                        new_values,
-                        remarks
-                    ) VALUES (?, ?, ?, ?, ?, NULL, NULL, ?)";
+                        user_agent
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?)";
 
             $stmt = $conn->prepare($sql);
             if (!$stmt) {
@@ -1227,20 +1243,21 @@ if (!function_exists('logActivity')) {
             }
 
             $stmt->bind_param(
-                "ssisis",
-                $targetType,
-                $eventType,
-                $targetId,
+                "issssss",
                 $userId,
+                $username,
+                $role,
+                $eventType,
+                $logoutReason,
                 $ipAddress,
-                $remarks
+                $userAgent
             );
             $stmt->execute();
             $stmt->close();
         } catch (Throwable $e) {
-            /* This is a secondary audit write. The main business action has
-               already succeeded and must not be reported as failed solely
-               because logging is temporarily unavailable. */
+            /* This is a secondary audit write. The main login/logout action
+               has already succeeded and must not be reported as failed
+               solely because logging is temporarily unavailable. */
             return;
         }
     }

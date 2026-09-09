@@ -17,6 +17,17 @@ if ($isManualLogout && !validateCsrfToken('logout_form', $_POST['csrf_token'] ??
     exit();
 }
 
+/* AUDIT: record the logout before the session is wiped, since user_id,
+   username, and role only exist in $_SESSION up to this point. */
+$logoutUserId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
+$logoutUsername = (string)($_SESSION['username'] ?? 'unknown');
+$logoutRole = (string)($_SESSION['role'] ?? 'unknown');
+$logoutReason = $isTimeoutLogout ? 'timeout' : 'manual';
+
+if ($logoutUserId !== null) {
+    logAuthActivity($conn, $logoutUserId, $logoutUsername, $logoutRole, 'logout', $logoutReason);
+}
+
 $_SESSION = [];
 
 if (ini_get('session.use_cookies')) {

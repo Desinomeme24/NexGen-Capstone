@@ -296,6 +296,10 @@ function expiryUrgency(?string $expiryDate): ?array {
     return null;
 }
 
+// nxFormatLocalDateTime() now lives in config.php (shared across pages
+// that display DB timestamps), since sale_view.php / sales_recording.php
+// have the identical UTC-stored / Manila-displayed timestamp bug.
+
 function inventoryImagePath(?string $path): string {
     $clean = trim((string)$path);
     if ($clean === '') {
@@ -880,7 +884,7 @@ if ($currentStatusForTab === '') {
                                 <p class="history-caption">Last product sold :</p>
                                 <h4><?php echo htmlspecialchars($latestSoldItem['product_name']); ?></h4>
                                 <div class="history-row">
-                                    <span><?php echo date("M d", strtotime($latestSoldItem['created_at'])); ?></span>
+                                    <span><?php echo htmlspecialchars(nxFormatLocalDateTime($latestSoldItem['created_at'], 'M d') ?? ''); ?></span>
                                     <strong>-<?php echo formatQty($latestSoldItem['quantity']); ?></strong>
                                 </div>
                             </div>
@@ -1138,7 +1142,7 @@ if ($currentStatusForTab === '') {
                                 </td>
                                 <td class="po-date">
                                     <?php echo !empty($order['created_at'])
-                                        ? htmlspecialchars(date('M d, Y h:i A', strtotime($order['created_at'])))
+                                        ? htmlspecialchars(nxFormatLocalDateTime($order['created_at']) ?? '—')
                                         : '—'; ?>
                                 </td>
                             </tr>

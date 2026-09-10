@@ -425,7 +425,24 @@ if ($updateLastLogin) {
 }
 
 /* AUDIT: record the successful login */
-logAuthActivity($conn, (int)$user['id'], (string)$user['username'], (string)$user['role'], 'login');
+$auditLogId = logAuthActivity(
+    $conn,
+    (int)$user['id'],
+    (string)$user['username'],
+    (string)$user['role'],
+    'login'
+);
+
+if ($auditLogId === null) {
+    /*
+     * Authentication has already passed all existing security/business
+     * checks. Keep that behavior intact, but make the missing audit write
+     * visible in server logs instead of silently losing the session audit.
+     */
+    error_log('NexGen successful login could not create its audit record for user ID ' . (int)$user['id']);
+} else {
+    $_SESSION['audit_log_id'] = $auditLogId;
+}
 
 /* Decide redirect target only after the portal/role boundary has passed. */
 $redirectUrl = $loginPage;

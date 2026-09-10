@@ -84,9 +84,18 @@ function nxcb_alerts(mysqli $conn, array $ctx): array {
         $stmt = $conn->prepare("SELECT
             SUM(CASE WHEN is_active = 1 AND stock_quantity <= 0 THEN 1 ELSE 0 END) AS out_count,
             SUM(CASE WHEN is_active = 1 AND stock_quantity > 0 AND stock_quantity <= reorder_level THEN 1 ELSE 0 END) AS low_count,
-            SUM(CASE WHEN is_active = 1 AND expiry_date IS NOT NULL AND expiry_date < CURDATE() THEN 1 ELSE 0 END) AS expired_count,
-            SUM(CASE WHEN is_active = 1 AND expiry_date IS NOT NULL AND expiry_date >= CURDATE() AND expiry_date <= DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN 1 ELSE 0 END) AS expiring_count
-            FROM products WHERE business_id = ?");
+            SUM(CASE WHEN is_active = 1 AND effective_expiry IS NOT NULL AND effective_expiry < CURDATE() THEN 1 ELSE 0 END) AS expired_count,
+            SUM(CASE WHEN is_active = 1 AND effective_expiry IS NOT NULL AND effective_expiry >= CURDATE() AND effective_expiry <= DATE_ADD(CURDATE(), INTERVAL 30 DAY) THEN 1 ELSE 0 END) AS expiring_count
+            FROM (
+                SELECT p.is_active, p.stock_quantity, p.reorder_level,
+                       COALESCE(p.expiry_date, (SELECT MIN(pb.expiry_date)
+                           FROM product_batches pb
+                           WHERE pb.product_id = p.id
+                             AND pb.business_id = p.business_id
+                             AND pb.status = 'active')) AS effective_expiry
+                FROM products p
+                WHERE p.business_id = ?
+            ) AS inventory_expiry");
         $stmt->bind_param('i', $businessId);
         $stmt->execute();
         $row = $stmt->get_result()->fetch_assoc() ?: [];

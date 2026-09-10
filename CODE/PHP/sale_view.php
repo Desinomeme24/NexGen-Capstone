@@ -23,6 +23,42 @@ if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
 
 $sale_id = (int) $_GET['id'];
 
+// Preserve Sales Recording filter/navigation state.
+$salesReturnParams = [
+    'filter'     => isset($_GET['filter']) ? trim($_GET['filter']) : '',
+    'search'     => isset($_GET['search']) ? trim($_GET['search']) : '',
+    'period'     => isset($_GET['period']) ? trim($_GET['period']) : '',
+    'ref_date'   => isset($_GET['ref_date']) ? trim($_GET['ref_date']) : '',
+    'date_from'  => isset($_GET['date_from']) ? trim($_GET['date_from']) : '',
+    'date_to'    => isset($_GET['date_to']) ? trim($_GET['date_to']) : '',
+    'cashier_id' => isset($_GET['cashier_id']) ? (int)$_GET['cashier_id'] : 0,
+];
+
+function buildSalesRecordingUrl(array $params): string
+{
+    $params = array_filter($params, static function ($value) {
+        return $value !== '' && $value !== null && $value !== 0;
+    });
+
+    return 'sales_recording.php' .
+        (!empty($params) ? '?' . http_build_query($params) : '');
+}
+
+function buildSaleViewUrl(int $saleId, array $params = []): string
+{
+    $query = array_merge(['id' => $saleId], $params);
+
+    $query = array_filter($query, static function ($value, $key) {
+        if ($key === 'id') {
+            return true;
+        }
+
+        return $value !== '' && $value !== null && $value !== 0;
+    }, ARRAY_FILTER_USE_BOTH);
+
+    return 'sale_view.php?' . http_build_query($query);
+}
+
 function badgeClassPayment($status) {
     return match($status) {
         'Paid' => 'badge paid',
@@ -35,13 +71,13 @@ function badgeClassPayment($status) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_payment'])) {
     if (!$arEnabled) {
         $_SESSION['error'] = 'You do not have access to Accounts Receivable.';
-        header("Location: sale_view.php?id=" . $sale_id);
+        header("Location: " . buildSaleViewUrl($sale_id, $salesReturnParams));
         exit();
     }
 
     if (!validateCsrfToken('sale_view_payment_form', $_POST['csrf_token'] ?? null)) {
         $_SESSION['error'] = 'Your session expired. Please try again.';
-        header("Location: sale_view.php?id=" . $sale_id);
+        header("Location: " . buildSaleViewUrl($sale_id, $salesReturnParams));
         exit();
     }
 
@@ -50,7 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_payment'])) {
 
     if ($additional_payment <= 0) {
         $_SESSION['error'] = 'Please enter a valid payment amount.';
-        header("Location: sale_view.php?id=" . $sale_id);
+        header("Location: " . buildSaleViewUrl($sale_id, $salesReturnParams));
         exit();
     }
 
@@ -161,13 +197,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_payment'])) {
 
         $conn->commit();
         $_SESSION['success'] = 'Payment updated successfully.';
-        header("Location: sale_view.php?id=" . $sale_id);
+        header("Location: " . buildSaleViewUrl($sale_id, $salesReturnParams));
         exit();
 
     } catch (Exception $e) {
         $conn->rollback();
         $_SESSION['error'] = $e->getMessage();
-        header("Location: sale_view.php?id=" . $sale_id);
+        header("Location: " . buildSaleViewUrl($sale_id, $salesReturnParams));
         exit();
     }
 }
@@ -1146,7 +1182,13 @@ unset($_SESSION['success'], $_SESSION['error']);
                 <div class="menu-icon">👁</div>
                 <div class="header-title">Sale Details</div>
             </div>
-            <a href="sales_recording.php" class="btn btn-secondary">Back to Sales</a>
+            <a href="<?php echo htmlspecialchars(
+    buildSalesRecordingUrl($salesReturnParams),
+    ENT_QUOTES,
+    'UTF-8'
+); ?>" class="btn btn-secondary">
+    Back to Sales
+</a>
         </div>
 
         <div class="content">

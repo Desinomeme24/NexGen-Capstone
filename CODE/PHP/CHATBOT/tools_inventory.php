@@ -62,8 +62,13 @@ function nxcb_inventory_products(mysqli $conn, array $args, array $ctx): array {
             break;
 
         case 'expired':
-            $sql = $baseSelect . " AND p.expiry_date IS NOT NULL AND p.expiry_date < CURDATE()
-                                  ORDER BY p.expiry_date ASC, p.product_name ASC LIMIT ?";
+            $effectiveExpirySql = "COALESCE(p.expiry_date, (SELECT MIN(pb.expiry_date)
+                FROM product_batches pb
+                WHERE pb.product_id = p.id
+                  AND pb.business_id = p.business_id
+                  AND pb.status = 'active'))";
+            $sql = $baseSelect . " AND {$effectiveExpirySql} IS NOT NULL AND {$effectiveExpirySql} < CURDATE()
+                                  ORDER BY {$effectiveExpirySql} ASC, p.product_name ASC LIMIT ?";
             $stmt = $conn->prepare($sql);
             $stmt->bind_param('ii', $businessId, $limit);
             break;

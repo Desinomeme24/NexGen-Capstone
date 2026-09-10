@@ -5,6 +5,15 @@ function nxcb_text_lower(string $text): string {
     return trim(preg_replace('/\s+/u', ' ', mb_strtolower($text, 'UTF-8')) ?? $text);
 }
 
+function nxcb_normalize_question(string $text): string {
+    $text = nxcb_text_lower($text);
+    $text = str_replace(['–', '—', '_'], '-', $text);
+    $text = preg_replace('/\b(?:please|pakisuyo|paki)\s+/u', '', $text) ?? $text;
+    $text = preg_replace('/\bmag[- ]?record\b/u', 'record', $text) ?? $text;
+    $text = preg_replace('/\b(?:mag[- ]?forecast|i[- ]?forecast)\b/u', 'forecast', $text) ?? $text;
+    return trim(preg_replace('/\s+/u', ' ', $text) ?? $text);
+}
+
 function nxcb_contains_any(string $text, array $needles): bool {
     foreach ($needles as $needle) {
         if ($needle !== '' && preg_match('/(?<![\pL\pN])' . preg_quote($needle, '/') . '(?![\pL\pN])/ui', $text)) return true;
@@ -33,7 +42,10 @@ function nxcb_period_from_question(string $question): ?string {
 }
 
 function nxcb_extract_days(string $question, int $default, int $min = 1, int $max = 365): int {
-    if (preg_match('/\b(\d+)\s*(?:days?|araw)\b/ui', $question, $m)) return max($min, min($max, (int)$m[1]));
+    if (preg_match('/\b(\d+)\s*(?:days?|araw|linggo|weeks?)\b/ui', $question, $m)) {
+        $days = preg_match('/(?:linggo|weeks?)$/ui', $m[0]) ? (int)$m[1] * 7 : (int)$m[1];
+        return max($min, min($max, $days));
+    }
     return $default;
 }
 
@@ -46,6 +58,7 @@ function nxcb_extract_limit(string $question, int $default = 10, int $max = 20):
 
 function nxcb_clean_query(string $query): string {
     $query = trim($query, " \t\n\r\0\x0B?!.,\"'");
+    $query = preg_replace('/^(?:ang|mga|the)\s+(?:produktong?|product)\s+/ui', '', $query) ?? $query;
     return $query !== '' && mb_strlen($query, 'UTF-8') <= 100 && !str_contains($query, '<name>') ? $query : '';
 }
 
@@ -92,17 +105,17 @@ function nxcb_date_args(string $question): array {
 }
 
 function nxcb_fast_direct_reply(string $question, array $ctx = []): ?string {
-    $q = nxcb_text_lower($question);
-    if (preg_match('/^(hi|hello|hey|hello there|good morning|good afternoon|good evening|kumusta|kamusta)[!. ]*$/ui', $q)) {
+    $q = nxcb_normalize_question($question);
+    if (preg_match('/^(hi|hello|hey|hello there|good morning|good afternoon|good evening|kumusta|kamusta|magandang umaga|magandang hapon|magandang gabi)[!. ]*$/ui', $q)) {
         return "Hi! I’m your NexGen Assistant.\n" . nxcb_help_reply($ctx);
     }
-    if (preg_match('/^(thanks|thank you|salamat|ty)[!. ]*$/ui', $q)) return 'You’re welcome!';
-    if (preg_match('/^(help|menu|what can you do|ano ang kaya mo|ano kaya mo)[?.! ]*$/ui', $q)) return nxcb_help_reply($ctx);
+    if (preg_match('/^(thanks|thank you|salamat|maraming salamat|ty)[!. ]*$/ui', $q)) return 'You’re welcome!';
+    if (preg_match('/^(help|menu|what can you do|ano ang kaya mo|ano kaya mo|ano ang pwede mong gawin)[?.! ]*$/ui', $q)) return nxcb_help_reply($ctx);
     $areas = [
-        'inventory' => '/^(inventory|stock|products?|items?)[?.! ]*$/ui',
-        'sales' => '/^(sales|sale)[?.! ]*$/ui',
-        'sales_analytics' => '/^(analytics|sales analytics|reports?)[?.! ]*$/ui',
-        'accounts_receivable' => '/^(receivables?|accounts receivable|ar)[?.! ]*$/ui',
+        'inventory' => '/^(inventory|stock|products?|items?|imbentaryo)[?.! ]*$/ui',
+        'sales' => '/^(sales|sale|benta)[?.! ]*$/ui',
+        'sales_analytics' => '/^(analytics|sales analytics|reports?|ulat)[?.! ]*$/ui',
+        'accounts_receivable' => '/^(receivables?|accounts receivable|ar|utang|singilan)[?.! ]*$/ui',
     ];
     foreach ($areas as $area => $pattern) {
         if (preg_match($pattern, $q)) return nxcb_help_reply($ctx, $area);
@@ -111,11 +124,11 @@ function nxcb_fast_direct_reply(string $question, array $ctx = []): ?string {
 }
 
 function nxcb_domain_clarification(string $question, array $ctx = []): string {
-    $q = nxcb_text_lower($question);
+    $q = nxcb_normalize_question($question);
     $areas = [
-        'accounts_receivable' => ['receivable', 'receivables', 'customer', 'overdue', 'unpaid', 'utang', 'balance', 'payment'],
-        'sales_analytics' => ['analytics', 'profit', 'cogs', 'forecast', 'performance'],
-        'inventory' => ['stock', 'inventory', 'product', 'products', 'item', 'items', 'restock'],
+        'accounts_receivable' => ['receivable', 'receivables', 'customer', 'overdue', 'unpaid', 'utang', 'singil', 'balance', 'payment'],
+        'sales_analytics' => ['analytics', 'profit', 'cogs', 'forecast', 'tantya', 'performance'],
+        'inventory' => ['stock', 'inventory', 'imbentaryo', 'product', 'products', 'produkto', 'item', 'items', 'restock'],
         'sales' => ['sales', 'sale', 'transaction', 'transactions', 'benta'],
     ];
     foreach ($areas as $area => $words) {
@@ -126,7 +139,7 @@ function nxcb_domain_clarification(string $question, array $ctx = []): string {
 
 /** Identify one supported operation; ambiguous/unsupported requests never execute SQL. */
 function nxcb_intent_route(string $question, array $ctx): ?array {
-    $q = nxcb_text_lower($question);
+    $q = nxcb_normalize_question($question);
     $period = nxcb_period_from_question($q);
     $limit = nxcb_extract_limit($q);
     $route = static fn(string $tool, array $args = []) => ['tool' => $tool, 'args' => $args];
@@ -139,7 +152,7 @@ function nxcb_intent_route(string $question, array $ctx): ?array {
 
     // How-to questions are distinct from "What is my revenue today?".
     $how = preg_match('/\b(how do i|how to|how can i|where do i|where can i|steps? to|paano|saan ko|explain|meaning of|what does)\b/ui', $q)
-        || preg_match('/^what (?:is|are) (?:the )?(?:cogs|net profit|gross revenue|accounts receivable|nexgen|inventory|reorder level)[?.! ]*$/ui', $q);
+        || preg_match('/^(?:what is|what are|ano ang|ano yung)\s+(?:the\s+)?(?:cogs|net profit|gross revenue|accounts receivable|nexgen|inventory|reorder level)[?.! ]*$/ui', $q);
     if ($how) {
         $topics = ['analytics' => ['analytics', 'report', 'reports', 'cogs', 'profit', 'revenue'],
             'receivables' => ['receivable', 'receivables', 'payment', 'customer balance', 'utang'],
@@ -178,10 +191,10 @@ function nxcb_intent_route(string $question, array $ctx): ?array {
         return $route('get_stock_activity', ['movement_type' => $movement, 'period' => $period ?? 'recent', 'limit' => $limit]);
     }
     $filters = [
-        'expiring' => ['expiring', 'expire soon', 'soon to expire', 'malapit mag-expire', 'malapit ma-expire', 'malapit mag expire'],
+        'expiring' => ['expiring', 'expire soon', 'soon to expire', 'about to expire', 'malapit mag-expire', 'malapit ma-expire', 'malapit mag expire', 'malapit nang mag-expire', 'malapit nang ma-expire'],
         'expired' => ['expired', 'expire na'],
-        'out_of_stock' => ['out of stock', 'out-of-stock', 'no stock', 'zero stock', 'walang stock', 'ubos na stock'],
-        'low_stock' => ['low stock', 'low-stock', 'mababang stock', 'kulang stock', 'kaunti na ang stock'],
+        'out_of_stock' => ['out of stock', 'out-of-stock', 'no stock', 'zero stock', 'walang stock', 'ubos na stock', 'ubos na ang stock', 'ubos na'],
+        'low_stock' => ['low stock', 'low-stock', 'mababang stock', 'mababa ang stock', 'kulang stock', 'kaunti na ang stock', 'konti na ang stock'],
         'near_reorder' => ['near reorder', 'reorder level'], 'on_order' => ['on order', 'on-order', 'incoming stock', 'ordered stock'],
         'recently_added' => ['recently added products', 'recently added product', 'newly added products', 'new products', 'latest products', 'newest products'],
     ];
@@ -193,7 +206,7 @@ function nxcb_intent_route(string $question, array $ctx): ?array {
         }
     }
     $views = [
-        'followup_priority' => ['follow up first', 'follow-up first', 'followup first', 'follow up priority', 'collection priority', 'priority account', 'which customer account should i follow', 'sino ang uunahin'],
+        'followup_priority' => ['follow up first', 'follow-up first', 'followup first', 'follow up priority', 'collection priority', 'priority account', 'which customer account should i follow', 'sino ang uunahin', 'sino ang dapat kong i-follow up', 'dapat i-follow up'],
         'largest_balance' => ['largest balance', 'highest balance', 'biggest balance', 'largest receivable', 'pinakamalaking utang'],
         'overdue' => ['overdue', 'past due'],
         'summary' => ['receivable summary', 'accounts receivable summary', 'ar summary', 'receivables summary', 'total receivables'],
@@ -202,14 +215,15 @@ function nxcb_intent_route(string $question, array $ctx): ?array {
     foreach ($views as $view => $words) {
         if (nxcb_contains_any($q, $words)) return $route('get_receivables', ['view' => $view, 'limit' => $view === 'largest_balance' ? 1 : $limit]);
     }
-    if (nxcb_contains_any($q, ['forecast', 'predict', 'projection', 'projected'])) {
+    if (nxcb_contains_any($q, ['forecast', 'predict', 'projection', 'projected', 'tantya', 'tantiya'])) {
         if (preg_match('/\b(?:next month|next week|next year|tomorrow|bukas|\d{4}-\d{1,2}-\d{1,2})\b/ui', $q)) {
             return ['reply' => 'Please specify a forecast horizon from 1 to 30 days, for example “forecast sales for 7 days”.'];
         }
-        if (preg_match('/\b(?:forecast|predict)\s+(?:demand\s+for|product)\s+(.+?)(?:\s+for\s+(?:the\s+next\s+)?\d+\s+days?)?[?.! ]*$/ui', $question, $m)) {
-            return $route('forecast_business', ['kind' => 'product', 'product_query' => nxcb_clean_query($m[1]), 'horizon_days' => nxcb_extract_days($q, 7, 1, 30)]);
-        }
-        if (nxcb_contains_any($q, ['sales', 'revenue', 'business', 'benta'])) {
+            if (preg_match('/\b(?:forecast|predict)\s+(?:demand\s+for|product)\s+(.+?)(?:\s+for\s+(?:the\s+next\s+)?\d+\s+days?)?[?.! ]*$/ui', $question, $m)
+                || preg_match('/\b(?:i-forecast|forecast)\s+(?:ang\s+)?demand\s+ng\s+(.+?)(?:\s+sa\s+loob\s+ng\s+\d+\s+araw)?[?.! ]*$/ui', $question, $m)) {
+                return $route('forecast_business', ['kind' => 'product', 'product_query' => nxcb_clean_query($m[1]), 'horizon_days' => nxcb_extract_days($q, 7, 1, 30)]);
+            }
+        if (nxcb_contains_any($q, ['sales', 'revenue', 'business', 'benta', 'kita'])) {
             return $route('forecast_business', ['kind' => 'sales', 'horizon_days' => nxcb_extract_days($q, 7, 1, 30)]);
         }
         return ['reply' => 'Try “forecast sales for 7 days” or “forecast demand for <product name> for 7 days”.'];
@@ -218,11 +232,11 @@ function nxcb_intent_route(string $question, array $ctx): ?array {
         return $route('get_category_performance', ['metric' => nxcb_contains_any($q, ['revenue', 'sales amount', 'peso']) ? 'revenue' : 'units',
             'order' => nxcb_contains_any($q, ['lowest', 'weakest', 'least', 'worst']) ? 'lowest' : 'highest', 'period' => $period ?? 'this_month', 'limit' => nxcb_extract_limit($q, 5)]);
     }
-    if (nxcb_contains_any($q, ['top products', 'top product', 'best selling', 'best-selling', 'top selling', 'pinakamabenta', 'mabentang produkto']) || preg_match('/\btop\s+\d+\s+products?\b/ui', $q)) {
+    if (nxcb_contains_any($q, ['top products', 'top product', 'best selling', 'best-selling', 'top selling', 'pinakamabenta', 'pinakamabentang', 'mabentang produkto']) || preg_match('/\btop\s+\d+\s+products?\b/ui', $q)) {
         return $route('get_product_performance', ['metric' => nxcb_contains_any($q, ['revenue', 'sales amount', 'peso']) ? 'top_revenue' : 'top_quantity', 'period' => $period ?? 'this_month', 'limit' => nxcb_extract_limit($q, 5, 10)]);
     }
-    if (nxcb_contains_any($q, ['slow moving', 'slow-moving', 'mabagal mabenta'])) return $route('get_product_performance', ['metric' => 'slow_moving', 'period' => $period ?? 'this_month', 'limit' => nxcb_extract_limit($q, 5, 10)]);
-    if (nxcb_contains_any($q, ['no recent sales', 'not selling', 'no sales recently', 'no sales in', 'walang benta'])) return $route('get_product_performance', ['metric' => 'no_recent_sales', 'days_without_sales' => nxcb_extract_days($q, 30), 'limit' => nxcb_extract_limit($q, 5, 10)]);
+    if (nxcb_contains_any($q, ['slow moving', 'slow-moving', 'mabagal mabenta', 'mabagal ang benta', 'hindi mabenta'])) return $route('get_product_performance', ['metric' => 'slow_moving', 'period' => $period ?? 'this_month', 'limit' => nxcb_extract_limit($q, 5, 10)]);
+    if (nxcb_contains_any($q, ['no recent sales', 'not selling', 'no sales recently', 'no sales in', 'walang benta', 'walang nabebenta'])) return $route('get_product_performance', ['metric' => 'no_recent_sales', 'days_without_sales' => nxcb_extract_days($q, 30), 'limit' => nxcb_extract_limit($q, 5, 10)]);
     if (nxcb_contains_any($q, ['highest cogs', 'most cogs'])) return $route('get_product_performance', ['metric' => 'highest_cogs', 'period' => $period ?? 'this_month', 'limit' => nxcb_extract_limit($q, 5, 10)]);
     if (nxcb_contains_any($q, ['sales movement', 'sales history', 'sale history', 'recent sales', 'recent transactions', 'sales activity', 'transaction history', 'show my sales', 'show sales', 'list sales']) || preg_match('/\b(?:latest|recent|last)\s+(?:\d+\s+)?(?:sales|transactions)\b/ui', $q)) {
         return $route('get_sales_activity', ['period' => $period ?? 'recent', 'limit' => $limit]);

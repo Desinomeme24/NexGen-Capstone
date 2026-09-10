@@ -826,7 +826,16 @@ unset($_SESSION['success'], $_SESSION['error']);
                             <span class="sale-card-method"><i class="bi <?php echo $methodIcon; ?>"></i> <?php echo htmlspecialchars($row['payment_method']); ?></span>
                             <div class="sale-card-actions">
                                 <button type="button" class="btn-quickview" onclick="openQuickView(this)"><i class="bi bi-eye"></i> Quick View</button>
-                                <a href="sale_view.php?id=<?php echo (int)$row['id']; ?>" class="btn-view">Open</a>
+                               <a href="sale_view.php?<?php echo http_build_query([
+                                      'id' => (int)$row['id'],
+                                      'filter' => $filter,
+                                      'search' => $search,
+                                      'period' => $period,
+                                      'ref_date' => $refDateInput,
+                                      'date_from' => $dateFromInput,
+                                      'date_to' => $dateToInput,
+                                      'cashier_id' => $cashierId
+                                    ]); ?>" class="btn-view">Open</a>
                             </div>
                         </div>
                     </article>

@@ -123,8 +123,32 @@ function nxcb_fast_direct_reply(string $question, array $ctx = []): ?string {
     return null;
 }
 
+function nxcb_clarification_suggestion(string $question): ?string {
+    $q = nxcb_normalize_question($question);
+    $suggestions = [
+        '/^(?:mababa|mababa ang stock|low|low stock)[?.! ]*$/ui'
+            => 'Ipakita ang mga produktong mababa ang stock',
+        '/^(?:expired|paso|paso na|nag-expire)[?.! ]*$/ui'
+            => 'Ipakita ang mga expired na produkto',
+        '/^(?:ubos|out of stock|walang stock)[?.! ]*$/ui'
+            => 'Ipakita ang mga produktong walang stock',
+        '/^(?:benta|sales)[?.! ]*$/ui'
+            => 'Magkano ang benta ngayong araw?',
+        '/^(?:utang|receivable|receivables|ar)[?.! ]*$/ui'
+            => 'Ipakita ang mga overdue accounts',
+    ];
+    foreach ($suggestions as $pattern => $example) {
+        if (preg_match($pattern, $q)) {
+            return "Did you mean: '{$example}'?";
+        }
+    }
+    return null;
+}
+
 function nxcb_domain_clarification(string $question, array $ctx = []): string {
     $q = nxcb_normalize_question($question);
+    $suggestion = nxcb_clarification_suggestion($q);
+    if ($suggestion !== null) return $suggestion;
     $areas = [
         'accounts_receivable' => ['receivable', 'receivables', 'customer', 'overdue', 'unpaid', 'utang', 'singil', 'balance', 'payment'],
         'sales_analytics' => ['analytics', 'profit', 'cogs', 'forecast', 'tantya', 'performance'],
@@ -248,6 +272,8 @@ function nxcb_intent_route(string $question, array $ctx): ?array {
 }
 
 function nxcb_fast_route(string $question, array $ctx): ?array {
+    $suggestion = nxcb_clarification_suggestion($question);
+    if ($suggestion !== null) return ['reply' => $suggestion];
     $route = nxcb_intent_route($question, $ctx);
     if (!$route || isset($route['reply'])) return $route;
     $tool = $route['tool'];

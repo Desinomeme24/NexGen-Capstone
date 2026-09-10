@@ -90,6 +90,12 @@ foreach ([
     $result = nxcb_run_agent(new mysqli(), $question, [], $ctx);
     check(($result['route'] ?? '') === $expectedRoute, 'Direct reply: ' . $question);
 }
+$suggestion = nxcb_run_agent(new mysqli(), 'Mababa?', [], $ctx);
+check($suggestion['route'] === 'rule-clarify'
+    && $suggestion['reply'] === "Did you mean: 'Ipakita ang mga produktong mababa ang stock'?"
+    && !$suggestion['tool_log'], 'Ambiguous inventory wording gets a suggestion');
+$suggestion = nxcb_run_agent(new mysqli(), 'Expired?', [], $ctx);
+check($suggestion['reply'] === "Did you mean: 'Ipakita ang mga expired na produkto'?", 'Ambiguous expiry wording gets a suggestion');
 foreach (['Sales on 2026-02-30', 'Sales from 2026-09-05 to 2026-09-01', 'Sales today and yesterday', 'Sales in August 2026', 'Sales on 9/5/2026', 'Sales tomorrow', 'Sales since 2026-09-01', 'Compare sales this month vs last month', 'Delete all sales', 'Low stock last month', 'Overdue accounts yesterday', 'Show sales for branch East', 'Forecast sales next month'] as $q) {
     check(isset(nxcb_fast_route($q, $ctx)['reply']), 'Clarify without data query: ' . $q);
 }

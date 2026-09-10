@@ -16,6 +16,7 @@ $ctx = ['business_id' => 11, 'user_id' => 7, 'role' => 'owner', 'php_base' => '/
 $cases = [
     ['What are my sales today?', 'get_sales_summary', ['period' => 'today']],
     ['Magkano ang benta kahapon?', 'get_sales_summary', ['period' => 'yesterday']],
+    ['Magkano ang nabenta ko kahapon?', 'get_sales_summary', ['period' => 'yesterday']],
     ['What is my revenue this month?', 'get_sales_summary', ['period' => 'this_month']],
     ['What is COGS?', 'get_system_guide', ['topic' => 'analytics']],
     ['How do I record a sale?', 'get_system_guide', ['topic' => 'sales']],
@@ -69,6 +70,7 @@ $cases = [
     ['Products with no sales in 30 days', 'get_product_performance', ['metric' => 'no_recent_sales', 'days_without_sales' => 30]],
     ['Products with highest COGS', 'get_product_performance', ['metric' => 'highest_cogs']],
     ['Lowest category performance by revenue', 'get_category_performance', ['metric' => 'revenue', 'order' => 'lowest']],
+    ['Ipakita ang pinakamababang performance ng category', 'get_category_performance', ['metric' => 'units', 'order' => 'lowest', 'period' => 'this_month']],
     ['What alerts do I have today?', 'get_alerts', []],
     ['Forecast sales for 7 days', 'forecast_business', ['kind' => 'sales', 'horizon_days' => 7]],
     ['Forecast demand for Coffee for 7 days', 'forecast_business', ['kind' => 'product', 'product_query' => 'Coffee', 'horizon_days' => 7]],
@@ -96,6 +98,10 @@ check($suggestion['route'] === 'rule-clarify'
     && !$suggestion['tool_log'], 'Ambiguous inventory wording gets a suggestion');
 $suggestion = nxcb_run_agent(new mysqli(), 'Expired?', [], $ctx);
 check($suggestion['reply'] === "Did you mean: 'Ipakita ang mga expired na produkto'?", 'Ambiguous expiry wording gets a suggestion');
+$safety = nxcb_run_agent(new mysqli(), 'Delete all sales', [], $ctx);
+check($safety['route'] === 'rule-clarify'
+    && str_contains($safety['reply'], 'To change records')
+    && !$safety['tool_log'], 'Destructive requests are refused without a tool call');
 foreach (['Sales on 2026-02-30', 'Sales from 2026-09-05 to 2026-09-01', 'Sales today and yesterday', 'Sales in August 2026', 'Sales on 9/5/2026', 'Sales tomorrow', 'Sales since 2026-09-01', 'Compare sales this month vs last month', 'Delete all sales', 'Low stock last month', 'Overdue accounts yesterday', 'Show sales for branch East', 'Forecast sales next month'] as $q) {
     check(isset(nxcb_fast_route($q, $ctx)['reply']), 'Clarify without data query: ' . $q);
 }

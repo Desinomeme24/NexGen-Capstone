@@ -738,7 +738,10 @@ unset($_SESSION['success'], $_SESSION['error']);
         <div class="card sales-ledger-card">
             <div class="sales-ledger-header">
                 <div>
-                    <h2>Sales Ledger</h2>
+                    <div class="sales-ledger-title-row">
+                        <h2>Sales Ledger</h2>
+                        <span class="sales-count-chip"><?php echo (int)$result->num_rows; ?> record<?php echo ($result->num_rows === 1) ? '' : 's'; ?></span>
+                    </div>
                     <?php
                         $subtitleParts = [];
                         if ($period !== 'all') {
@@ -759,7 +762,6 @@ unset($_SESSION['success'], $_SESSION['error']);
                         <p class="sales-ledger-subtitle"><?php echo htmlspecialchars(implode(' · ', $subtitleParts)); ?></p>
                     <?php endif; ?>
                 </div>
-                <span class="sales-count-chip"><?php echo (int)$result->num_rows; ?> record<?php echo ($result->num_rows === 1) ? '' : 's'; ?></span>
             </div>
 
             <div class="sales-grid" id="salesGrid">

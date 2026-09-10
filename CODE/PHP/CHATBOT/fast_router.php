@@ -252,9 +252,10 @@ function nxcb_intent_route(string $question, array $ctx): ?array {
         }
         return ['reply' => 'Try “forecast sales for 7 days” or “forecast demand for <product name> for 7 days”.'];
     }
-    if (nxcb_contains_any($q, ['category', 'categories']) && nxcb_contains_any($q, ['performance', 'top', 'best', 'highest', 'lowest', 'weakest', 'least', 'revenue', 'units', 'sold'])) {
+    if (nxcb_contains_any($q, ['category', 'categories']) && nxcb_contains_any($q, ['performance', 'top', 'best', 'highest', 'lowest', 'weakest', 'least', 'pinakamababa', 'pinakamababang', 'revenue', 'units', 'sold'])) {
         return $route('get_category_performance', ['metric' => nxcb_contains_any($q, ['revenue', 'sales amount', 'peso']) ? 'revenue' : 'units',
-            'order' => nxcb_contains_any($q, ['lowest', 'weakest', 'least', 'worst']) ? 'lowest' : 'highest', 'period' => $period ?? 'this_month', 'limit' => nxcb_extract_limit($q, 5)]);
+            'order' => nxcb_contains_any($q, ['lowest', 'weakest', 'least', 'worst', 'pinakamababa', 'pinakamababang']) ? 'lowest' : 'highest',
+            'period' => $period ?? 'this_month', 'limit' => nxcb_extract_limit($q, 5)]);
     }
     if (nxcb_contains_any($q, ['top products', 'top product', 'best selling', 'best-selling', 'top selling', 'pinakamabenta', 'pinakamabentang', 'mabentang produkto']) || preg_match('/\btop\s+\d+\s+products?\b/ui', $q)) {
         return $route('get_product_performance', ['metric' => nxcb_contains_any($q, ['revenue', 'sales amount', 'peso']) ? 'top_revenue' : 'top_quantity', 'period' => $period ?? 'this_month', 'limit' => nxcb_extract_limit($q, 5, 10)]);
@@ -265,7 +266,7 @@ function nxcb_intent_route(string $question, array $ctx): ?array {
     if (nxcb_contains_any($q, ['sales movement', 'sales history', 'sale history', 'recent sales', 'recent transactions', 'sales activity', 'transaction history', 'show my sales', 'show sales', 'list sales']) || preg_match('/\b(?:latest|recent|last)\s+(?:\d+\s+)?(?:sales|transactions)\b/ui', $q)) {
         return $route('get_sales_activity', ['period' => $period ?? 'recent', 'limit' => $limit]);
     }
-    if (nxcb_contains_any($q, ['sales', 'revenue', 'profit', 'cogs', 'transaction count', 'transactions today', 'how much did i sell', 'benta', 'kita'])) {
+    if (nxcb_contains_any($q, ['sales', 'revenue', 'profit', 'cogs', 'transaction count', 'transactions today', 'how much did i sell', 'benta', 'nabenta', 'kita'])) {
         return $route('get_sales_summary', ['period' => $period ?? 'today']);
     }
     return null;

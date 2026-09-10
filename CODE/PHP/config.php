@@ -881,6 +881,16 @@ if (!function_exists('enforceSessionTimeout')) {
 
         if (($now - $lastActivity) > $timeoutSeconds) {
             $loginPath = nxLoginPathForRole((string)($_SESSION['role'] ?? ''));
+
+            /* Close the session's existing login audit row BEFORE the
+               authenticated session is destroyed. This is the timeout
+               equivalent of manual logout and must update the same row. */
+            $auditLogId = (int)($_SESSION['audit_log_id'] ?? 0);
+            if ($auditLogId > 0 && isset($GLOBALS['conn']) && $GLOBALS['conn'] instanceof mysqli) {
+                closeAuthAuditLog($GLOBALS['conn'], $auditLogId, 'timeout');
+            }
+
+            unset($_SESSION['audit_log_id']);
             $_SESSION = [];
 
             if (ini_get('session.use_cookies')) {
@@ -1215,18 +1225,23 @@ if (!function_exists('logActivity')) {
    LOGIN / LOGOUT AUDIT LOGS
    ========================================================================= */
 if (!function_exists('logAuthActivity')) {
-    function logAuthActivity(mysqli $conn, ?int $userId, string $username, string $role, string $eventType, ?string $logoutReason = null): void
-    {
-        /* Writes a row into the repurposed audit_logs table, which now
-           tracks ONLY successful login and logout events.
-
-           $eventType     → 'login' or 'logout'
-           $logoutReason  → 'manual' or 'timeout' (only meaningful when
-                             $eventType === 'logout'; NULL for logins)
-        */
-
-        if (!in_array($eventType, ['login', 'logout'], true)) {
-            return;
+    /**
+     * Create exactly one audit row for a successful login.
+     *
+     * Logout is deliberately NOT an INSERT anymore. The audit row created
+     * here is the session's single source of truth and is closed later by
+     * closeAuthAuditLog(). The returned ID is stored in $_SESSION.
+     */
+    function logAuthActivity(
+        mysqli $conn,
+        ?int $userId,
+        string $username,
+        string $role,
+        string $eventType,
+        ?string $logoutReason = null
+    ): ?int {
+        if ($eventType !== 'login') {
+            return null;
         }
 
         try {
@@ -1236,38 +1251,83 @@ if (!function_exists('logAuthActivity')) {
                 $userAgent = mb_substr($userAgent, 0, 255);
             }
 
-            $sql = "INSERT INTO audit_logs (
-                        user_id,
-                        username,
-                        role,
-                        event_type,
-                        logout_reason,
-                        ip_address,
-                        user_agent
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?)";
+            $stmt = $conn->prepare(
+                "INSERT INTO audit_logs (
+                    user_id,
+                    username,
+                    role,
+                    event_type,
+                    logout_reason,
+                    ip_address,
+                    user_agent
+                ) VALUES (?, ?, ?, 'login', NULL, ?, ?)"
+            );
 
-            $stmt = $conn->prepare($sql);
             if (!$stmt) {
-                return;
+                error_log('NexGen login audit prepare failed: ' . $conn->error);
+                return null;
             }
 
             $stmt->bind_param(
-                "issssss",
+                "issss",
                 $userId,
                 $username,
                 $role,
-                $eventType,
-                $logoutReason,
                 $ipAddress,
                 $userAgent
             );
             $stmt->execute();
+
+            $auditLogId = (int)$stmt->insert_id;
             $stmt->close();
+
+            return $auditLogId > 0 ? $auditLogId : null;
         } catch (Throwable $e) {
-            /* This is a secondary audit write. The main login/logout action
-               has already succeeded and must not be reported as failed
-               solely because logging is temporarily unavailable. */
-            return;
+            error_log('NexGen login audit insert failed: ' . $e->getMessage());
+            return null;
+        }
+    }
+}
+
+if (!function_exists('closeAuthAuditLog')) {
+    /**
+     * Close the existing login audit row for this session.
+     *
+     * The event row is updated in place, never duplicated. The WHERE clause
+     * makes the operation idempotent: once a session is closed, another
+     * logout/timeout request cannot create or re-close another audit row.
+     */
+    function closeAuthAuditLog(mysqli $conn, int $auditLogId, string $logoutReason): bool
+    {
+        if ($auditLogId < 1 || !in_array($logoutReason, ['manual', 'timeout'], true)) {
+            return false;
+        }
+
+        try {
+            $stmt = $conn->prepare(
+                "UPDATE audit_logs
+                 SET event_type = 'logout',
+                     logout_reason = ?,
+                     logout_at = NOW()
+                 WHERE id = ?
+                   AND event_type = 'login'
+                 LIMIT 1"
+            );
+
+            if (!$stmt) {
+                error_log('NexGen logout audit prepare failed: ' . $conn->error);
+                return false;
+            }
+
+            $stmt->bind_param("si", $logoutReason, $auditLogId);
+            $stmt->execute();
+            $updated = $stmt->affected_rows === 1;
+            $stmt->close();
+
+            return $updated;
+        } catch (Throwable $e) {
+            error_log('NexGen logout audit update failed: ' . $e->getMessage());
+            return false;
         }
     }
 }

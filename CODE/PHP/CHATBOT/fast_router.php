@@ -192,7 +192,7 @@ function nxcb_intent_route(string $question, array $ctx): ?array {
     }
     $filters = [
         'expiring' => ['expiring', 'expire soon', 'soon to expire', 'about to expire', 'malapit mag-expire', 'malapit ma-expire', 'malapit mag expire', 'malapit nang mag-expire', 'malapit nang ma-expire'],
-        'expired' => ['expired', 'expire na'],
+        'expired' => ['expired', 'expire na', 'expired na', 'nag-expire na', 'paso na', 'paso nang', 'lumampas na sa expiration', 'lampas na sa expiration'],
         'out_of_stock' => ['out of stock', 'out-of-stock', 'no stock', 'zero stock', 'walang stock', 'ubos na stock', 'ubos na ang stock', 'ubos na'],
         'low_stock' => ['low stock', 'low-stock', 'mababang stock', 'mababa ang stock', 'kulang stock', 'kaunti na ang stock', 'konti na ang stock'],
         'near_reorder' => ['near reorder', 'reorder level'], 'on_order' => ['on order', 'on-order', 'incoming stock', 'ordered stock'],

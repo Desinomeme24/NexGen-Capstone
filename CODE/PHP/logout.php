@@ -17,16 +17,16 @@ if ($isManualLogout && !validateCsrfToken('logout_form', $_POST['csrf_token'] ??
     exit();
 }
 
-/* AUDIT: record the logout before the session is wiped, since user_id,
-   username, and role only exist in $_SESSION up to this point. */
-$logoutUserId = isset($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
-$logoutUsername = (string)($_SESSION['username'] ?? 'unknown');
-$logoutRole = (string)($_SESSION['role'] ?? 'unknown');
+/* AUDIT: close the existing login record before the session is wiped.
+   Do not INSERT a second row for logout. */
 $logoutReason = $isTimeoutLogout ? 'timeout' : 'manual';
+$logoutAuditId = (int)($_SESSION['audit_log_id'] ?? 0);
 
-if ($logoutUserId !== null) {
-    logAuthActivity($conn, $logoutUserId, $logoutUsername, $logoutRole, 'logout', $logoutReason);
+if ($logoutAuditId > 0) {
+    closeAuthAuditLog($conn, $logoutAuditId, $logoutReason);
 }
+
+unset($_SESSION['audit_log_id']);
 
 $_SESSION = [];
 

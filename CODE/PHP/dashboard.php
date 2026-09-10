@@ -374,9 +374,9 @@ $pageSubtitle = $isOwner
 
         <div class="footer-social">
             <a href="https://www.facebook.com/profile.php?id=61587577520854" target="_blank" rel="noopener" aria-label="NexGen on Facebook"><i class="bi bi-facebook"></i></a>
-            <a href="#" target="_blank" rel="noopener" aria-label="NexGen on Instagram"><i class="bi bi-instagram"></i></a>
-            <a href="#" target="_blank" rel="noopener" aria-label="NexGen on X"><i class="bi bi-twitter-x"></i></a>
-            <a href="#" target="_blank" rel="noopener" aria-label="NexGen on TikTok"><i class="bi bi-tiktok"></i></a>
+            <a href="https://www.instagram.com/nexgen.enterprises26?igsh=MTB5bDNod3lubjhjdw==" target="_blank" rel="noopener" aria-label="NexGen on Instagram"><i class="bi bi-instagram"></i></a>
+            <a href="https://x.com/NexGenX2026" target="_blank" rel="noopener" aria-label="NexGen on X"><i class="bi bi-twitter-x"></i></a>
+            <a href="https://www.tiktok.com/@nexgen.enterprise4?_r=1&_t=ZS-98Vx2jSAL3q" target="_blank" rel="noopener" aria-label="NexGen on TikTok"><i class="bi bi-tiktok"></i></a>
         </div>
 
         <div class="footer-copy">

@@ -492,7 +492,7 @@ document.addEventListener("DOMContentLoaded", function () {
           product.code.toLowerCase().includes(normalizedQuery)
         );
       })
-      .slice(0, 12);
+      .slice(0, 15);
     activeSearchIndex = -1;
 
     if (!visibleSearchProducts.length) {

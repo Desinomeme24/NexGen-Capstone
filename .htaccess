@@ -28,3 +28,4 @@ RewriteRule ^CODE/PHP/admin_login\.php$ - [R=404,L,NC]
 # Identity documents must never be directly downloadable from the public tree.
 RewriteRule ^CODE/PHP/uploads/valid_ids(?:/|$) - [R=404,L,NC]
 RewriteRule ^uploads/valid_ids(?:/|$) - [R=404,L,NC]
+RewriteRule ^uploads/\.nexgen-private(?:/|$) - [R=404,L,NC]

@@ -197,13 +197,31 @@ $summary = $summaryResult ? $summaryResult->fetch_assoc() : [
 
 $productList = [];
 $productStmt = $conn->prepare("
-    SELECT id, product_code, product_name, product_image, selling_price, discount_percent, stock_quantity
-    FROM products
-    WHERE business_id = ? AND is_active = 1
-    ORDER BY product_name ASC
+    SELECT
+        p.id,
+        p.product_code,
+        p.product_name,
+        p.product_image,
+        p.selling_price,
+        p.discount_percent,
+        p.stock_quantity,
+        COALESCE(SUM(CASE WHEN s.business_id = ? THEN si.quantity ELSE 0 END), 0) AS total_sold
+    FROM products p
+    LEFT JOIN sale_items si ON p.id = si.product_id
+    LEFT JOIN sales s ON s.id = si.sale_id
+    WHERE p.business_id = ? AND p.is_active = 1
+    GROUP BY
+        p.id,
+        p.product_code,
+        p.product_name,
+        p.product_image,
+        p.selling_price,
+        p.discount_percent,
+        p.stock_quantity
+    ORDER BY total_sold DESC, p.id ASC
 ");
 if ($productStmt) {
-    $productStmt->bind_param("i", $businessId);
+    $productStmt->bind_param("ii", $businessId, $businessId);
     $productStmt->execute();
     $products = $productStmt->get_result();
     while ($row = $products->fetch_assoc()) {

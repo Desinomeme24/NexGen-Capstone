@@ -24,7 +24,7 @@ NEXGEN_DB_PORT=${{MySQL.MYSQLPORT}}
 NEXGEN_DB_NAME=${{MySQL.MYSQLDATABASE}}
 NEXGEN_DB_USER=${{MySQL.MYSQLUSER}}
 NEXGEN_DB_PASSWORD=${{MySQL.MYSQLPASSWORD}}
-NEXGEN_PRIVATE_UPLOAD_DIR=/var/lib/nexgen/private
+NEXGEN_PRIVATE_UPLOAD_DIR=/var/www/html/uploads/.nexgen-private
 NEXGEN_PUBLIC_UPLOAD_DIR=/var/www/html/uploads
 NEXGEN_RESEND_API_KEY=<Railway secret>
 NEXGEN_RESEND_FROM_ADDRESS=<verified Resend sender>
@@ -36,14 +36,16 @@ that value.
 
 ## 3. Persistent storage
 
-Attach Railway volumes to the PHP service:
+Railway allows one volume per service. Attach one volume to the PHP service at:
 
-- `/var/lib/nexgen/private` for identity documents
-- `/var/www/html/uploads` for profile and product images
+- `/var/www/html/uploads` for profile and product images, plus the protected
+  private-ID directory under `/var/www/html/uploads/.nexgen-private`
 
-Without these volumes, uploads disappear whenever the container is redeployed.
-Identity documents must never be stored in the Git repository or public web
-root.
+Set `NEXGEN_PRIVATE_UPLOAD_DIR` to
+`/var/www/html/uploads/.nexgen-private`. Valid IDs are then written below
+`.nexgen-private/valid_ids`, denied by Apache, and served only through the
+authenticated `valid_id_file.php` endpoint. Do not place valid IDs in
+`uploads/valid_ids`; that path is retained only for legacy compatibility.
 
 ## 4. Database schema
 

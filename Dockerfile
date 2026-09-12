@@ -89,4 +89,4 @@ RUN rm -f /etc/apache2/mods-enabled/mpm_*.load \
 
 EXPOSE 80
 
-CMD ["sh", "-c", "PORT=\"${PORT:-80}\"; rm -f /etc/apache2/mods-enabled/mpm_*.load /etc/apache2/mods-enabled/mpm_*.conf; a2enmod mpm_prefork; sed -ri \"s/Listen 80/Listen ${PORT}/\" /etc/apache2/ports.conf; sed -ri \"s/<VirtualHost \\\\*:80>/<VirtualHost *:${PORT}>/\" /etc/apache2/sites-available/000-default.conf; apache2ctl configtest; exec apache2-foreground"]
+CMD ["sh", "-c", "PORT=\"${PORT:-80}\"; UPLOAD_DIR=\"${NEXGEN_PUBLIC_UPLOAD_DIR:-/var/www/html/uploads}\"; PRIVATE_UPLOAD_DIR=\"${NEXGEN_PRIVATE_UPLOAD_DIR:-${UPLOAD_DIR}/.nexgen-private}\"; mkdir -p \"${UPLOAD_DIR}/products\" \"${PRIVATE_UPLOAD_DIR}/valid_ids\"; chown -R www-data:www-data \"${UPLOAD_DIR}\"; chmod 0750 \"${PRIVATE_UPLOAD_DIR}\" \"${PRIVATE_UPLOAD_DIR}/valid_ids\"; rm -f /etc/apache2/mods-enabled/mpm_*.load /etc/apache2/mods-enabled/mpm_*.conf; a2enmod mpm_prefork; sed -ri \"s/Listen 80/Listen ${PORT}/\" /etc/apache2/ports.conf; sed -ri \"s/<VirtualHost \\\\*:80>/<VirtualHost *:${PORT}>/\" /etc/apache2/sites-available/000-default.conf; apache2ctl configtest; exec apache2-foreground"]

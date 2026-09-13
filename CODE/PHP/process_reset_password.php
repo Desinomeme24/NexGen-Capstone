@@ -122,12 +122,59 @@ if (empty($user['otp_code']) || empty($user['otp_expires_at'])) {
     prpRespond(false, "No valid OTP found. Please request a new one.", 'error', 'reset_password.php');
 }
 
-if (!nxVerifyOtp($otp_code, (string)$user['otp_code'])) {
-    prpRespond(false, "Invalid OTP code.", 'error', 'reset_password.php');
-}
-
 if (strtotime($user['otp_expires_at']) < time()) {
     prpRespond(false, "OTP has expired. Please request a new one.", 'error', 'reset_password.php');
+}
+
+$otpAccountRateLimit = nxConsumeSecurityRateLimit(
+    $conn,
+    'password_reset_otp_account',
+    (string)$userId,
+    5,
+    600,
+    600
+);
+$otpIpRateLimit = nxConsumeSecurityRateLimit(
+    $conn,
+    'password_reset_otp_ip',
+    (string)($_SERVER['REMOTE_ADDR'] ?? 'unknown'),
+    20,
+    600,
+    600
+);
+
+if (!$otpAccountRateLimit['configured'] || !$otpIpRateLimit['configured']) {
+    error_log('Password reset OTP rate limiting is not configured.');
+    prpRespond(
+        false,
+        "Unable to process the OTP right now. Please try again later.",
+        'error',
+        'reset_password.php'
+    );
+}
+
+if (!$otpAccountRateLimit['allowed'] || !$otpIpRateLimit['allowed']) {
+    $invalidate_stmt = $conn->prepare(
+        "UPDATE users SET otp_code = NULL, otp_expires_at = NULL WHERE id = ?"
+    );
+    if (!$invalidate_stmt) {
+        error_log('Password reset OTP invalidation prepare failed: ' . $conn->error);
+    } else {
+        $invalidate_stmt->bind_param("i", $userId);
+        $invalidate_stmt->execute();
+        $invalidate_stmt->close();
+    }
+
+    prpRespond(
+        false,
+        "Too many invalid OTP attempts. Please request a new one.",
+        'error',
+        'reset_password.php'
+    );
+}
+
+if (!nxVerifyOtp($otp_code, (string)$user['otp_code'])) {
+    prpRespond(false, "Invalid OTP code.", 'error', 'reset_password.php');
 }
 
 try {

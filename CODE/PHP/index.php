@@ -3970,14 +3970,8 @@ html[data-theme="light"] .signup-modern-box .signup-form-panel input[type="file"
 
             <div class="login-form-panel">
                 <h2>Sign In</h2>
-                <div class="social-container">
-                    <a href="#"><i class="fab fa-google-plus-g"></i></a>
-                    <a href="#"><i class="fab fa-facebook-f"></i></a>
-                    <a href="#"><i class="fab fa-github"></i></a>
-                    <a href="#"><i class="fab fa-linkedin-in"></i></a>
-                </div>
-                <span class="or-divider" style="font-size:12px; color:#777; margin-bottom:15px; display:block;">or use your account</span>
-
+              
+               
                 <form action="<?php echo e(nxAppUrl('login_process.php')); ?>" method="POST" id="loginForm">
                     <input type="hidden" name="login_portal" value="client">
                     <input type="hidden" name="csrf_token" value="<?php echo e($loginCsrfToken); ?>">
@@ -4639,26 +4633,26 @@ html[data-theme="light"] .signup-modern-box .signup-form-panel input[type="file"
       <div class="stat-card reveal from-scale">
         <div class="stat-icon"><i class="fas fa-code-branch"></i></div>
         <div class="stat-number"><span class="counter" data-target="4">0</span></div>
-        <div class="stat-label">Integrated Modules</div>
-        <div class="stat-desc">Inventory, Sales, Analytics & Receivables — all in one platform.</div>
+        <div class="stat-label">Core Business Modules</div>
+        <div class="stat-desc">Inventory, sales, analytics, and receivables in one platform.</div>
       </div>
       <div class="stat-card reveal from-scale">
-        <div class="stat-icon"><i class="fas fa-cloud"></i></div>
-        <div class="stat-number"><span class="counter" data-target="100">0</span><span class="suffix">%</span></div>
-        <div class="stat-label">Cloud-Native</div>
-        <div class="stat-desc">Built on modern cloud infrastructure for speed and reliability.</div>
+        <div class="stat-icon"><i class="fas fa-chart-line"></i></div>
+        <div class="stat-number"><span class="counter" data-target="1">0</span></div>
+        <div class="stat-label">Centralized Workspace</div>
+        <div class="stat-desc">View important business activity and performance from one dashboard.</div>
       </div>
       <div class="stat-card reveal from-scale">
-        <div class="stat-icon"><i class="fas fa-bolt"></i></div>
-        <div class="stat-number"><span class="counter" data-target="50">0</span><span class="suffix">+</span></div>
-        <div class="stat-label">Integration Ready</div>
-        <div class="stat-desc">Connect with 50+ popular business apps, ERP &amp; CRM systems.</div>
+        <div class="stat-icon"><i class="fas fa-comments"></i></div>
+        <div class="stat-number"><span class="counter" data-target="1">0</span></div>
+        <div class="stat-label">Business Assistant</div>
+        <div class="stat-desc">Get quick answers about inventory, sales, analytics, and receivables.</div>
       </div>
       <div class="stat-card reveal from-scale">
         <div class="stat-icon"><i class="fas fa-shield-halved"></i></div>
-        <div class="stat-number"><span class="counter" data-target="256">0</span></div>
-        <div class="stat-label">Bit Encryption</div>
-        <div class="stat-desc">Bank-grade security to keep your business data safe.</div>
+        <div class="stat-number"><span class="counter" data-target="1">0</span></div>
+        <div class="stat-label">Protected User Access</div>
+        <div class="stat-desc">Authentication, CAPTCHA, OTP, and permissions help protect account access.</div>
       </div>
     </div>
   </div>

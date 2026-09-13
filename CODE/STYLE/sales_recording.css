@@ -3058,6 +3058,20 @@ html[data-theme="light"] .menu-item.active i {
   }
 }
 
+@media (max-width: 980px) {
+  .toolbar-actions {
+    width: 100%;
+    margin-left: 0;
+    justify-content: stretch;
+  }
+
+  .toolbar-actions .btn-primary,
+  .toolbar-actions .btn-secondary {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+}
+
 @media (max-width: 700px) {
   body {
     padding: 16px;
@@ -3126,6 +3140,16 @@ html[data-theme="light"] .menu-item.active i {
 
   .kpi-strip {
     grid-template-columns: repeat(2, 1fr);
+  }
+
+  .toolbar-actions {
+    flex-direction: column;
+  }
+
+  .toolbar-actions .btn-primary,
+  .toolbar-actions .btn-secondary {
+    width: 100%;
+    flex: 0 0 auto;
   }
 
   .sales-ledger-header h2 {

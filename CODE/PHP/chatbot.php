@@ -186,8 +186,7 @@ define('NXCB_WIDGET_RENDERED', true);
 <div class="nx-chatbot-widget" id="nxChatbotWidget"
      data-endpoint="<?php echo htmlspecialchars(nxAppUrl('chatbot.php?action=ask'), ENT_QUOTES, 'UTF-8'); ?>"
      data-context="<?php echo htmlspecialchars($chatbotPageContext, ENT_QUOTES, 'UTF-8'); ?>">
-    <button type="button" class="nx-chatbot-toggle" id="nxChatbotToggle">
-        <span class="nx-chatbot-toggle-text">Ask NexGen</span>
+    <button type="button" class="nx-chatbot-toggle" id="nxChatbotToggle" aria-label="Open NexGen chatbot">
         <span class="nx-chatbot-toggle-icon-wrap">
             <img src="<?php echo htmlspecialchars(nxProjectUrl('IMAGES/chatbot.png'), ENT_QUOTES, 'UTF-8'); ?>" alt="Chatbot" class="nx-chatbot-toggle-logo">
         </span>
@@ -227,5 +226,5 @@ define('NXCB_WIDGET_RENDERED', true);
     </div>
 </div>
 
-<link rel="stylesheet" href="<?php echo htmlspecialchars(nxCodeUrl('STYLE/chatbot.css?v=rules1'), ENT_QUOTES, 'UTF-8'); ?>">
-<script src="<?php echo htmlspecialchars(nxCodeUrl('JS/chatbot.js?v=rules2'), ENT_QUOTES, 'UTF-8'); ?>"></script>
+<link rel="stylesheet" href="<?php echo htmlspecialchars(nxCodeUrl('STYLE/chatbot.css?v=rules4'), ENT_QUOTES, 'UTF-8'); ?>">
+<script src="<?php echo htmlspecialchars(nxCodeUrl('JS/chatbot.js?v=rules3'), ENT_QUOTES, 'UTF-8'); ?>"></script>

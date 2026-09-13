@@ -7,15 +7,16 @@
 }
 
 .nx-chatbot-toggle {
-  min-width: 178px;
+  width: 60px;
+  min-width: 60px;
   height: 60px;
-  padding: 7px 10px 7px 14px;
+  padding: 7px;
   border: none;
   border-radius: 999px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  justify-content: center;
+  gap: 0;
   cursor: pointer;
   color: #fff;
   background: rgba(20, 40, 90, 0.46);
@@ -33,13 +34,6 @@
   box-shadow:
     0 18px 34px rgba(0, 0, 0, 0.28),
     0 0 26px rgba(77, 125, 255, 0.22);
-}
-
-.nx-chatbot-toggle-text {
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.3px;
-  white-space: nowrap;
 }
 
 .nx-chatbot-toggle-icon-wrap {
@@ -377,12 +371,10 @@
     bottom: 12px;
   }
   .nx-chatbot-toggle {
-    min-width: 150px;
+    width: 52px;
+    min-width: 52px;
     height: 52px;
-    padding: 6px 8px 6px 10px;
-  }
-  .nx-chatbot-toggle-text {
-    font-size: 11px;
+    padding: 6px;
   }
   .nx-chatbot-toggle-icon-wrap,
   .nx-chatbot-toggle-logo {
@@ -439,13 +431,6 @@
     0 0 26px rgba(77, 125, 255, 0.22);
 }
 
-.nx-chatbot-toggle-text {
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.3px;
-  white-space: nowrap;
-}
-
 .nx-chatbot-toggle-icon-wrap {
   width: 44px;
   height: 44px;
@@ -781,12 +766,10 @@
     bottom: 12px;
   }
   .nx-chatbot-toggle {
-    min-width: 150px;
+    width: 52px;
+    min-width: 52px;
     height: 52px;
-    padding: 6px 8px 6px 10px;
-  }
-  .nx-chatbot-toggle-text {
-    font-size: 11px;
+    padding: 6px;
   }
   .nx-chatbot-toggle-icon-wrap,
   .nx-chatbot-toggle-logo {
@@ -830,5 +813,24 @@
 @media (max-width: 600px) {
   .nx-chatbot-input-wrap input {
     font-size: 16px;
+  }
+}
+
+/* Final launcher sizing: keep the chatbot icon circular on every viewport. */
+.nx-chatbot-toggle {
+  width: 60px;
+  min-width: 60px;
+  height: 60px;
+  padding: 7px;
+  justify-content: center;
+  gap: 0;
+}
+
+@media (max-width: 600px) {
+  .nx-chatbot-toggle {
+    width: 52px;
+    min-width: 52px;
+    height: 52px;
+    padding: 6px;
   }
 }

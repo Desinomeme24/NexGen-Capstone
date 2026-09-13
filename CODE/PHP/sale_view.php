@@ -225,6 +225,7 @@ if ($saleResult->num_rows === 0) {
 }
 
 $sale = $saleResult->fetch_assoc();
+$receiptPath = nxSaleReceiptPath($sale_id);
 
 /* Customer details are sensitive AR data. Only retrieve them for a user who
    currently has AR access, and always keep the lookup inside the active
@@ -609,6 +610,16 @@ unset($_SESSION['success'], $_SESSION['error']);
         .empty-note {
             color: #dbeafe;
             font-size: 14px;
+        }
+
+        .receipt-view img {
+           display: block;
+           width: min(100%, 420px);
+           max-height: 560px;
+           object-fit: contain;
+           border: 1px solid rgba(255, 255, 255, 0.12);
+           border-radius: 14px;
+           background: rgba(0, 0, 0, 0.18);
         }
 
         .nx-toast-wrap {
@@ -1327,6 +1338,17 @@ unset($_SESSION['success'], $_SESSION['error']);
                     <div class="empty-note">This sale has no accounts receivable record, so there is no payment update form available.</div>
                 </div>
             <?php endif; ?>
+
+            <div class="card">
+                <div class="section-title">Receipt</div>
+                <?php if ($receiptPath !== null): ?>
+                    <div class="receipt-view">
+                        <img src="<?php echo htmlspecialchars('sale_receipt.php?id=' . $sale_id, ENT_QUOTES, 'UTF-8'); ?>" alt="Receipt for sale <?php echo htmlspecialchars($sale['sales_no'], ENT_QUOTES, 'UTF-8'); ?>">
+                    </div>
+                <?php else: ?>
+                    <div class="empty-note">No receipt photo was attached to this sale.</div>
+                <?php endif; ?>
+            </div>
 
             <div class="card">
                 <div class="section-title">Items Sold</div>

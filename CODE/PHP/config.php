@@ -1167,6 +1167,37 @@ if (!function_exists('nxPublicUploadDirectory')) {
     }
 }
 
+if (!function_exists('nxSaleReceiptDirectory')) {
+    function nxSaleReceiptDirectory(): string
+    {
+        $configured = trim((string)(getenv('NEXGEN_PRIVATE_UPLOAD_DIR') ?: ''));
+        if ($configured !== '') {
+            return rtrim($configured, "\\/") . DIRECTORY_SEPARATOR . 'receipts';
+        }
+
+        return dirname(__DIR__, 4) . DIRECTORY_SEPARATOR . 'nexgen_private'
+            . DIRECTORY_SEPARATOR . 'receipts';
+    }
+}
+
+if (!function_exists('nxSaleReceiptPath')) {
+    function nxSaleReceiptPath(int $saleId): ?string
+    {
+        if ($saleId <= 0) {
+            return null;
+        }
+
+        foreach (['jpg', 'jpeg', 'png', 'webp'] as $extension) {
+            $path = nxSaleReceiptDirectory() . DIRECTORY_SEPARATOR . 'receipt_' . $saleId . '.' . $extension;
+            if (is_file($path)) {
+                return $path;
+            }
+        }
+
+        return null;
+    }
+}
+
 if (!function_exists('nxPrivateValidIdDirectory')) {
     function nxPrivateValidIdDirectory(): string
     {

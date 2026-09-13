@@ -92,11 +92,11 @@ $profileImage = !empty($_SESSION['profile_image']) ? $_SESSION['profile_image'] 
         <div class="footer-top-line"></div>
         <p>
             &copy; 2026 NexGen. All rights reserved. |
-            <a href="/NexGen/CODE/PHP/privacy_policy.php" style="color:#f7d98b; text-decoration:none; font-weight:700;">
+            <a href="privacy_policy.php?return_to=about_us" style="color:#f7d98b; text-decoration:none; font-weight:700;">
                 Privacy Policy
             </a>
             |
-            <a href="/NexGen/CODE/PHP/privacy_policy.php#cookie-notice" style="color:#f7d98b; text-decoration:none; font-weight:700;">
+            <a href="privacy_policy.php?return_to=about_us#cookie-notice" style="color:#f7d98b; text-decoration:none; font-weight:700;">
                 Cookie Notice
             </a>
         </p>

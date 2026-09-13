@@ -5,7 +5,9 @@ $backLink = "/NexGen/CODE/PHP/index.php";
 $returnTo = $_GET['return_to'] ?? '';
 $isSignupReturn = !isset($_SESSION['user_id']) && $returnTo === 'signup';
 
-if (isset($_SESSION['user_id'])) {
+if ($returnTo === 'about_us') {
+    $backLink = "about_us.php";
+} elseif (isset($_SESSION['user_id'])) {
     $backLink = "/NexGen/CODE/PHP/settings.php";
 } elseif ($returnTo === 'signup') {
     $backLink = "/NexGen/CODE/PHP/index.php?open=signup";
@@ -371,7 +373,7 @@ if (isset($_SESSION['user_id'])) {
                     <div class="section-content"><p>NexGen applies security measures such as password hashing, role-based access control, session timeout, account lockout, CAPTCHA validation, and activity logging to help protect user data from unauthorized access, misuse, or alteration.</p></div>
                 </details>
 
-                <details>
+                <details id="cookie-notice">
                     <summary><span class="section-number">5</span>Cookie Use</summary>
                     <div class="section-content"><p>NexGen uses essential browser storage or session-related cookies for login session continuity, security controls, inactivity timeout handling, and access management. These are used only for proper system operation and are not intended for advertising or public tracking.</p></div>
                 </details>

@@ -301,11 +301,7 @@ function expiryUrgency(?string $expiryDate): ?array {
 // have the identical UTC-stored / Manila-displayed timestamp bug.
 
 function inventoryImagePath(?string $path): string {
-    $clean = trim((string)$path);
-    if ($clean === '') {
-        return nxProjectUrl('IMAGES/default-product.svg');
-    }
-    return nxAppUrl($clean);
+    return nxProductImageUrl($path);
 }
 
 function isActiveTab(string $current, string $tab): string {
@@ -947,7 +943,7 @@ if ($currentStatusForTab === '') {
                                 <tr>
                                     <td class="cell-image">
                                         <div class="product-image-cell">
-                                            <img src="<?php echo htmlspecialchars(inventoryImagePath($product['product_image'] ?? '')); ?>" alt="Product" class="product-thumb">
+                                            <img src="<?php echo htmlspecialchars(inventoryImagePath($product['product_image'] ?? '')); ?>" alt="Product" class="product-thumb" onerror="this.onerror=null;this.src='<?php echo e(nxProjectUrl('IMAGES/default-product.svg')); ?>';">
                                         </div>
                                     </td>
 
@@ -1003,7 +999,7 @@ if ($currentStatusForTab === '') {
                                                     data-expiry="<?php echo htmlspecialchars($product['expiry_date'] ?? ''); ?>"
                                                     data-description="<?php echo htmlspecialchars($product['description'] ?? ''); ?>"
                                                     data-active="<?php echo (int)$product['is_active']; ?>"
-                                                    data-image="<?php echo htmlspecialchars($product['product_image'] ?? ''); ?>"
+                                                    data-image="<?php echo htmlspecialchars(inventoryImagePath($product['product_image'] ?? '')); ?>"
                                                 >
                                                     <i class="bi bi-pencil-square"></i>
                                                     <span>Edit</span>

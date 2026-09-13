@@ -21,7 +21,7 @@ if ($isBatchTracked && $stock_quantity<=0) { $_SESSION['inventory_error']='A pos
 if (min($cost_price,$selling_price,$stock_quantity,$reorder_level,$on_order_level)<0) { $_SESSION['inventory_error']='Numeric values must not be negative.'; header("Location: /NexGen/CODE/PHP/inventory_management.php"); exit(); }
 $cat=$conn->prepare('SELECT id FROM categories WHERE id=? AND business_id=?'); $cat->bind_param('ii',$category_id,$businessId); $cat->execute(); $catOk=$cat->get_result()->fetch_assoc(); $cat->close();
 if(!$catOk){$_SESSION['inventory_error']='Invalid category for this business.';header("Location: /NexGen/CODE/PHP/inventory_management.php");exit();}
-$imagePath='uploads/products/default.png';
+$imagePath='';
 if(!empty($_FILES['product_image']['name'])){ $f=$_FILES['product_image']; [$ok,$msg]=nxValidateSecureUpload($f,['allowed_extensions'=>['jpg','jpeg','png','webp'],'allowed_mime_types'=>['image/jpeg','image/png','image/webp'],'max_size'=>5*1024*1024,'require_image'=>true,'allow_pdf'=>false]); if(!$ok){$_SESSION['inventory_error']='Product image blocked: '.$msg;header("Location: /NexGen/CODE/PHP/inventory_management.php");exit();} $dir = rtrim(nxPublicUploadDirectory(), "\\/") . DIRECTORY_SEPARATOR . 'products' . DIRECTORY_SEPARATOR; if(!is_dir($dir))mkdir($dir,0777,true); $ext=strtolower(pathinfo($f['name'],PATHINFO_EXTENSION)); $name='product_'.bin2hex(random_bytes(8)).'.'.$ext; if(!move_uploaded_file($f['tmp_name'],$dir.$name)){$_SESSION['inventory_error']='Failed to upload product image.';header("Location: /NexGen/CODE/PHP/inventory_management.php");exit();} $imagePath='uploads/products/'.$name; }
 $conn->begin_transaction();
 try{
@@ -39,6 +39,6 @@ try{
   if(!$batchStmt->execute())throw new Exception('Failed to save initial batch: '.$batchStmt->error); $batchStmt->close();
  }
  $conn->commit(); $_SESSION['inventory_success']='Product added successfully.';
-}catch(Throwable $e){$conn->rollback(); if($imagePath!=='uploads/products/default.png'&&file_exists(__DIR__.'/'.$imagePath))@unlink(__DIR__.'/'.$imagePath); $_SESSION['inventory_error']=$e->getMessage();}
+}catch(Throwable $e){$conn->rollback(); if($imagePath!==''&&file_exists(__DIR__.'/'.$imagePath))@unlink(__DIR__.'/'.$imagePath); $_SESSION['inventory_error']=$e->getMessage();}
 header("Location: /NexGen/CODE/PHP/inventory_management.php"); exit();
 ?>

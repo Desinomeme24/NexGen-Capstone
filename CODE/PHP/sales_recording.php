@@ -225,10 +225,7 @@ if ($productStmt) {
     $productStmt->execute();
     $products = $productStmt->get_result();
     while ($row = $products->fetch_assoc()) {
-        $imagePath = trim((string)($row['product_image'] ?? ''));
-        $row['image_url'] = $imagePath === ''
-            ? nxProjectUrl('IMAGES/default-product.svg')
-            : nxAppUrl($imagePath);
+        $row['image_url'] = nxProductImageUrl($row['product_image'] ?? '');
         $productList[] = $row;
     }
     $productStmt->close();

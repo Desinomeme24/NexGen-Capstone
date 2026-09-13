@@ -224,6 +224,35 @@ if (!function_exists('e')) {
     }
 }
 
+if (!function_exists('nxProductImageUrl')) {
+    function nxProductImageUrl(?string $path): string
+    {
+        $cleanPath = trim((string)$path);
+        $legacyDefaultPath = 'uploads/products/default.png';
+
+        if ($cleanPath === '' || strcasecmp($cleanPath, $legacyDefaultPath) === 0) {
+            return nxProjectUrl('IMAGES/default-product.svg');
+        }
+
+        if (preg_match('#^uploads[\\\\/]#i', $cleanPath) === 1) {
+            $relativeUploadPath = preg_replace(
+                '#^uploads[\\\\/]#i',
+                '',
+                $cleanPath
+            );
+            $storedImagePath = rtrim(nxPublicUploadDirectory(), "\\/")
+                . DIRECTORY_SEPARATOR
+                . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $relativeUploadPath);
+
+            if (!is_file($storedImagePath)) {
+                return nxProjectUrl('IMAGES/default-product.svg');
+            }
+        }
+
+        return nxAppUrl($cleanPath);
+    }
+}
+
 if (!function_exists('formatQty')) {
     /* Formats a decimal(12,3) quantity for display: trims trailing zeros so a
        whole number like 10.000 shows as "10" while a fractional quantity like

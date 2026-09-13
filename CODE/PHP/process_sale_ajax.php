@@ -67,6 +67,7 @@ $payment_status = trim($_POST['payment_status'] ?? '');
 $payment_method = trim($_POST['payment_method'] ?? '');
 $due_date = trim($_POST['due_date'] ?? '');
 $amount_paid_input = (float) ($_POST['amount_paid'] ?? 0);
+$receiptUpload = $_FILES['receipt_image'] ?? null;
 
 $product_ids = $_POST['product_id'] ?? [];
 $quantities = $_POST['quantity'] ?? [];
@@ -119,6 +120,27 @@ if (!is_array($product_ids) || !is_array($quantities) || !is_array($unit_prices)
         'message' => 'Please add at least one sale item.'
     ]);
     exit();
+}
+
+$receiptExtension = null;
+if (is_array($receiptUpload) && (int)($receiptUpload['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+    [$receiptValid, $receiptMessage] = nxValidateSecureUpload($receiptUpload, [
+        'allowed_extensions' => ['jpg', 'jpeg', 'png', 'webp'],
+        'allowed_mime_types' => ['image/jpeg', 'image/png', 'image/webp'],
+        'mime_extension_map' => [
+            'jpg' => ['image/jpeg'],
+            'jpeg' => ['image/jpeg'],
+            'png' => ['image/png'],
+            'webp' => ['image/webp'],
+        ],
+        'max_size' => 5 * 1024 * 1024,
+        'require_image' => true,
+    ]);
+    if (!$receiptValid) {
+        echo json_encode(['success' => false, 'message' => $receiptMessage]);
+        exit();
+    }
+    $receiptExtension = strtolower(pathinfo((string)$receiptUpload['name'], PATHINFO_EXTENSION));
 }
 
 if (count($product_ids) !== count($quantities) || count($product_ids) !== count($unit_prices)) {
@@ -310,6 +332,18 @@ try {
     $sale_id = $conn->insert_id;
     $saleStmt->close();
 
+    $receiptPath = null;
+    if ($receiptExtension !== null) {
+        $receiptDirectory = nxSaleReceiptDirectory();
+        if (!is_dir($receiptDirectory) && !mkdir($receiptDirectory, 0750, true) && !is_dir($receiptDirectory)) {
+            throw new Exception('Unable to prepare receipt storage.');
+        }
+        $receiptPath = $receiptDirectory . DIRECTORY_SEPARATOR . 'receipt_' . $sale_id . '.' . $receiptExtension;
+        if (!move_uploaded_file($receiptUpload['tmp_name'], $receiptPath)) {
+            throw new Exception('Unable to save the receipt image.');
+        }
+    }
+
     foreach ($items as $item) {
         $itemStmt = $conn->prepare("
             INSERT INTO sale_items (sale_id, product_id, quantity, unit_price, discount_percent, subtotal)
@@ -440,6 +474,9 @@ try {
 
     } catch (Exception $e) {
         $conn->rollback();
+        if (isset($receiptPath) && $receiptPath !== null && is_file($receiptPath)) {
+            unlink($receiptPath);
+        }
 
         // Retry on deadlock (MySQL error 1213), otherwise fail immediately
         if ($conn->errno === 1213 && $attempt < $maxRetries) {

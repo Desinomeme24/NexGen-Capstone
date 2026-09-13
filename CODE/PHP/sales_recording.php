@@ -931,7 +931,7 @@ unset($_SESSION['success'], $_SESSION['error']);
             </button>
         </div>
 
-        <form id="saleForm" method="POST" action="/NexGen/CODE/PHP/process_sale_ajax.php" novalidate>
+        <form id="saleForm" method="POST" action="/NexGen/CODE/PHP/process_sale_ajax.php" enctype="multipart/form-data" novalidate>
             <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars($csrfSaleForm); ?>">
             <input type="hidden" name="order_status" id="orderStatus" value="Fulfilled">
 

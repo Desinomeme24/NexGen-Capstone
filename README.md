@@ -18,6 +18,7 @@ and administrative controls.
 - `CODE/JS/` - browser-side JavaScript
 - `CODE/STYLE/` - stylesheets
 - `IMAGES/` - application images and CAPTCHA assets
+- `VIDEOS/` - browser-accessible landing-page video assets
 - `Dockerfile` - production-equivalent Apache/PHP image
 
 ## Local development

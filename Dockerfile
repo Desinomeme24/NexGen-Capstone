@@ -22,7 +22,8 @@ RUN test -f /app/CODE/PHP/index.php \
     && test -d /app/CODE/STYLE \
     && test -d /app/IMAGES/captcha \
     && test -f /app/IMAGES/introbg.png \
-    && test -f /app/IMAGES/default-product.svg
+    && test -f /app/IMAGES/default-product.svg \
+    && test -f /app/VIDEOS/nexgen-intro.mp4
 
 # Stop the image build if any PHP source file has a syntax error.
 RUN find /app/CODE/PHP -type f -name '*.php' -exec php -l {} \;
@@ -35,13 +36,13 @@ RUN docker-php-ext-install -j"$(nproc)" mysqli pdo pdo_mysql mbstring \
 RUN npm install --omit=dev
 
 # Publish the PHP application and all browser-accessible assets. The source
-# layout is mapped to root-level URLs such as /JS, /STYLE, and /IMAGES.
-# VIDEOS is intentionally excluded from the deployed image.
+# layout is mapped to root-level URLs such as /JS, /STYLE, /IMAGES, and /VIDEOS.
 RUN rm -rf /var/www/html/* \
     && cp -a /app/CODE/PHP/. /var/www/html/ \
     && cp -a /app/CODE/JS /var/www/html/JS \
     && cp -a /app/CODE/STYLE /var/www/html/STYLE \
     && cp -a /app/IMAGES /var/www/html/IMAGES \
+    && cp -a /app/VIDEOS /var/www/html/VIDEOS \
     && rm -rf /var/www/html/uploads/valid_ids \
     && mkdir -p /var/www/html/uploads/products \
     && printf '%s\n' \

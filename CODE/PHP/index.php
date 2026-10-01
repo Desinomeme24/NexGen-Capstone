@@ -4438,10 +4438,10 @@ html[data-theme="light"] .signup-modern-box .signup-form-panel input[type="file"
   <nav class="nav">
     <div class="logo">
       <img src="../../IMAGES/NGlogo.png" alt="NexGen logo" class="logo-img">
-      NexGen
+      NexGenT
     </div>
     <ul class="nav-links" id="navLinks">
-      <li><a href="#home">Home</a></li>
+      <li><a href="#home">HomeT</a></li>
       <li><a href="#about">About Us</a></li>
       <li><a href="#services">Services</a></li>
       <li class="has-dropdown">

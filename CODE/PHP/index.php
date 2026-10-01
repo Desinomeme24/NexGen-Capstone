@@ -605,8 +605,101 @@ if (session_status() === PHP_SESSION_ACTIVE) {
     font-size: 15px;
     color: var(--text-main);
     transition: transform 0.3s ease;
+    padding: 0;
+    border: 0;
+    background: none;
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
   }
   .play-link:hover { transform: scale(1.05); }
+
+  .video-player-dialog {
+    width: min(92vw, 1440px, calc((100vh - 88px) * 16 / 9));
+    width: min(92vw, 1440px, calc((100dvh - 88px) * 16 / 9));
+    max-width: none;
+    max-height: calc(100vh - 48px);
+    max-height: calc(100dvh - 48px);
+    margin: auto;
+    padding: 0;
+    overflow: visible;
+    border: 0;
+    background: transparent;
+    color: #fff;
+  }
+  .video-player-dialog::backdrop {
+    background: rgba(2, 7, 20, 0.74);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+  }
+  .video-dialog-frame {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: clamp(8px, 1.4vw, 18px);
+    background: #000;
+    box-shadow: 0 24px 90px rgba(0, 0, 0, 0.6);
+  }
+  .video-dialog-player {
+    display: block;
+    width: 100%;
+    height: 100%;
+    border-radius: inherit;
+    background: #000;
+    object-fit: contain;
+  }
+  .video-dialog-close {
+    position: absolute;
+    top: clamp(8px, 1.5vw, 16px);
+    right: clamp(8px, 1.5vw, 16px);
+    z-index: 1;
+    display: grid;
+    width: 44px;
+    height: 44px;
+    place-items: center;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    border-radius: 50%;
+    background: rgba(5, 11, 28, 0.78);
+    color: #fff;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .video-dialog-close:hover,
+  .video-dialog-close:focus-visible {
+    background: var(--accent);
+    color: #0A1128;
+  }
+  .video-dialog-close:focus-visible,
+  .play-link:focus-visible {
+    outline: 3px solid var(--accent);
+    outline-offset: 4px;
+  }
+  .video-dialog-message {
+    min-height: 1.5em;
+    margin: 10px 0 0;
+    color: #fff;
+    font-size: 14px;
+    text-align: center;
+  }
+  .video-dialog-message:empty {
+    display: none;
+  }
+  @media (max-width: 480px) {
+    .video-player-dialog {
+      width: min(96vw, calc((100dvh - 72px) * 16 / 9));
+    }
+    .video-dialog-close {
+      width: 40px;
+      height: 40px;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .play-link {
+      transition: none;
+    }
+  }
 
   .play-circle {
     width: 52px; height: 52px;
@@ -4403,12 +4496,12 @@ html[data-theme="light"] .signup-modern-box .signup-form-panel input[type="file"
       </p>
       <div class="hero-actions">
         <button type="button" id="openLoginArea" class="btn btn-primary magnetic-btn">Let's Get Started</button>
-        <a href="#video" class="play-link">
+        <button type="button" class="play-link" id="openVideoPlayer" aria-haspopup="dialog" aria-controls="videoPlayerDialog">
           <span class="play-circle">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
           </span>
           Watch Video
-        </a>
+        </button>
       </div>
       <div class="team-join">
         <span class="team-join-label">Join Our Team Now!</span>
@@ -4597,6 +4690,21 @@ html[data-theme="light"] .signup-modern-box .signup-form-panel input[type="file"
     <div class="scroll-mouse"></div>
   </div>
 </section>
+
+<dialog class="video-player-dialog" id="videoPlayerDialog" aria-label="NexGen introduction video">
+  <div class="video-dialog-frame">
+    <button type="button" class="video-dialog-close" id="closeVideoPlayer" aria-label="Close video">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </button>
+    <video class="video-dialog-player" id="landingPageVideo" controls playsinline preload="metadata">
+      <source src="../../VIDEOS/nexgen-intro.mp4" type="video/mp4">
+      Your browser does not support HTML video.
+    </video>
+  </div>
+  <p class="video-dialog-message" id="videoPlayerMessage" role="status" aria-live="polite"></p>
+</dialog>
 
 <!-- ========== MARQUEE ========== -->
 <section class="marquee-section">
@@ -6919,6 +7027,62 @@ document.addEventListener('DOMContentLoaded', function () {
             setLandingTheme(event.newValue, false);
         }
     });
+})();
+</script>
+
+<script>
+(() => {
+  const openButton = document.getElementById("openVideoPlayer");
+  const closeButton = document.getElementById("closeVideoPlayer");
+  const dialog = document.getElementById("videoPlayerDialog");
+  const video = document.getElementById("landingPageVideo");
+  const message = document.getElementById("videoPlayerMessage");
+
+  if (
+    !(openButton instanceof HTMLButtonElement) ||
+    !(closeButton instanceof HTMLButtonElement) ||
+    !(dialog instanceof HTMLDialogElement) ||
+    !(video instanceof HTMLVideoElement) ||
+    !(message instanceof HTMLElement)
+  ) {
+    return;
+  }
+
+  let previousBodyOverflow = "";
+
+  openButton.addEventListener("click", () => {
+    if (dialog.open) {
+      return;
+    }
+
+    previousBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    message.textContent = "";
+    dialog.showModal();
+
+    video.play().catch(() => {
+      message.textContent = "Press play on the video controls to start playback.";
+    });
+  });
+
+  closeButton.addEventListener("click", () => dialog.close());
+
+  dialog.addEventListener("click", (event) => {
+    if (event.target === dialog) {
+      dialog.close();
+    }
+  });
+
+  dialog.addEventListener("close", () => {
+    video.pause();
+    document.body.style.overflow = previousBodyOverflow;
+    message.textContent = "";
+    openButton.focus();
+  });
+
+  video.addEventListener("error", () => {
+    message.textContent = "The video could not be loaded. Please try again later.";
+  });
 })();
 </script>
 

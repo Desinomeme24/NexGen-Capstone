@@ -826,7 +826,6 @@ if (session_status() === PHP_SESSION_ACTIVE) {
         if (adminForgotSelectForm) adminForgotSelectForm.reset();
         if (adminForgotResetForm) adminForgotResetForm.reset();
         if (adminForgotAccountList) adminForgotAccountList.replaceChildren();
-        if (adminForgotMaskedEmail) adminForgotMaskedEmail.textContent = 'your email';
         clearAdminForgotAlert(adminForgotEmailAlert);
         clearAdminForgotAlert(adminForgotSelectAlert);
         clearAdminForgotAlert(adminForgotOtpAlert);

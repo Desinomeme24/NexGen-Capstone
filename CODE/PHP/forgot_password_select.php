@@ -27,7 +27,12 @@ if (isset($_SESSION['success'])) {
 
 $candidates = $_SESSION['fp_candidates'] ?? null;
 
-if (!$candidates) {
+if (
+    !$candidates ||
+    empty($_SESSION['fp_verified_at']) ||
+    time() - (int) $_SESSION['fp_verified_at'] > 600 ||
+    ($_SESSION['fp_verified_portal'] ?? '') !== $fpPortal
+) {
     $_SESSION['error'] = 'Please start the password reset process again.';
     header('Location: ' . $forgotStartPath);
     exit();
@@ -59,7 +64,7 @@ if (!$candidates) {
         <img src="<?php echo e(nxProjectUrl('IMAGES/NGlogo.png')); ?>" alt="Logo" class="forgot-logo">
 
         <h1>Select Account</h1>
-        <p class="subtext">This email is linked to more than one account. Choose which one to reset.</p>
+        <p class="subtext">Email ownership is verified. Choose which account to reset.</p>
 
         <form action="<?php echo e(nxAppUrl('send_forgot_otp.php')); ?>" method="POST">
             <input type="hidden" name="portal" value="<?php echo e($fpPortal); ?>">
@@ -74,7 +79,7 @@ if (!$candidates) {
                 <?php endforeach; ?>
             </div>
 
-            <button type="submit" class="main-btn">Send OTP</button>
+            <button type="submit" class="main-btn">Choose Account</button>
         </form>
 
         <div class="links">

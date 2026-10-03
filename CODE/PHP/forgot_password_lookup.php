@@ -56,7 +56,15 @@ if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
 }
 
 /* Start each lookup clean - do not carry over a previous attempt's account. */
-unset($_SESSION['fp_candidates'], $_SESSION['fp_selected_user_id'], $_SESSION['fp_email']);
+unset(
+    $_SESSION['fp_candidates'],
+    $_SESSION['fp_selected_user_id'],
+    $_SESSION['fp_verified_candidate_ids'],
+    $_SESSION['fp_verified_portal'],
+    $_SESSION['fp_verified_at'],
+    $_SESSION['fp_email'],
+    $_SESSION['fp_no_match']
+);
 
 /*
 |--------------------------------------------------------------------------
@@ -91,48 +99,34 @@ $stmt->close();
 
 /* Same neutral message whether the email exists or not - do not reveal it. */
 if (count($accounts) === 0) {
+    $_SESSION['fp_no_match'] = true;
+    $_SESSION['fp_email'] = $email;
     fpLookupRedirect(
-        'If an account matches that email, an OTP has been sent to it.',
+        'If an account matches that email, an OTP will be sent to it.',
         'success',
-        'forgot_password.php',
-        ['matched' => 0]
+        'send_forgot_otp.php'
     );
 }
 
-if (count($accounts) === 1) {
-    $_SESSION['fp_selected_user_id'] = (int) $accounts[0]['id'];
+$_SESSION['fp_no_match'] = false;
+$_SESSION['fp_email'] = $email;
+$_SESSION['fp_selected_user_id'] = (int) $accounts[0]['id'];
 
-    if ($isAjax) {
-        header('Content-Type: application/json; charset=UTF-8');
-        echo json_encode(['success' => true, 'matched' => 1]);
-        exit();
-    }
-
-    header('Location: ' . nxAppUrl('send_forgot_otp.php'));
-    exit();
-}
-
-/* More than one account shares this email - let the user pick which one. */
+/* Keep account details server-side until the email OTP has been verified. */
 $candidates = [];
-foreach ($accounts as $account) {
-    $candidates[(int) $account['id']] = [
-        'id' => (int) $account['id'],
-        'masked_username' => nxMaskUsername((string) $account['username']),
-        'business_name' => (string) ($account['business_name'] ?? ''),
-    ];
+if (count($accounts) > 1) {
+    foreach ($accounts as $account) {
+        $candidates[(int) $account['id']] = [
+            'id' => (int) $account['id'],
+            'masked_username' => nxMaskUsername((string) $account['username']),
+            'business_name' => (string) ($account['business_name'] ?? ''),
+        ];
+    }
+    $_SESSION['fp_candidates'] = $candidates;
 }
 
-$_SESSION['fp_candidates'] = $candidates;
-
-if ($isAjax) {
-    header('Content-Type: application/json; charset=UTF-8');
-    echo json_encode([
-        'success' => true,
-        'matched' => count($candidates),
-        'candidates' => array_values($candidates),
-    ]);
-    exit();
-}
-
-header('Location: ' . nxAppUrl('forgot_password_select.php'));
-exit();
+fpLookupRedirect(
+    'If an account matches that email, an OTP will be sent to it.',
+    'success',
+    'send_forgot_otp.php'
+);

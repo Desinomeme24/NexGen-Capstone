@@ -4245,11 +4245,11 @@ html[data-theme="light"] .signup-modern-box .signup-form-panel input[type="file"
 
             <div class="forgot-step" id="forgotStepSelect" data-step="select" hidden>
                 <h2>Select Account</h2>
-                <p class="forgot-subtext">This email is linked to more than one account. Choose which one to reset.</p>
+                <p class="forgot-subtext">Email ownership is verified. Choose which account to reset.</p>
                 <div class="forgot-inline-alert" id="forgotSelectAlert"></div>
                 <form id="forgotSelectForm">
                     <div class="forgot-account-list" id="forgotAccountList"></div>
-                    <button type="submit" class="glass-login-btn" id="forgotSelectSubmitBtn">Send OTP</button>
+                    <button type="submit" class="glass-login-btn" id="forgotSelectSubmitBtn">Choose Account</button>
                 </form>
                 <div class="forgot-step-links">
                     <button type="button" id="forgotStartOverFromSelect">Start Over</button>
@@ -4258,7 +4258,7 @@ html[data-theme="light"] .signup-modern-box .signup-form-panel input[type="file"
 
             <div class="forgot-step" id="forgotStepOtp" data-step="otp" hidden>
                 <h2>Reset Password</h2>
-                <p class="forgot-masked-email">We sent a code to <strong id="forgotMaskedEmail"></strong></p>
+                <p class="forgot-masked-email">If an account matches, a code will be sent to the email address entered.</p>
                 <div class="forgot-inline-alert" id="forgotOtpAlert"></div>
                 <form id="forgotResetForm">
                     <div class="glass-field">
@@ -5961,7 +5961,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const forgotConfirmPassword = document.getElementById('forgotConfirmPassword');
     const forgotResetSubmitBtn = document.getElementById('forgotResetSubmitBtn');
     const forgotResendBtn = document.getElementById('forgotResendBtn');
-    const forgotMaskedEmail = document.getElementById('forgotMaskedEmail');
     const forgotBackToLoginFromEmail = document.getElementById('forgotBackToLoginFromEmail');
     const forgotStartOverFromSelect = document.getElementById('forgotStartOverFromSelect');
     const forgotStartOverFromOtp = document.getElementById('forgotStartOverFromOtp');
@@ -6081,10 +6080,15 @@ document.addEventListener('DOMContentLoaded', function() {
                     setForgotAlert(alertEl, data.message || 'Something went wrong.', 'error');
                     return;
                 }
-                if (forgotMaskedEmail) forgotMaskedEmail.textContent = data.masked_email || '';
+                if (data.account_selected) {
+                    clearForgotAlert(forgotOtpAlert);
+                    showForgotStep('otp');
+                    return data;
+                }
                 clearForgotAlert(forgotOtpAlert);
                 showForgotStep('otp');
                 startForgotCooldown(data.cooldown || 60);
+                return data;
             })
             .catch(function() {
                 setForgotAlert(alertEl, 'Something went wrong. Please try again.', 'error');
@@ -6106,15 +6110,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         setForgotAlert(forgotEmailAlert, data.message || 'Something went wrong.', 'error');
                         return;
                     }
-                    if (data.matched === 0) {
-                        setForgotAlert(forgotEmailAlert, data.message, 'success');
-                        return;
-                    }
-                    if (data.matched === 1) {
-                        return requestForgotOtp(new FormData(), forgotEmailAlert);
-                    }
-                    renderForgotAccountList(data.candidates || []);
-                    showForgotStep('select');
+                    setForgotAlert(forgotEmailAlert, data.message || 'If an account matches that email, an OTP will be sent to it.', 'success');
+                    return requestForgotOtp(new FormData(), forgotEmailAlert);
                 })
                 .catch(function() {
                     setForgotAlert(forgotEmailAlert, 'Something went wrong. Please try again.', 'error');
@@ -6139,9 +6136,13 @@ document.addEventListener('DOMContentLoaded', function() {
             fd.append('selected_user_id', checked.value);
             forgotSelectSubmitBtn.disabled = true;
             forgotSelectSubmitBtn.textContent = 'Please wait...';
-            requestForgotOtp(fd, forgotSelectAlert).finally(function() {
+            requestForgotOtp(fd, forgotSelectAlert).then(function(data) {
+                if (data && data.account_selected && forgotResetForm) {
+                    forgotResetForm.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+                }
+            }).finally(function() {
                 forgotSelectSubmitBtn.disabled = false;
-                forgotSelectSubmitBtn.textContent = 'Send OTP';
+                forgotSelectSubmitBtn.textContent = 'Choose Account';
             });
         });
     }
@@ -6163,6 +6164,12 @@ document.addEventListener('DOMContentLoaded', function() {
             forgotResetSubmitBtn.textContent = 'Please wait...';
             fpPost(forgotEndpoints.reset, fd)
                 .then(function(data) {
+                    if (data.selection_required) {
+                        renderForgotAccountList(data.candidates || []);
+                        setForgotAlert(forgotSelectAlert, data.message || 'Email ownership verified. Choose which account to reset.', 'success');
+                        showForgotStep('select');
+                        return;
+                    }
                     if (!data.success) {
                         if (data.restart) {
                             resetForgotWizard();

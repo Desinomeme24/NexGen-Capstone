@@ -25,12 +25,15 @@ if (isset($_SESSION['success'])) {
     unset($_SESSION['error']);
 }
 
-if (empty($_SESSION['fp_selected_user_id'])) {
+if (empty($_SESSION['fp_selected_user_id']) && empty($_SESSION['fp_no_match'])) {
     $_SESSION['error'] = 'Please start the password reset process again.';
     header('Location: ' . $forgotStartPath);
     exit();
 }
 
+$emailVerified = !empty($_SESSION['fp_verified_at'])
+    && time() - (int) $_SESSION['fp_verified_at'] <= 600
+    && ($_SESSION['fp_verified_portal'] ?? '') === $fpPortal;
 $resetEmail = $_SESSION['fp_email'] ?? '';
 ?>
 <!DOCTYPE html>
@@ -59,15 +62,17 @@ $resetEmail = $_SESSION['fp_email'] ?? '';
         <img src="<?php echo e(nxProjectUrl('IMAGES/NGlogo.png')); ?>" alt="Logo" class="forgot-logo">
 
         <h1>Reset Password</h1>
-        <p class="subtext">Enter the OTP sent to your email and set a new password.</p>
+        <p class="subtext"><?php echo $emailVerified ? 'Set a new password for your verified account.' : 'Enter the OTP sent to your email and set a new password.'; ?></p>
 
         <form action="<?php echo e(nxAppUrl('process_reset_password.php')); ?>" method="POST">
             <input type="hidden" name="portal" value="<?php echo e($fpPortal); ?>">
             <label>Email Address</label>
             <input type="email" value="<?php echo htmlspecialchars($resetEmail); ?>" readonly>
 
-            <label>OTP Code</label>
-            <input type="text" name="otp_code" maxlength="6" inputmode="numeric" pattern="[0-9]{6}" required placeholder="Enter 6-digit OTP">
+            <?php if (!$emailVerified): ?>
+                <label>OTP Code</label>
+                <input type="text" name="otp_code" maxlength="6" inputmode="numeric" pattern="[0-9]{6}" required placeholder="Enter 6-digit OTP">
+            <?php endif; ?>
 
             <label>New Password</label>
             <input type="password" name="new_password" minlength="12" maxlength="64" required placeholder="Enter new password" autocomplete="new-password">
@@ -79,10 +84,12 @@ $resetEmail = $_SESSION['fp_email'] ?? '';
         </form>
 
         <div class="links">
-            <form action="<?php echo e(nxAppUrl('send_forgot_otp.php')); ?>" method="POST" class="inline-form">
-                <input type="hidden" name="portal" value="<?php echo e($fpPortal); ?>">
-                <button type="submit" class="link-btn">Resend OTP</button>
-            </form>
+            <?php if (!$emailVerified): ?>
+                <form action="<?php echo e(nxAppUrl('send_forgot_otp.php')); ?>" method="POST" class="inline-form">
+                    <input type="hidden" name="portal" value="<?php echo e($fpPortal); ?>">
+                    <button type="submit" class="link-btn">Resend OTP</button>
+                </form>
+            <?php endif; ?>
             <a href="<?php echo e($loginPath); ?>">Back to Login</a>
         </div>
     </div>

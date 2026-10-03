@@ -39,142 +39,155 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST") {
 }
 
 $userId = isset($_SESSION['fp_selected_user_id']) ? (int) $_SESSION['fp_selected_user_id'] : 0;
-
-// Preserve a neutral failure path when no account was selected.
-if ($userId <= 0) {
-    $user = [
-        'id' => $userId,
-        'otp_code' => '',
-        'otp_expires_at' => date('Y-m-d H:i:s', time() - 3600)
-    ];
-} else {
-    $sql = "SELECT id, role, otp_code, otp_expires_at FROM users WHERE id = ? AND account_status = 'active' LIMIT 1";
-    $stmt = $conn->prepare($sql);
-    if (!$stmt) {
-        error_log('Password reset account lookup prepare failed: ' . $conn->error);
-        prpRespond(false, "Unable to process your request right now.", 'error', $forgotStartPage, ['restart' => true]);
-    }
-    $stmt->bind_param("i", $userId);
-    $stmt->execute();
-    $result = $stmt->get_result();
-    $user = $result->fetch_assoc();
-    $stmt->close();
-
-    if (!$user) {
-        unset($_SESSION['fp_selected_user_id'], $_SESSION['fp_email']);
-        prpRespond(false, "Account not found. Please start again.", 'error', $forgotStartPage, ['restart' => true]);
-    }
-
-    if (!nxRoleMatchesLoginPortal((string)($user['role'] ?? ''), $fpPortal)) {
-        unset($_SESSION['fp_selected_user_id'], $_SESSION['fp_candidates'], $_SESSION['fp_email']);
-        prpRespond(false, "Account not found. Please start again.", 'error', $forgotStartPage, ['restart' => true]);
-    }
-}
-
 $otp_code = trim($_POST['otp_code'] ?? '');
 $new_password = trim($_POST['new_password'] ?? '');
 $confirm_new_password = trim($_POST['confirm_new_password'] ?? '');
 
-if (empty($otp_code) || empty($new_password) || empty($confirm_new_password)) {
-    prpRespond(false, "Please complete all fields.", 'error', 'reset_password.php');
+$verifiedAt = (int) ($_SESSION['fp_verified_at'] ?? 0);
+$verifiedIds = $_SESSION['fp_verified_candidate_ids'] ?? [];
+$emailVerified = $verifiedAt > 0
+    && time() - $verifiedAt <= 600
+    && ($_SESSION['fp_verified_portal'] ?? '') === $fpPortal
+    && in_array($userId, $verifiedIds, true);
+
+if ($userId <= 0) {
+    prpRespond(false, 'The OTP is invalid or expired. Please start again.', 'error', 'reset_password.php');
 }
 
-if (!preg_match('/^[0-9]{6}$/D', $otp_code)) {
-    prpRespond(false, "Please enter the complete 6-digit OTP.", 'error', 'reset_password.php');
+$stmt = $conn->prepare(
+    "SELECT id, role, otp_code, otp_expires_at
+     FROM users
+     WHERE id = ? AND account_status = 'active'
+     LIMIT 1"
+);
+if (!$stmt) {
+    error_log('Password reset account lookup prepare failed: ' . $conn->error);
+    prpRespond(false, "Unable to process your request right now.", 'error', $forgotStartPage, ['restart' => true]);
+}
+$stmt->bind_param('i', $userId);
+$stmt->execute();
+$user = $stmt->get_result()->fetch_assoc();
+$stmt->close();
+
+if (!$user || !nxRoleMatchesLoginPortal((string)($user['role'] ?? ''), $fpPortal)) {
+    prpRespond(false, 'The OTP is invalid or expired. Please start again.', 'error', 'reset_password.php');
+}
+
+if (!$emailVerified && !preg_match('/^[0-9]{6}$/D', $otp_code)) {
+    prpRespond(false, 'The OTP is invalid or expired. Please start again.', 'error', 'reset_password.php');
+}
+
+if (!$emailVerified) {
+    if (
+        empty($user['otp_code']) ||
+        empty($user['otp_expires_at']) ||
+        strtotime((string) $user['otp_expires_at']) < time()
+    ) {
+        prpRespond(false, 'The OTP is invalid or expired. Please start again.', 'error', 'reset_password.php');
+    }
+
+    $otpAccountRateLimit = nxConsumeSecurityRateLimit(
+        $conn,
+        'password_reset_otp_account',
+        (string) $userId,
+        5,
+        600,
+        600
+    );
+    $otpIpRateLimit = nxConsumeSecurityRateLimit(
+        $conn,
+        'password_reset_otp_ip',
+        (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown'),
+        20,
+        600,
+        600
+    );
+
+    if (!$otpAccountRateLimit['configured'] || !$otpIpRateLimit['configured']) {
+        error_log('Password reset OTP rate limiting is not configured.');
+        prpRespond(false, 'The OTP is invalid or expired. Please start again.', 'error', 'reset_password.php');
+    }
+
+    if (!$otpAccountRateLimit['allowed'] || !$otpIpRateLimit['allowed']) {
+        $invalidateStmt = $conn->prepare(
+            'UPDATE users SET otp_code = NULL, otp_expires_at = NULL WHERE id = ?'
+        );
+        if (!$invalidateStmt) {
+            error_log('Password reset OTP invalidation prepare failed: ' . $conn->error);
+        } else {
+            $invalidateStmt->bind_param('i', $userId);
+            $invalidateStmt->execute();
+            $invalidateStmt->close();
+        }
+
+        prpRespond(false, 'The OTP is invalid or expired. Please start again.', 'error', 'reset_password.php');
+    }
+
+    if (!nxVerifyOtp($otp_code, (string) $user['otp_code'])) {
+        prpRespond(false, 'The OTP is invalid or expired. Please start again.', 'error', 'reset_password.php');
+    }
+
+    $clearOtpStmt = $conn->prepare(
+        'UPDATE users SET otp_code = NULL, otp_expires_at = NULL WHERE id = ?'
+    );
+    if (!$clearOtpStmt) {
+        error_log('Password reset OTP consumption prepare failed: ' . $conn->error);
+        prpRespond(false, 'Unable to verify the OTP right now.', 'error', 'reset_password.php');
+    }
+    $clearOtpStmt->bind_param('i', $userId);
+    $otpConsumed = $clearOtpStmt->execute();
+    if (!$otpConsumed) {
+        error_log('Password reset OTP consumption failed: ' . $clearOtpStmt->error);
+    }
+    $clearOtpStmt->close();
+
+    if (!$otpConsumed) {
+        prpRespond(false, 'Unable to verify the OTP right now.', 'error', 'reset_password.php');
+    }
+
+    $verifiedCandidateIds = array_map('intval', array_keys($_SESSION['fp_candidates'] ?? []));
+    if (!$verifiedCandidateIds) {
+        $verifiedCandidateIds = [$userId];
+    }
+    if (!in_array($userId, $verifiedCandidateIds, true)) {
+        prpRespond(false, 'The OTP is invalid or expired. Please start again.', 'error', $forgotStartPage, ['restart' => true]);
+    }
+
+    $_SESSION['fp_verified_candidate_ids'] = $verifiedCandidateIds;
+    $_SESSION['fp_verified_portal'] = $fpPortal;
+    $_SESSION['fp_verified_at'] = time();
+    $verifiedIds = $verifiedCandidateIds;
+    $emailVerified = true;
+}
+
+if ($emailVerified && count($verifiedIds) > 1 && !empty($_SESSION['fp_candidates'])) {
+    prpRespond(
+        true,
+        'Email ownership verified. Choose the account to reset.',
+        'success',
+        'forgot_password_select.php',
+        [
+            'selection_required' => true,
+            'candidates' => array_values($_SESSION['fp_candidates']),
+        ]
+    );
+}
+
+if ($new_password === '' || $confirm_new_password === '') {
+    prpRespond(false, 'Please complete all fields.', 'error', 'reset_password.php');
 }
 
 if ($new_password !== $confirm_new_password) {
-    prpRespond(false, "Passwords do not match.", 'error', 'reset_password.php');
+    prpRespond(false, 'Passwords do not match.', 'error', 'reset_password.php');
 }
 
 if (!isStrongPassword($new_password)) {
     prpRespond(
         false,
-        "Use 12 to 64 characters with uppercase, lowercase, number, and special character.",
+        'Use 12 to 64 characters with uppercase, lowercase, number, and special character.',
         'error',
         'reset_password.php'
     );
-}
-
-$sql = "SELECT id, role, otp_code, otp_expires_at FROM users WHERE id = ? AND account_status = 'active' LIMIT 1";
-$stmt = $conn->prepare($sql);
-if (!$stmt) {
-    error_log('Password reset verification lookup prepare failed: ' . $conn->error);
-    prpRespond(false, "Unable to process your request right now.", 'error', 'reset_password.php');
-}
-$stmt->bind_param("i", $userId);
-$stmt->execute();
-$result = $stmt->get_result();
-$user = $result->fetch_assoc();
-$stmt->close();
-
-if (!$user) {
-    unset($_SESSION['fp_selected_user_id'], $_SESSION['fp_email']);
-    prpRespond(false, "Account not found. Please start again.", 'error', $forgotStartPage, ['restart' => true]);
-}
-
-if (!nxRoleMatchesLoginPortal((string)($user['role'] ?? ''), $fpPortal)) {
-    unset($_SESSION['fp_selected_user_id'], $_SESSION['fp_candidates'], $_SESSION['fp_email']);
-    prpRespond(false, "Account not found. Please start again.", 'error', $forgotStartPage, ['restart' => true]);
-}
-
-if (empty($user['otp_code']) || empty($user['otp_expires_at'])) {
-    prpRespond(false, "No valid OTP found. Please request a new one.", 'error', 'reset_password.php');
-}
-
-if (strtotime($user['otp_expires_at']) < time()) {
-    prpRespond(false, "OTP has expired. Please request a new one.", 'error', 'reset_password.php');
-}
-
-$otpAccountRateLimit = nxConsumeSecurityRateLimit(
-    $conn,
-    'password_reset_otp_account',
-    (string)$userId,
-    5,
-    600,
-    600
-);
-$otpIpRateLimit = nxConsumeSecurityRateLimit(
-    $conn,
-    'password_reset_otp_ip',
-    (string)($_SERVER['REMOTE_ADDR'] ?? 'unknown'),
-    20,
-    600,
-    600
-);
-
-if (!$otpAccountRateLimit['configured'] || !$otpIpRateLimit['configured']) {
-    error_log('Password reset OTP rate limiting is not configured.');
-    prpRespond(
-        false,
-        "Unable to process the OTP right now. Please try again later.",
-        'error',
-        'reset_password.php'
-    );
-}
-
-if (!$otpAccountRateLimit['allowed'] || !$otpIpRateLimit['allowed']) {
-    $invalidate_stmt = $conn->prepare(
-        "UPDATE users SET otp_code = NULL, otp_expires_at = NULL WHERE id = ?"
-    );
-    if (!$invalidate_stmt) {
-        error_log('Password reset OTP invalidation prepare failed: ' . $conn->error);
-    } else {
-        $invalidate_stmt->bind_param("i", $userId);
-        $invalidate_stmt->execute();
-        $invalidate_stmt->close();
-    }
-
-    prpRespond(
-        false,
-        "Too many invalid OTP attempts. Please request a new one.",
-        'error',
-        'reset_password.php'
-    );
-}
-
-if (!nxVerifyOtp($otp_code, (string)$user['otp_code'])) {
-    prpRespond(false, "Invalid OTP code.", 'error', 'reset_password.php');
 }
 
 try {
@@ -196,7 +209,16 @@ $update_stmt->close();
 
 if ($passwordUpdated) {
     $_SESSION['login_portal'] = $fpPortal;
-    unset($_SESSION['fp_selected_user_id'], $_SESSION['fp_candidates'], $_SESSION['fp_email'], $_SESSION['fp_portal']);
+    unset(
+        $_SESSION['fp_selected_user_id'],
+        $_SESSION['fp_candidates'],
+        $_SESSION['fp_email'],
+        $_SESSION['fp_portal'],
+        $_SESSION['fp_no_match'],
+        $_SESSION['fp_verified_candidate_ids'],
+        $_SESSION['fp_verified_portal'],
+        $_SESSION['fp_verified_at']
+    );
     prpRespond(true, "Password reset successful. You may now log in.", 'success', $successLoginPage);
 } else {
     prpRespond(false, "Failed to reset password.", 'error', 'reset_password.php');

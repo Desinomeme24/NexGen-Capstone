@@ -598,11 +598,11 @@ if (session_status() === PHP_SESSION_ACTIVE) {
             </section>
 
             <section class="forgot-step" id="adminForgotSelectStep" hidden>
-                <p class="forgot-email-note">Select the administrator account that should receive the reset code.</p>
+                <p class="forgot-email-note">Email ownership is verified. Choose the administrator account to reset.</p>
                 <div class="forgot-alert" id="adminForgotSelectAlert" role="status" aria-live="polite"></div>
                 <form id="adminForgotSelectForm" novalidate>
                     <div class="forgot-account-list" id="adminForgotAccountList"></div>
-                    <button class="forgot-submit" type="submit" id="adminForgotSelectSubmit">Send OTP</button>
+                    <button class="forgot-submit" type="submit" id="adminForgotSelectSubmit">Choose account</button>
                 </form>
                 <div class="forgot-footer">
                     <span>Only eligible administrator accounts are listed.</span>
@@ -611,7 +611,7 @@ if (session_status() === PHP_SESSION_ACTIVE) {
             </section>
 
             <section class="forgot-step" id="adminForgotOtpStep" hidden>
-                <p class="forgot-email-note">Enter the six-digit code sent to <strong id="adminForgotMaskedEmail">your email</strong>.</p>
+                <p class="forgot-email-note">If an account matches, an OTP will be sent to the email address entered.</p>
                 <div class="forgot-alert" id="adminForgotOtpAlert" role="status" aria-live="polite"></div>
                 <form id="adminForgotResetForm" novalidate>
                     <div class="forgot-field">
@@ -753,7 +753,6 @@ if (session_status() === PHP_SESSION_ACTIVE) {
     const adminForgotConfirmPassword = document.getElementById('adminForgotConfirmPassword');
     const adminForgotOtpAlert = document.getElementById('adminForgotOtpAlert');
     const adminForgotResetSubmit = document.getElementById('adminForgotResetSubmit');
-    const adminForgotMaskedEmail = document.getElementById('adminForgotMaskedEmail');
     const adminForgotResend = document.getElementById('adminForgotResend');
     const adminForgotSteps = {
         email: document.getElementById('adminForgotEmailStep'),
@@ -925,10 +924,15 @@ if (session_status() === PHP_SESSION_ACTIVE) {
                     return;
                 }
 
-                if (adminForgotMaskedEmail) adminForgotMaskedEmail.textContent = data.masked_email || 'your email';
+                if (data.account_selected) {
+                    clearAdminForgotAlert(adminForgotOtpAlert);
+                    showAdminForgotStep('otp');
+                    return data;
+                }
                 clearAdminForgotAlert(adminForgotOtpAlert);
                 showAdminForgotStep('otp');
                 startAdminForgotCooldown(data.cooldown || 60);
+                return data;
             })
             .catch(() => {
                 setAdminForgotAlert(alertElement, 'Something went wrong. Please try again.', 'error');
@@ -1028,16 +1032,8 @@ if (session_status() === PHP_SESSION_ACTIVE) {
                         setAdminForgotAlert(adminForgotEmailAlert, data.message || 'Unable to look up that account.', 'error');
                         return;
                     }
-                    if (data.matched === 0) {
-                        setAdminForgotAlert(adminForgotEmailAlert, data.message || 'If an administrator account matches that email, an OTP has been sent.', 'success');
-                        return;
-                    }
-                    if (data.matched === 1) {
-                        return requestAdminForgotOtp(new FormData(), adminForgotEmailAlert);
-                    }
-
-                    renderAdminForgotAccounts(Array.isArray(data.candidates) ? data.candidates : []);
-                    showAdminForgotStep('select');
+                    setAdminForgotAlert(adminForgotEmailAlert, data.message || 'If an administrator account matches that email, an OTP will be sent.', 'success');
+                    return requestAdminForgotOtp(new FormData(), adminForgotEmailAlert);
                 })
                 .catch(() => {
                     setAdminForgotAlert(adminForgotEmailAlert, 'Something went wrong. Please try again.', 'error');
@@ -1065,9 +1061,13 @@ if (session_status() === PHP_SESSION_ACTIVE) {
             adminForgotSelectSubmit.disabled = true;
             adminForgotSelectSubmit.textContent = 'Please wait...';
 
-            requestAdminForgotOtp(formData, adminForgotSelectAlert).finally(() => {
+            requestAdminForgotOtp(formData, adminForgotSelectAlert).then((data) => {
+                if (data && data.account_selected && adminForgotResetForm) {
+                    adminForgotResetForm.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+                }
+            }).finally(() => {
                 adminForgotSelectSubmit.disabled = false;
-                adminForgotSelectSubmit.textContent = 'Send OTP';
+                adminForgotSelectSubmit.textContent = 'Choose account';
             });
         });
     }
@@ -1096,6 +1096,12 @@ if (session_status() === PHP_SESSION_ACTIVE) {
 
             adminForgotPost(adminForgotEndpoints.reset, formData)
                 .then((data) => {
+                    if (data.selection_required) {
+                        renderAdminForgotAccounts(Array.isArray(data.candidates) ? data.candidates : []);
+                        setAdminForgotAlert(adminForgotSelectAlert, data.message || 'Email ownership verified. Choose which account to reset.', 'success');
+                        showAdminForgotStep('select');
+                        return;
+                    }
                     if (!data.success) {
                         if (data.restart) {
                             resetAdminForgotWizard();

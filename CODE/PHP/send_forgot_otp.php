@@ -46,30 +46,55 @@ function forgotPasswordRedirect(
 
 /*
 |--------------------------------------------------------------------------
-| RESOLVE WHICH ACCOUNT THIS OTP IS FOR
+| RESOLVE THE OTP ACCOUNT OR POST-VERIFICATION SELECTION
 |--------------------------------------------------------------------------
-| Reached three ways: automatically after a single-match email lookup,
-| after the user picks one account on forgot_password_select.php (posts
-| selected_user_id, which must be one of the candidates that lookup step
-| actually found), or via the "Resend OTP" button on reset_password.php
-| (no new POST data - reuses the account already resolved in session).
+| Before email verification, lookup selects a server-side candidate only to
+| deliver the first OTP. A user may select among shared-email accounts only
+| after process_reset_password.php has verified that OTP.
 */
 
 if (isset($_POST['selected_user_id'])) {
-    $candidates = $_SESSION['fp_candidates'] ?? [];
     $selectedId = (int) $_POST['selected_user_id'];
+    $verifiedAt = (int) ($_SESSION['fp_verified_at'] ?? 0);
+    $verifiedIds = $_SESSION['fp_verified_candidate_ids'] ?? [];
 
-    if (!isset($candidates[$selectedId])) {
-        forgotPasswordRedirect('That selection is no longer valid. Please start again.', 'error', $forgotStartPage, ['restart' => true]);
+    if (
+        $verifiedAt <= 0 ||
+        time() - $verifiedAt > NX_FP_OTP_TTL_SECONDS ||
+        ($_SESSION['fp_verified_portal'] ?? '') !== $fpPortal ||
+        !in_array($selectedId, $verifiedIds, true)
+    ) {
+        forgotPasswordRedirect(
+            'Please verify the OTP before selecting an account.',
+            'error',
+            $forgotStartPage,
+            ['restart' => true]
+        );
     }
 
     $_SESSION['fp_selected_user_id'] = $selectedId;
     unset($_SESSION['fp_candidates']);
+
+    forgotPasswordRedirect(
+        'Email verified. You can now set a new password.',
+        'success',
+        'reset_password.php',
+        ['account_selected' => true]
+    );
 }
 
 $userId = isset($_SESSION['fp_selected_user_id']) ? (int) $_SESSION['fp_selected_user_id'] : 0;
 
 if ($userId <= 0) {
+    if (!empty($_SESSION['fp_no_match'])) {
+        forgotPasswordRedirect(
+            'If an account matches that email, an OTP will be sent to it.',
+            'success',
+            'reset_password.php',
+            ['cooldown' => NX_FP_OTP_RESEND_COOLDOWN_SECONDS]
+        );
+    }
+
     forgotPasswordRedirect('Please start the password reset process again.', 'error', $forgotStartPage, ['restart' => true]);
 }
 
@@ -125,12 +150,11 @@ if (!empty($user['otp_expires_at'])) {
     $secondsSinceSend = time() - $lastSentAt;
 
     if ($secondsSinceSend < NX_FP_OTP_RESEND_COOLDOWN_SECONDS) {
-        $wait = NX_FP_OTP_RESEND_COOLDOWN_SECONDS - $secondsSinceSend;
         forgotPasswordRedirect(
-            "Please wait {$wait} second" . ($wait === 1 ? '' : 's') . " before requesting another OTP.",
-            'error',
+            'If an account matches that email, an OTP will be sent to it.',
+            'success',
             'reset_password.php',
-            ['cooldown_remaining' => $wait]
+            ['cooldown' => NX_FP_OTP_RESEND_COOLDOWN_SECONDS]
         );
     }
 }
@@ -254,14 +278,13 @@ if (!$updateStmt->execute()) {
 $updateStmt->close();
 
 $_SESSION['fp_email'] = (string) $user['email'];
-$_SESSION['success'] = 'OTP sent to your email address.';
+$_SESSION['success'] = 'If an account matches that email, an OTP will be sent to it.';
 
 if ($isAjax) {
     header('Content-Type: application/json; charset=UTF-8');
     echo json_encode([
         'success' => true,
-        'message' => 'OTP sent to your email address.',
-        'masked_email' => nxMaskEmail((string) $user['email']),
+        'message' => 'If an account matches that email, an OTP will be sent to it.',
         'cooldown' => NX_FP_OTP_RESEND_COOLDOWN_SECONDS,
     ]);
     exit();

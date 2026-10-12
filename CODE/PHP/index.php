@@ -1968,13 +1968,18 @@ if (session_status() === PHP_SESSION_ACTIVE) {
   }
 
   @media (max-width: 560px) {
-    .flip-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .flip-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
     .wrap { padding: 0 20px; }
     .nav { padding: 16px 20px; }
-    .flip-card { height: 200px; }
-    .flip-front, .flip-back { padding: 18px 14px; }
-    .flip-front h4, .flip-back h4 { font-size: 14px; }
-    .flip-hint, .flip-hint-back { font-size: 11px; }
+    .flip-card { height: 270px; }
+    .flip-front, .flip-back { padding: 12px 10px; align-items: center; text-align: center; }
+    .flip-icon { width: 34px; height: 34px; border-radius: 10px; margin-bottom: 10px; }
+    .flip-icon svg { width: 18px; height: 18px; }
+    .flip-front h4, .flip-back h4 { font-size: 12.5px; line-height: 1.25; margin-bottom: 6px; }
+    .flip-back h4 { margin-bottom: 6px; }
+    .flip-back p { font-size: 11px; line-height: 1.3; margin-bottom: 6px; }
+    .flip-hint, .flip-hint-back { font-size: 10px; }
+    .flip-hint-back { margin-top: 6px; }
     .stat-badge { right: 6px; bottom: 16px; padding: 16px 18px; }
     .analytics-card { top: 16px; left: 16px; padding: 14px 16px; max-width: 180px; }
     .analytics-card .phone-amount { font-size: 20px; }
@@ -1984,7 +1989,22 @@ if (session_status() === PHP_SESSION_ACTIVE) {
     .stat-card .stat-number { font-size: 28px; }
     .stat-card .stat-label { font-size: 13px; }
     .stat-card .stat-desc { font-size: 11px; }
-    .footer-grid { grid-template-columns: 1fr; }
+    .footer-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-areas:
+        "brand brand"
+        "menu modules"
+        "contact .";
+      gap: 32px 24px;
+    }
+    .footer-brand { grid-area: brand; }
+    .footer-menu { grid-area: menu; min-width: 0; }
+    .footer-modules { grid-area: modules; min-width: 0; }
+    .footer-contact-col { grid-area: contact; min-width: 0; }
+    .footer-contact li span:last-child {
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
     .cta-box { padding: 50px 28px; }
     .hero { padding: 120px 0 80px; }
   }
@@ -2454,7 +2474,7 @@ if (session_status() === PHP_SESSION_ACTIVE) {
             justify-content: center;
             padding: 0;
             border-radius: 12px;
-            box-shadow: 0 8px 18px rgba(0, 0, 0, 0.18);
+            box-shadow: none;
             transition: background 0.22s ease, color 0.22s ease, transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
             backdrop-filter: blur(6px);
             -webkit-backdrop-filter: blur(6px);
@@ -2464,11 +2484,11 @@ if (session_status() === PHP_SESSION_ACTIVE) {
             background: linear-gradient(180deg, rgba(247, 217, 139, 0.26), rgba(212, 168, 77, 0.18));
             color: black;
             border-color: rgba(247, 217, 139, 0.55);
-            box-shadow: 0 12px 22px rgba(247, 217, 139, 0.16);
+            box-shadow: none;
         }
 
         .password-toggle-btn:focus-visible {
-            box-shadow: 0 0 0 2px rgba(247, 217, 139, 0.28), 0 12px 22px rgba(247, 217, 139, 0.16);
+            box-shadow: none;
             border-color: rgba(247, 217, 139, 0.72);
         }
 
@@ -2951,7 +2971,7 @@ if (session_status() === PHP_SESSION_ACTIVE) {
   .glass-field { background: #f4f7f6; border-radius: 12px; margin-bottom: 12px; display: flex; align-items: center; border: 1px solid #eee; }
   .glass-field-icon { padding-left: 15px; color: #777; display: flex; align-items: center; }
   .glass-field-icon svg { width: 18px; height: 18px; fill: #777; }
-  .glass-field input { background: transparent !important; margin: 0 !important; color: #333 !important; padding: 12px 15px !important; border: none !important; width: 100% !important; font-size: 14px !important; box-shadow: none !important; }
+  .glass-field input { background: transparent !important; margin: 0 !important; color: #333 !important; padding: 12px 15px !important; border: none !important; width: 100% !important; font-size: 14px !important; outline: none !important; box-shadow: none !important; }
   .glass-login-btn, .silver-btn { background: var(--bg-panel); color: #fff; border-radius: 25px; border: none; padding: 12px 45px; font-size: 13px; font-weight: 700; text-transform: uppercase; cursor: pointer; width: 100%; transition: all 0.3s ease; font-family: var(--font-display); }
   .glass-login-btn:hover, .silver-btn:hover { background: var(--bg-panel-light); transform: translateY(-2px); box-shadow: 0 5px 15px rgba(36, 56, 189, 0.3); }
   .btn-outline { position: relative; z-index: 1; background-color: transparent; border: 2px solid #fff; color: #fff; border-radius: 25px; padding: 12px 40px; font-size: 13px; font-weight: 700; text-transform: uppercase; cursor: pointer; transition: all 0.3s ease; font-family: var(--font-display); }
@@ -3125,7 +3145,11 @@ if (session_status() === PHP_SESSION_ACTIVE) {
   .glass-field { background: rgba(255, 255, 255, 0.05); border-radius: 12px; margin-bottom: 12px; display: flex; align-items: center; border: 1px solid var(--line-bright); }
   .glass-field-icon { padding-left: 15px; color: var(--text-faint); display: flex; align-items: center; }
   .glass-field-icon svg { width: 18px; height: 18px; fill: var(--text-faint); }
-  .glass-field input { background: transparent !important; margin: 0 !important; color: var(--text-main) !important; padding: 12px 15px !important; border: none !important; width: 100% !important; font-size: 14px !important; box-shadow: none !important; }
+  .glass-field input { background: transparent !important; margin: 0 !important; color: var(--text-main) !important; padding: 12px 15px !important; border: none !important; width: 100% !important; font-size: 14px !important; outline: none !important; box-shadow: none !important; }
+  .glass-field:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(247, 202, 132, 0.2);
+  }
   .glass-field input::placeholder { color: var(--text-faint); opacity: 1; }
   .glass-login-btn, .silver-btn { background: var(--bg-panel); color: #fff; border-radius: 25px; border: none; padding: 12px 45px; font-size: 13px; font-weight: 700; text-transform: uppercase; cursor: pointer; width: 100%; transition: all 0.3s ease; font-family: var(--font-display); }
   .glass-login-btn:hover, .silver-btn:hover { background: var(--bg-panel-light); transform: translateY(-2px); box-shadow: 0 5px 15px rgba(36, 56, 189, 0.3); }
@@ -3453,6 +3477,10 @@ html[data-theme="light"] .signup-form-panel h2 {
 html[data-theme="light"] .glass-field {
   background: #f4f7f6;
   border-color: #eee;
+}
+html[data-theme="light"] .glass-field:focus-within {
+  border-color: #3554b8;
+  box-shadow: 0 0 0 3px rgba(53, 84, 184, 0.12);
 }
 html[data-theme="light"] .glass-field-icon {
   color: #777;
@@ -4495,7 +4523,7 @@ html[data-theme="light"] .signup-modern-box .signup-form-panel input[type="file"
         not guesswork.
       </p>
       <div class="hero-actions">
-        <button type="button" id="openLoginArea" class="btn btn-primary magnetic-btn">Let's Get Started</button>
+        <button type="button" id="openLoginArea" class="btn btn-primary magnetic-btn">Sign Up Now!</button>
         <button type="button" class="play-link" id="openVideoPlayer" aria-haspopup="dialog" aria-controls="videoPlayerDialog">
           <span class="play-circle">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
@@ -5009,7 +5037,7 @@ html[data-theme="light"] .signup-modern-box .signup-form-panel input[type="file"
           <a href="https://www.tiktok.com/@nexgen.enterprise4?_r=1&_t=ZS-98Vx2jSAL3q" target="_blank" rel="noopener"><i class="fab fa-tiktok"></i></a>
         </div>
       </div>
-      <div class="footer-col">
+      <div class="footer-col footer-menu">
         <h4>Menu</h4>
         <ul>
           <li><a href="#home">Home</a></li>
@@ -5018,17 +5046,16 @@ html[data-theme="light"] .signup-modern-box .signup-form-panel input[type="file"
           <li><a href="#">Pages</a></li>
         </ul>
       </div>
-      <div class="footer-col">
+      <div class="footer-col footer-modules">
         <h4>Modules</h4>
         <ul>
           <li><a href="#">Inventory</a></li>
           <li><a href="#">Sales</a></li>
           <li><a href="#">Analytics</a></li>
           <li><a href="#">Receivables</a></li>
-
         </ul>
       </div>
-      <div class="footer-col">
+      <div class="footer-col footer-contact-col">
         <h4>Contact Us</h4>
         <ul class="footer-contact">
           <li>

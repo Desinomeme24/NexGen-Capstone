@@ -50,7 +50,6 @@ const panels = document.querySelectorAll(".settings-panel");
 const segmentedBtns = document.querySelectorAll(".segmented-btn");
 const securityMethods = document.querySelectorAll(".security-method");
 
-const accountForm = document.getElementById("accountForm");
 const directPasswordForm = document.getElementById("directPasswordForm");
 const otpRequestForm = document.getElementById("otpRequestForm");
 const otpVerifyForm = document.getElementById("otpVerifyForm");
@@ -111,16 +110,6 @@ segmentedBtns.forEach((btn) => {
     openPanel("security-panel");
   });
 });
-
-if (accountForm) {
-  accountForm.addEventListener("submit", function () {
-    try {
-      localStorage.setItem("settingsActivePanel", "account-panel");
-    } catch (error) {
-      console.warn("Could not save panel preference:", error);
-    }
-  });
-}
 
 [workspaceSwitchForm, addBusinessForm, addBranchForm].forEach((form) => {
   if (!form) {return;}

@@ -50,8 +50,6 @@ session_start();
 if ($isTimeoutLogout) {
     $_SESSION['error'] = "Your session expired due to 10 minutes of inactivity. Please log in again.";
     $_SESSION['form_type'] = 'login';
-} else {
-    $_SESSION['success'] = "You have been logged out successfully.";
 }
 
 header('Location: ' . $loginPage);

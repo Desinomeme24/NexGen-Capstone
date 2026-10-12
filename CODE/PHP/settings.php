@@ -67,7 +67,6 @@ if (isset($_SESSION['role']) && $_SESSION['role'] === 'system_admin') {
 }
 
 /* SECURITY: Generate CSRF tokens for settings forms */
-$accountCsrfToken = generateCsrfToken('update_account_form');
 $directPasswordCsrfToken = generateCsrfToken('change_password_direct_form');
 $requestOtpCsrfToken = generateCsrfToken('request_password_change_form');
 $verifyOtpCsrfToken = generateCsrfToken('verify_password_otp_form');
@@ -188,44 +187,37 @@ $workspaceCsrfToken = generateCsrfToken('workspace_action');
         <section class="settings-panel active-panel" id="account-panel">
             <div class="panel-header">
                 <h1>Account Settings</h1>
-                <p class="panel-subtitle">Manage your personal information and how it's displayed.</p>
+                <p class="panel-subtitle">View your personal information and how it's displayed.</p>
             </div>
 
-            <form action="/NexGen/CODE/PHP/update_account.php" method="POST" class="account-form" id="accountForm">
-                <input type="hidden" name="csrf_token" value="<?php echo e($accountCsrfToken); ?>">
-
-                <div class="form-top-actions">
-                    <button type="reset" class="btn btn-reset">Reset</button>
-                    <button type="submit" class="btn btn-save">Save</button>
-                </div>
-
+            <div class="account-form">
                 <div class="form-group full">
-                    <label>Name</label>
-                    <input type="text" name="full_name" value="<?php echo htmlspecialchars($user['full_name'] ?? ''); ?>" placeholder="Change name">
+                    <label for="accountFullName">Name</label>
+                    <input type="text" id="accountFullName" value="<?php echo e($user['full_name'] ?? ''); ?>" readonly>
                 </div>
 
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Email</label>
-                        <input type="email" name="email" value="<?php echo htmlspecialchars($user['email'] ?? ''); ?>" placeholder="Change email">
+                        <label for="accountEmail">Email</label>
+                        <input type="email" id="accountEmail" value="<?php echo e($user['email'] ?? ''); ?>" readonly>
                     </div>
 
                     <div class="form-group">
-                        <label>Phone Number</label>
-                        <input type="text" name="phone" value="<?php echo htmlspecialchars($user['phone'] ?? ''); ?>" placeholder="Set contact number">
+                        <label for="accountPhone">Phone Number</label>
+                        <input type="text" id="accountPhone" value="<?php echo e($user['phone'] ?? ''); ?>" readonly>
                     </div>
                 </div>
 
                 <div class="form-group full">
-                    <label>Address</label>
-                    <textarea name="address" placeholder="Set address"><?php echo htmlspecialchars($user['address'] ?? ''); ?></textarea>
+                    <label for="accountAddress">Address</label>
+                    <textarea id="accountAddress" readonly><?php echo e($user['address'] ?? ''); ?></textarea>
                 </div>
 
                 <div class="form-group full">
                     <label>OTP Verification Method</label>
                     <div class="info-chip"><i class="bi bi-envelope-check"></i> Email only</div>
                 </div>
-            </form>
+            </div>
         </section>
 
         <?php if ($isWorkspaceUser): ?>

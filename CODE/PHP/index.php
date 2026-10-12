@@ -4726,7 +4726,7 @@ html[data-theme="light"] .signup-modern-box .signup-form-panel input[type="file"
         <path d="m6 6 12 12M18 6 6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
     </button>
-    <video class="video-dialog-player" id="landingPageVideo" controls playsinline preload="none">
+    <video class="video-dialog-player" id="landingPageVideo" controls playsinline preload="metadata">
       <source src="../../VIDEOS/nexgen-intro.mp4" type="video/mp4">
       Your browser does not support HTML video.
     </video>
@@ -5110,30 +5110,36 @@ document.addEventListener('DOMContentLoaded', () => {
       if (typeof startHeroAnimations === 'function') {
         try { startHeroAnimations(); } catch (err) { console.error(err); }
       }
-    }, 300);
+    }, 500);
   }
 
-  /* Hard safety net: no matter what happens with GSAP or the CDN,
-     the preloader is force-removed after 4s. */
+  /* Hard safety net: no matter what happens with GSAP, the CDN,
+     or the progress interval, the preloader is force-removed after
+     4s so it can never permanently trap clicks on the page. */
   const safetyTimeout = setTimeout(hidePreloader, 4000);
 
   try {
     gsap.to(logo, { opacity: 1, duration: 0.6, ease: 'power2.out' });
     gsap.to('.preloader-bar', { opacity: 1, duration: 0.3, delay: 0.2 });
-    if (bar) {
-      gsap.to(bar, { width: '100%', duration: 0.4, ease: 'power2.out' });
-    }
-    gsap.to(preloader, {
-      opacity: 0,
-      delay: 0.4,
-      duration: 0.35,
-      ease: 'power2.out',
-      onStart: () => { if (preloader) preloader.style.pointerEvents = 'none'; },
-      onComplete: () => {
-        clearTimeout(safetyTimeout);
-        hidePreloader();
+
+    let progress = 0;
+    const interval = setInterval(() => {
+      progress += Math.random() * 30 + 10;
+      if (progress > 100) progress = 100;
+      if (bar) bar.style.width = progress + '%';
+      if (progress >= 100) {
+        clearInterval(interval);
+        setTimeout(() => {
+          clearTimeout(safetyTimeout);
+          gsap.to(preloader, {
+            opacity: 0,
+            duration: 0.5,
+            onStart: () => { if (preloader) preloader.style.pointerEvents = 'none'; },
+            onComplete: hidePreloader
+          });
+        }, 400);
       }
-    });
+    }, 200);
   } catch (err) {
     /* GSAP failed to load (blocked CDN, network issue, etc.) —
        fall back to the plain-JS hide instead of leaving the
@@ -5145,12 +5151,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ========== CURSOR GLOW ==========
 const glow = document.getElementById('cursorGlow');
-const moveGlowX = glow ? gsap.quickTo(glow, 'left', { duration: 0.6, ease: 'power2.out' }) : null;
-const moveGlowY = glow ? gsap.quickTo(glow, 'top', { duration: 0.6, ease: 'power2.out' }) : null;
 document.addEventListener('mousemove', (e) => {
-  if (!moveGlowX || !moveGlowY) return;
-  moveGlowX(e.clientX);
-  moveGlowY(e.clientY);
+  gsap.to(glow, {
+    left: e.clientX,
+    top: e.clientY,
+    duration: 0.6,
+    ease: 'power2.out'
+  });
 });
 
 // ========== PARTICLES ==========
@@ -5188,15 +5195,11 @@ ScrollTrigger.create({
 
 // ========== MAGNETIC BUTTONS ==========
 document.querySelectorAll('.magnetic-btn').forEach(btn => {
-  const moveX = gsap.quickTo(btn, 'x', { duration: 0.3, ease: 'power2.out' });
-  const moveY = gsap.quickTo(btn, 'y', { duration: 0.3, ease: 'power2.out' });
-
   btn.addEventListener('mousemove', (e) => {
     const rect = btn.getBoundingClientRect();
     const x = e.clientX - rect.left - rect.width / 2;
     const y = e.clientY - rect.top - rect.height / 2;
-    moveX(x * 0.3);
-    moveY(y * 0.3);
+    gsap.to(btn, { x: x * 0.3, y: y * 0.3, duration: 0.3, ease: 'power2.out' });
   });
   btn.addEventListener('mouseleave', () => {
     gsap.to(btn, { x: 0, y: 0, duration: 0.5, ease: 'elastic.out(1, 0.3)' });
